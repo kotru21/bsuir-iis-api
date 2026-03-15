@@ -4,6 +4,16 @@ import { BsuirValidationError } from "../../src/client/errors";
 import { createJsonResponse, mockFetchSequence } from "../helpers/fetchMock";
 
 describe("meta modules", () => {
+  it("parses current week from plain-text API response", async () => {
+    const fetchImpl = mockFetchSequence([
+      new Response("1\n", { status: 200, headers: { "Content-Type": "text/plain" } })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+
+    const week = await client.currentWeek.get();
+    expect(week).toBe(1);
+  });
+
   it("gets current week and last updates", async () => {
     const fetchImpl = mockFetchSequence([
       createJsonResponse({ body: 2 }),

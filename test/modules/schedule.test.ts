@@ -94,6 +94,16 @@ function buildScheduleResponse(overrides: Partial<ScheduleResponse> = {}): Sched
 }
 
 describe("schedule module", () => {
+  it("parses current week from plain-text API response", async () => {
+    const fetchImpl = mockFetchSequence([
+      new Response("2\n", { status: 200, headers: { "Content-Type": "text/plain" } })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+
+    const week = await client.schedule.getCurrentWeek();
+    expect(week).toBe(2);
+  });
+
   it("returns normalized schedule by default", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildScheduleResponse() })]);
     const client = createBsuirClient({ fetch: fetchImpl });

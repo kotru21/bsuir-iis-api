@@ -101,6 +101,7 @@ In raw mode some lesson fields may also be nullable (`weekNumber`, `lessonTypeAb
 
 `getCurrentWeek()` returns the current semester week number from API.
 For cycle week (1..4) use `getCurrentCycleWeek()` or helper `toCycleWeek()`.
+The SDK normalizes `current-week` payloads, including plain-text responses like `1\n`.
 
 ```ts
 import { toCycleWeek } from "bsuir-iis-api";

@@ -1,7 +1,7 @@
 import type { InternalClientConfig } from "../client/types";
 import { requestJson } from "../client/http";
 import type { ReadOptions } from "./types";
-import { toCycleWeek } from "../utils/week";
+import { parseSemesterWeek, toCycleWeek } from "../utils/week";
 
 export function createCurrentWeekModule(config: InternalClientConfig) {
   return {
@@ -9,9 +9,10 @@ export function createCurrentWeekModule(config: InternalClientConfig) {
      * Returns current semester week number.
      */
     async get(options: ReadOptions = {}): Promise<number> {
-      return requestJson<number>(config, "/schedule/current-week", {
+      const payload = await requestJson<unknown>(config, "/schedule/current-week", {
         signal: options.signal
       });
+      return parseSemesterWeek(payload);
     },
 
     /**

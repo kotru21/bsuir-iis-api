@@ -6,6 +6,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 This changelog is maintained manually and updated in release commits.
 
+## [0.2.5] - 2026-03-16
+
+### Fixed (0.2.5)
+
+- Fixed current week handling in `schedule.getCurrentWeek()` and `currentWeek.get()` by normalizing
+  non-JSON payloads from `/schedule/current-week` (for example plain-text `1\n`).
+- Added regression tests for plain-text current week responses in schedule/meta modules.
+
+### Changed (0.2.5)
+
+- Updated README semester week notes to document payload normalization behavior.
+
 ## [0.2.4] - 2026-03-15
 
 ### Changed (0.2.4)
