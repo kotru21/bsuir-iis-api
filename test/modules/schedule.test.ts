@@ -196,4 +196,37 @@ describe("schedule module", () => {
     expect(subgroupLessons).toHaveLength(1);
     expect(subgroupLessons[0]?.numSubgroup).toBe(1);
   });
+
+  it("returns empty normalized arrays for empty schedules", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({
+        body: buildScheduleResponse({
+          schedules: {},
+          exams: []
+        })
+      })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+
+    const response = await client.schedule.getGroup("053503");
+    expect(response.lessons).toHaveLength(0);
+    expect(response.scheduleLessons).toHaveLength(0);
+    expect(response.examLessons).toHaveLength(0);
+  });
+
+  it("supports combined schedule filters", async () => {
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildScheduleResponse() })]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+
+    const filtered = await client.schedule.getGroupFiltered("053503", {
+      source: "schedules",
+      weekNumber: 1,
+      subgroup: 1,
+      lessonTypeAbbrev: ["ЛР", "ЛК"],
+      auditory: "101-1"
+    });
+
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0]?.subject).toBe("ООП");
+  });
 });

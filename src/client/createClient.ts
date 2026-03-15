@@ -38,6 +38,9 @@ function createInternalConfig(options: BsuirClientOptions = {}): InternalClientC
   };
 }
 
+/**
+ * Creates a configured BSUIR IIS API client.
+ */
 export function createBsuirClient(options: BsuirClientOptions = {}) {
   const config = createInternalConfig(options);
 
@@ -55,4 +58,7 @@ export function createBsuirClient(options: BsuirClientOptions = {}) {
   };
 }
 
+/**
+ * Public client contract returned by {@link createBsuirClient}.
+ */
 export type BsuirClient = ReturnType<typeof createBsuirClient>;

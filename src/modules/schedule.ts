@@ -110,6 +110,10 @@ function filterLessons(
 }
 
 export function createScheduleModule(config: InternalClientConfig) {
+  /**
+   * Returns schedule for a student group.
+   * By default returns normalized payload, unless `raw: true` is passed.
+   */
   async function getGroup<TRaw extends boolean | undefined = undefined>(
     groupNumber: string,
     options: ReadOptions & { raw?: TRaw } = {}
@@ -123,6 +127,10 @@ export function createScheduleModule(config: InternalClientConfig) {
     return result as TRaw extends true ? ScheduleResponse : NormalizedScheduleResponse;
   }
 
+  /**
+   * Returns schedule for an employee.
+   * By default returns normalized payload, unless `raw: true` is passed.
+   */
   async function getEmployee<TRaw extends boolean | undefined = undefined>(
     urlId: string,
     options: ReadOptions & { raw?: TRaw } = {}
@@ -135,6 +143,9 @@ export function createScheduleModule(config: InternalClientConfig) {
     return result as TRaw extends true ? ScheduleResponse : NormalizedScheduleResponse;
   }
 
+  /**
+   * Returns filtered schedule items for a group from normalized schedule payload.
+   */
   async function getGroupFiltered(
     groupNumber: string,
     filter: ScheduleFilterOptions,
@@ -144,6 +155,9 @@ export function createScheduleModule(config: InternalClientConfig) {
     return filterLessons(normalized, filter);
   }
 
+  /**
+   * Returns filtered schedule items for an employee from normalized schedule payload.
+   */
   async function getEmployeeFiltered(
     urlId: string,
     filter: ScheduleFilterOptions,

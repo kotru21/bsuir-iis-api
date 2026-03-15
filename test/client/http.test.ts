@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { requestJson } from "../../src/client/http";
 import { BsuirApiError, BsuirNetworkError, BsuirTimeoutError } from "../../src/client/errors";
 import type { InternalClientConfig } from "../../src/client/types";
@@ -70,6 +70,53 @@ describe("requestJson", () => {
     expect(response.ok).toBe(true);
   });
 
+  it("supports Retry-After in HTTP-date format", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({
+        status: 429,
+        headers: { "Retry-After": "Wed, 21 Oct 2015 07:28:00 GMT" },
+        body: { message: "too many requests" }
+      }),
+      createJsonResponse({ body: { ok: true } })
+    ]);
+    const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl, retries: 1 };
+
+    const response = await requestJson<{ ok: boolean }>(config, "/faculties");
+    expect(response.ok).toBe(true);
+  });
+
+  it("caps retry delay by retryMaxDelayMs", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchImpl = mockFetchSequence([
+        createJsonResponse({ status: 503, body: { message: "temporary error" } }),
+        createJsonResponse({ body: { ok: true } })
+      ]);
+      const config: InternalClientConfig = {
+        ...BASE_CONFIG,
+        fetchImpl,
+        retries: 1,
+        retryDelayMs: 2_000,
+        retryMaxDelayMs: 50,
+        retryJitter: false
+      };
+
+      const requestPromise = requestJson<{ ok: boolean }>(config, "/faculties");
+      await Promise.resolve();
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(49);
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(1);
+      const response = await requestPromise;
+      expect(fetchImpl).toHaveBeenCalledTimes(2);
+      expect(response.ok).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("throws BsuirNetworkError on exhausted retries", async () => {
     const fetchImpl = mockFetchSequence([new Error("ECONNRESET")]);
     const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl, retries: 0 };
@@ -115,5 +162,21 @@ describe("requestJson", () => {
     const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl, timeoutMs: 10 };
 
     await expect(requestJson(config, "/faculties")).rejects.toBeInstanceOf(BsuirTimeoutError);
+  });
+
+  it("propagates external AbortSignal cancellation", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const fetchImpl = (async (_input, init) => {
+      if (init?.signal?.aborted) {
+        throw new DOMException("The operation was aborted", "AbortError");
+      }
+      return createJsonResponse({ body: { ok: true } });
+    }) as typeof globalThis.fetch;
+    const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl, timeoutMs: 5_000 };
+
+    await expect(requestJson(config, "/faculties", { signal: controller.signal })).rejects.toMatchObject(
+      { name: "AbortError" }
+    );
   });
 });

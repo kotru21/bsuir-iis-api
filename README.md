@@ -91,6 +91,7 @@ const raw = await client.schedule.getGroup("053503", { raw: true });
 ```
 
 Use `defaultRaw: true` in `createBsuirClient` to change global behavior.
+When `raw` is omitted, `getGroup()` and `getEmployee()` return normalized payload.
 
 Filtering example:
 
@@ -101,6 +102,10 @@ const exams = await client.schedule.getGroupFiltered("053503", {
 });
 ```
 
+```ts
+const subgroupLessons = await client.schedule.getEmployeeBySubgroup("s-nesterenkov", 1);
+```
+
 ## Development
 
 ```bash
@@ -108,6 +113,22 @@ npm install
 npm run check
 npm run build
 ```
+
+## Release checklist
+
+1. Run `npm run check:full`.
+2. Update version and `CHANGELOG.md` in the same release commit.
+3. Push to `main` to trigger GitHub Actions release workflow.
+4. Verify published package in a clean project:
+
+```bash
+mkdir bsuir-iis-smoke && cd bsuir-iis-smoke
+npm init -y
+npm install bsuir-iis-api@latest
+node -e "import('bsuir-iis-api').then(m=>console.log(typeof m.createBsuirClient))"
+```
+
+The project keeps `CHANGELOG.md` manually curated for stable release notes.
 
 ## License
 

@@ -2,11 +2,23 @@ export type QueryValue = string | number | boolean | null | undefined;
 
 export type QueryParams = Record<string, QueryValue>;
 
+/**
+ * Common request options shared by read-only API methods.
+ */
 export interface RequestOptions {
+  /**
+   * Query parameters appended to endpoint URL.
+   */
   query?: QueryParams | undefined;
+  /**
+   * Optional signal to cancel request from the caller side.
+   */
   signal?: AbortSignal | undefined;
 }
 
+/**
+ * Options accepted by {@link createBsuirClient}.
+ */
 export interface BsuirClientOptions {
   baseUrl?: string;
   fetch?: typeof globalThis.fetch;
@@ -20,6 +32,7 @@ export interface BsuirClientOptions {
   retryMaxDelayMs?: number;
   /** Enable jitter for retry backoff to avoid synchronized retries. */
   retryJitter?: boolean;
+  /** Optional User-Agent header (used mainly in Node.js runtimes). */
   userAgent?: string;
   /** Force raw API payload for schedule endpoints by default. */
   defaultRaw?: boolean;
