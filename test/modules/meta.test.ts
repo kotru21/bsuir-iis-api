@@ -8,6 +8,7 @@ describe("meta modules", () => {
     const fetchImpl = mockFetchSequence([
       createJsonResponse({ body: 2 }),
       createJsonResponse({ body: 2 }),
+      createJsonResponse({ body: 3 }),
       createJsonResponse({ body: { lastUpdateDate: "23.02.2022" } }),
       createJsonResponse({ body: { lastUpdateDate: "24.02.2022" } })
     ]);
@@ -15,11 +16,13 @@ describe("meta modules", () => {
 
     const week = await client.currentWeek.get();
     const cycleWeek = await client.currentWeek.getCycle();
+    const customCycleWeek = await client.currentWeek.getCycle({ weeksPerCycle: 1 });
     const groupUpdate = await client.lastUpdate.byGroup({ id: 123 });
     const employeeUpdate = await client.lastUpdate.byEmployee({ urlId: "s-nesterenkov" });
 
     expect(week).toBe(2);
     expect(cycleWeek).toBe(1);
+    expect(customCycleWeek).toBe(3);
     expect(groupUpdate.lastUpdateDate).toBe("23.02.2022");
     expect(employeeUpdate.lastUpdateDate).toBe("24.02.2022");
   });

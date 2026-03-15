@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 This changelog is maintained manually and updated in release commits.
 
+## [0.2.3] - 2026-03-15
+
+### Changed (0.2.3)
+
+- Updated CI workflow actions to latest major versions (`actions/checkout@v6`, `actions/setup-node@v6`).
+- Expanded tests for cycle-week behavior in schedule/meta modules.
+- Added dedicated `createBsuirClient` tests for custom fetch and missing global fetch scenarios.
+
 ## [0.2.2] - 2026-03-15
 
 ### Added (0.2.2)
