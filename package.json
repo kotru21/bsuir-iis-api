@@ -1,0 +1,66 @@
+{
+  "name": "bsuir-iis-api",
+  "version": "0.1.0",
+  "description": "Type-safe ESM SDK for BSUIR IIS API",
+  "type": "module",
+  "author": "kotru21",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kotru21/bsuir-iis-api.git"
+  },
+  "homepage": "https://github.com/kotru21/bsuir-iis-api#readme",
+  "bugs": {
+    "url": "https://github.com/kotru21/bsuir-iis-api/issues"
+  },
+  "keywords": [
+    "bsuir",
+    "iis",
+    "schedule",
+    "api",
+    "sdk",
+    "typescript"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "check": "npm run lint && npm run typecheck && npm run test",
+    "release:dry": "npm pack --dry-run"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.29.7",
+    "@eslint/js": "^9.38.0",
+    "@types/node": "^24.7.2",
+    "@typescript-eslint/eslint-plugin": "^8.46.1",
+    "@typescript-eslint/parser": "^8.46.1",
+    "@vitest/coverage-v8": "^3.2.4",
+    "eslint": "^9.38.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^16.4.0",
+    "prettier": "^3.6.2",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

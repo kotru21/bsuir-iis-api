@@ -1,0 +1,32 @@
+import { describe, expect, it } from "vitest";
+import { createBsuirClient } from "../../src";
+import { BsuirValidationError } from "../../src/client/errors";
+import { createJsonResponse, mockFetchSequence } from "../helpers/fetchMock";
+
+describe("meta modules", () => {
+  it("gets current week and last updates", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ body: 2 }),
+      createJsonResponse({ body: { lastUpdateDate: "23.02.2022" } }),
+      createJsonResponse({ body: { lastUpdateDate: "24.02.2022" } })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+
+    const week = await client.currentWeek.get();
+    const groupUpdate = await client.lastUpdate.byGroup({ id: 123 });
+    const employeeUpdate = await client.lastUpdate.byEmployee({ urlId: "s-nesterenkov" });
+
+    expect(week).toBe(2);
+    expect(groupUpdate.lastUpdateDate).toBe("23.02.2022");
+    expect(employeeUpdate.lastUpdateDate).toBe("24.02.2022");
+  });
+
+  it("validates last update params", async () => {
+    const client = createBsuirClient({ fetch: mockFetchSequence([]) });
+
+    await expect(client.lastUpdate.byGroup({ id: 0 })).rejects.toBeInstanceOf(BsuirValidationError);
+    await expect(client.lastUpdate.byEmployee({ urlId: "" })).rejects.toBeInstanceOf(
+      BsuirValidationError
+    );
+  });
+});

@@ -1,0 +1,56 @@
+import type { BsuirClientOptions, InternalClientConfig } from "./types";
+import { createAnnouncementsModule } from "../modules/announcements";
+import { createAuditoriesModule } from "../modules/auditories";
+import { createCurrentWeekModule } from "../modules/currentWeek";
+import { createDepartmentsModule } from "../modules/departments";
+import { createEmployeesModule } from "../modules/employees";
+import { createFacultiesModule } from "../modules/faculties";
+import { createGroupsModule } from "../modules/groups";
+import { createLastUpdateModule } from "../modules/lastUpdate";
+import { createScheduleModule } from "../modules/schedule";
+import { createSpecialitiesModule } from "../modules/specialities";
+
+const DEFAULT_BASE_URL = "https://iis.bsuir.by/api/v1";
+
+function resolveFetch(customFetch?: typeof globalThis.fetch): typeof globalThis.fetch {
+  if (customFetch) {
+    return customFetch;
+  }
+
+  if (typeof globalThis.fetch !== "function") {
+    throw new Error("Global fetch is unavailable. Provide 'fetch' in createBsuirClient options.");
+  }
+
+  return globalThis.fetch;
+}
+
+function createInternalConfig(options: BsuirClientOptions = {}): InternalClientConfig {
+  return {
+    baseUrl: options.baseUrl ?? DEFAULT_BASE_URL,
+    fetchImpl: resolveFetch(options.fetch),
+    timeoutMs: options.timeoutMs ?? 10_000,
+    retries: options.retries ?? 1,
+    retryDelayMs: options.retryDelayMs ?? 300,
+    userAgent: options.userAgent,
+    defaultRaw: options.defaultRaw ?? false
+  };
+}
+
+export function createBsuirClient(options: BsuirClientOptions = {}) {
+  const config = createInternalConfig(options);
+
+  return {
+    schedule: createScheduleModule(config),
+    groups: createGroupsModule(config),
+    employees: createEmployeesModule(config),
+    faculties: createFacultiesModule(config),
+    departments: createDepartmentsModule(config),
+    specialities: createSpecialitiesModule(config),
+    announcements: createAnnouncementsModule(config),
+    auditories: createAuditoriesModule(config),
+    lastUpdate: createLastUpdateModule(config),
+    currentWeek: createCurrentWeekModule(config)
+  };
+}
+
+export type BsuirClient = ReturnType<typeof createBsuirClient>;
