@@ -1,6 +1,6 @@
 # bsuir-iis-api
 
-Type-safe ESM SDK for [BSUIR IIS API](https://iis.bsuir.by/api/v1) with support for Node.js and browser runtimes.
+Type-safe ESM SDK for [BSUIR IIS API](https://iis.bsuir.by/api/v1) with support for Node.js and browser runtimes. Example project exist in [this repo](https://github.com/kotru21/BsuirRasp).
 
 ## Install
 
