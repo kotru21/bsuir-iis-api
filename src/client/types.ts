@@ -10,10 +10,18 @@ export interface RequestOptions {
 export interface BsuirClientOptions {
   baseUrl?: string;
   fetch?: typeof globalThis.fetch;
+  /** Request timeout per attempt, in milliseconds. */
   timeoutMs?: number;
+  /** Number of retry attempts for retriable GET failures. */
   retries?: number;
+  /** Base retry delay before backoff, in milliseconds. */
   retryDelayMs?: number;
+  /** Upper bound for retry delay, in milliseconds. */
+  retryMaxDelayMs?: number;
+  /** Enable jitter for retry backoff to avoid synchronized retries. */
+  retryJitter?: boolean;
   userAgent?: string;
+  /** Force raw API payload for schedule endpoints by default. */
   defaultRaw?: boolean;
 }
 
@@ -23,6 +31,8 @@ export interface InternalClientConfig {
   timeoutMs: number;
   retries: number;
   retryDelayMs: number;
+  retryMaxDelayMs: number;
+  retryJitter: boolean;
   userAgent: string | undefined;
   defaultRaw: boolean;
 }

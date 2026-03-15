@@ -31,6 +31,8 @@ function createInternalConfig(options: BsuirClientOptions = {}): InternalClientC
     timeoutMs: options.timeoutMs ?? 10_000,
     retries: options.retries ?? 1,
     retryDelayMs: options.retryDelayMs ?? 300,
+    retryMaxDelayMs: options.retryMaxDelayMs ?? 3_000,
+    retryJitter: options.retryJitter ?? true,
     userAgent: options.userAgent,
     defaultRaw: options.defaultRaw ?? false
   };

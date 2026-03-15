@@ -16,9 +16,7 @@ import { createBsuirClient } from "bsuir-iis-api";
 const client = createBsuirClient();
 
 const schedule = await client.schedule.getGroup("053503");
-if ("lessons" in schedule) {
-  console.log(schedule.lessons.length);
-}
+console.log(schedule.lessons.length);
 ```
 
 ## Client options
@@ -29,6 +27,8 @@ const client = createBsuirClient({
   timeoutMs: 10000,
   retries: 2,
   retryDelayMs: 300,
+  retryMaxDelayMs: 3000,
+  retryJitter: true,
   defaultRaw: false
 });
 ```
@@ -42,6 +42,12 @@ const client = createBsuirClient({
 
 - `client.schedule.getGroup(groupNumber, options?)`
 - `client.schedule.getEmployee(urlId, options?)`
+- `client.schedule.getGroupFiltered(groupNumber, filter, options?)`
+- `client.schedule.getEmployeeFiltered(urlId, filter, options?)`
+- `client.schedule.getGroupExams(groupNumber, options?)`
+- `client.schedule.getEmployeeExams(urlId, options?)`
+- `client.schedule.getGroupBySubgroup(groupNumber, subgroup, options?)`
+- `client.schedule.getEmployeeBySubgroup(urlId, subgroup, options?)`
 - `client.schedule.getCurrentWeek(options?)`
 - `client.schedule.getLastUpdateByGroup({ groupNumber } | { id }, options?)`
 - `client.schedule.getLastUpdateByEmployee({ urlId } | { id }, options?)`
@@ -77,13 +83,23 @@ SDK throws typed errors:
 
 ## Raw vs normalized schedule response
 
-By default, schedule methods return normalized response with `lessons` array.
+By default, schedule methods return normalized response with `lessons`, `lessonsByDay`,
+`scheduleLessons`, and `examLessons`.
 
 ```ts
 const raw = await client.schedule.getGroup("053503", { raw: true });
 ```
 
 Use `defaultRaw: true` in `createBsuirClient` to change global behavior.
+
+Filtering example:
+
+```ts
+const exams = await client.schedule.getGroupFiltered("053503", {
+  source: "exams",
+  lessonTypeAbbrev: ["Консультация", "Экзамен"]
+});
+```
 
 ## Development
 

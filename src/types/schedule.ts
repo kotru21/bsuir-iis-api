@@ -47,8 +47,24 @@ export interface FlattenedScheduleItem extends ScheduleItem {
   source: "schedules" | "exams";
 }
 
+export type FlattenedLessonsByDay = Partial<Record<Weekday, FlattenedScheduleItem[]>>;
+
+export interface ScheduleFilterOptions {
+  source?: "schedules" | "exams";
+  weekday?: Weekday;
+  weekNumber?: number;
+  subgroup?: number;
+  lessonTypeAbbrev?: string | string[];
+  subjectQuery?: string;
+  employeeUrlId?: string;
+  auditory?: string;
+}
+
 export interface NormalizedScheduleResponse extends Omit<ScheduleResponse, "schedules" | "exams"> {
   schedules: WeekScheduleMap;
   exams: ScheduleItem[];
   lessons: FlattenedScheduleItem[];
+  lessonsByDay: FlattenedLessonsByDay;
+  scheduleLessons: FlattenedScheduleItem[];
+  examLessons: FlattenedScheduleItem[];
 }

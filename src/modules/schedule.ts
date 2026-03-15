@@ -2,8 +2,10 @@ import type { InternalClientConfig } from "../client/types";
 import { requestJson } from "../client/http";
 import { assertNonEmptyString, assertPositiveInt } from "../utils/guards";
 import type {
+  FlattenedLessonsByDay,
   FlattenedScheduleItem,
   NormalizedScheduleResponse,
+  ScheduleFilterOptions,
   ScheduleResponse
 } from "../types/schedule";
 import type { ApiDateResponse } from "../types/common";
@@ -21,8 +23,11 @@ const WEEKDAYS: Weekday[] = [
 
 function normalizeSchedule(response: ScheduleResponse): NormalizedScheduleResponse {
   const lessons: FlattenedScheduleItem[] = [];
+  const lessonsByDay: FlattenedLessonsByDay = {};
   for (const day of WEEKDAYS) {
     const dayItems = response.schedules[day] ?? [];
+    const flattenedDayItems = dayItems.map((item) => ({ ...item, day, source: "schedules" as const }));
+    lessonsByDay[day] = flattenedDayItems;
     for (const item of dayItems) {
       lessons.push({ ...item, day, source: "schedules" });
     }
@@ -37,35 +42,147 @@ function normalizeSchedule(response: ScheduleResponse): NormalizedScheduleRespon
     });
   }
 
+  const scheduleLessons = lessons.filter((lesson) => lesson.source === "schedules");
+  const examLessons = lessons.filter((lesson) => lesson.source === "exams");
+
   return {
     ...response,
-    lessons
+    lessons,
+    lessonsByDay,
+    scheduleLessons,
+    examLessons
   };
 }
 
+function matchesFilter(item: FlattenedScheduleItem, filter: ScheduleFilterOptions): boolean {
+  if (filter.source && item.source !== filter.source) {
+    return false;
+  }
+
+  if (filter.weekday && item.day !== filter.weekday) {
+    return false;
+  }
+
+  if (typeof filter.weekNumber === "number" && !item.weekNumber.includes(filter.weekNumber)) {
+    return false;
+  }
+
+  if (typeof filter.subgroup === "number" && item.numSubgroup !== filter.subgroup) {
+    return false;
+  }
+
+  if (filter.lessonTypeAbbrev) {
+    const types = Array.isArray(filter.lessonTypeAbbrev)
+      ? filter.lessonTypeAbbrev
+      : [filter.lessonTypeAbbrev];
+    if (!types.includes(item.lessonTypeAbbrev)) {
+      return false;
+    }
+  }
+
+  if (filter.subjectQuery) {
+    const query = filter.subjectQuery.toLowerCase();
+    const haystack = `${item.subject} ${item.subjectFullName} ${item.note ?? ""}`.toLowerCase();
+    if (!haystack.includes(query)) {
+      return false;
+    }
+  }
+
+  if (filter.employeeUrlId) {
+    const employeeMatch = item.employees?.some((employee) => employee.urlId === filter.employeeUrlId);
+    if (!employeeMatch) {
+      return false;
+    }
+  }
+
+  if (filter.auditory && !item.auditories.includes(filter.auditory)) {
+    return false;
+  }
+
+  return true;
+}
+
+function filterLessons(
+  response: NormalizedScheduleResponse,
+  filter: ScheduleFilterOptions
+): FlattenedScheduleItem[] {
+  return response.lessons.filter((item) => matchesFilter(item, filter));
+}
+
 export function createScheduleModule(config: InternalClientConfig) {
+  async function getGroup<TRaw extends boolean | undefined = undefined>(
+    groupNumber: string,
+    options: ReadOptions & { raw?: TRaw } = {}
+  ): Promise<TRaw extends true ? ScheduleResponse : NormalizedScheduleResponse> {
+    assertNonEmptyString(groupNumber, "groupNumber");
+    const response = await requestJson<ScheduleResponse>(config, "/schedule", {
+      query: { studentGroup: groupNumber },
+      signal: options.signal
+    });
+    const result = options.raw ?? config.defaultRaw ? response : normalizeSchedule(response);
+    return result as TRaw extends true ? ScheduleResponse : NormalizedScheduleResponse;
+  }
+
+  async function getEmployee<TRaw extends boolean | undefined = undefined>(
+    urlId: string,
+    options: ReadOptions & { raw?: TRaw } = {}
+  ): Promise<TRaw extends true ? ScheduleResponse : NormalizedScheduleResponse> {
+    assertNonEmptyString(urlId, "urlId");
+    const response = await requestJson<ScheduleResponse>(config, `/employees/schedule/${urlId}`, {
+      signal: options.signal
+    });
+    const result = options.raw ?? config.defaultRaw ? response : normalizeSchedule(response);
+    return result as TRaw extends true ? ScheduleResponse : NormalizedScheduleResponse;
+  }
+
+  async function getGroupFiltered(
+    groupNumber: string,
+    filter: ScheduleFilterOptions,
+    options: ReadOptions = {}
+  ): Promise<FlattenedScheduleItem[]> {
+    const normalized = await getGroup(groupNumber, { ...options, raw: false });
+    return filterLessons(normalized, filter);
+  }
+
+  async function getEmployeeFiltered(
+    urlId: string,
+    filter: ScheduleFilterOptions,
+    options: ReadOptions = {}
+  ): Promise<FlattenedScheduleItem[]> {
+    const normalized = await getEmployee(urlId, { ...options, raw: false });
+    return filterLessons(normalized, filter);
+  }
+
   return {
-    async getGroup(
-      groupNumber: string,
-      options: ReadOptions = {}
-    ): Promise<ScheduleResponse | NormalizedScheduleResponse> {
-      assertNonEmptyString(groupNumber, "groupNumber");
-      const response = await requestJson<ScheduleResponse>(config, "/schedule", {
-        query: { studentGroup: groupNumber },
-        signal: options.signal
-      });
-      return options.raw ?? config.defaultRaw ? response : normalizeSchedule(response);
+    getGroup,
+    getEmployee,
+    getGroupFiltered,
+    getEmployeeFiltered,
+
+    async getGroupExams(groupNumber: string, options: ReadOptions = {}): Promise<FlattenedScheduleItem[]> {
+      return getGroupFiltered(groupNumber, { source: "exams" }, options);
     },
 
-    async getEmployee(
-      urlId: string,
+    async getEmployeeExams(urlId: string, options: ReadOptions = {}): Promise<FlattenedScheduleItem[]> {
+      return getEmployeeFiltered(urlId, { source: "exams" }, options);
+    },
+
+    async getGroupBySubgroup(
+      groupNumber: string,
+      subgroup: number,
       options: ReadOptions = {}
-    ): Promise<ScheduleResponse | NormalizedScheduleResponse> {
-      assertNonEmptyString(urlId, "urlId");
-      const response = await requestJson<ScheduleResponse>(config, `/employees/schedule/${urlId}`, {
-        signal: options.signal
-      });
-      return options.raw ?? config.defaultRaw ? response : normalizeSchedule(response);
+    ): Promise<FlattenedScheduleItem[]> {
+      assertPositiveInt(subgroup, "subgroup");
+      return getGroupFiltered(groupNumber, { source: "schedules", subgroup }, options);
+    },
+
+    async getEmployeeBySubgroup(
+      urlId: string,
+      subgroup: number,
+      options: ReadOptions = {}
+    ): Promise<FlattenedScheduleItem[]> {
+      assertPositiveInt(subgroup, "subgroup");
+      return getEmployeeFiltered(urlId, { source: "schedules", subgroup }, options);
     },
 
     async getCurrentWeek(options: ReadOptions = {}): Promise<number> {

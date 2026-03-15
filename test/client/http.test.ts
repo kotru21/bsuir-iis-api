@@ -9,6 +9,8 @@ const BASE_CONFIG: Omit<InternalClientConfig, "fetchImpl"> = {
   timeoutMs: 1_000,
   retries: 0,
   retryDelayMs: 1,
+  retryMaxDelayMs: 500,
+  retryJitter: false,
   userAgent: "test",
   defaultRaw: false
 };
@@ -27,7 +29,7 @@ describe("requestJson", () => {
     const fetchImpl = mockFetchSequence([
       createJsonResponse({ status: 500, body: { message: "Server error" } })
     ]);
-    const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl };
+    const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl, retries: 0 };
 
     await expect(requestJson(config, "/faculties")).rejects.toBeInstanceOf(BsuirApiError);
   });
@@ -43,11 +45,54 @@ describe("requestJson", () => {
     expect(response.ok).toBe(true);
   });
 
+  it("does not retry non-retriable status codes", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ status: 400, body: { message: "bad request" } })
+    ]);
+    const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl, retries: 2 };
+
+    await expect(requestJson(config, "/faculties")).rejects.toBeInstanceOf(BsuirApiError);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("respects Retry-After header for retriable responses", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({
+        status: 429,
+        headers: { "Retry-After": "0" },
+        body: { message: "too many requests" }
+      }),
+      createJsonResponse({ body: { ok: true } })
+    ]);
+    const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl, retries: 1, retryDelayMs: 200 };
+
+    const response = await requestJson<{ ok: boolean }>(config, "/faculties");
+    expect(response.ok).toBe(true);
+  });
+
   it("throws BsuirNetworkError on exhausted retries", async () => {
     const fetchImpl = mockFetchSequence([new Error("ECONNRESET")]);
     const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl, retries: 0 };
 
     await expect(requestJson(config, "/faculties")).rejects.toBeInstanceOf(BsuirNetworkError);
+  });
+
+  it("retries network errors and eventually succeeds", async () => {
+    const fetchImpl = mockFetchSequence([
+      new Error("ECONNRESET"),
+      new Error("ECONNRESET"),
+      createJsonResponse({ body: { ok: true } })
+    ]);
+    const config: InternalClientConfig = {
+      ...BASE_CONFIG,
+      fetchImpl,
+      retries: 2,
+      retryDelayMs: 1,
+      retryMaxDelayMs: 10
+    };
+
+    const response = await requestJson<{ ok: boolean }>(config, "/faculties");
+    expect(response.ok).toBe(true);
   });
 
   it("throws timeout error when request takes too long", async () => {
