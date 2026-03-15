@@ -54,8 +54,14 @@ describe("requestJson", () => {
     const fetchImpl = (async (_input, init) => {
       const signal = init?.signal;
       await new Promise((_resolve, reject) => {
-        signal?.addEventListener("abort", () =>
-          reject(new DOMException("The operation was aborted", "AbortError"))
+        if (signal?.aborted) {
+          reject(new DOMException("The operation was aborted", "AbortError"));
+          return;
+        }
+        signal?.addEventListener(
+          "abort",
+          () => reject(new DOMException("The operation was aborted", "AbortError")),
+          { once: true }
         );
       });
       return createJsonResponse({ body: {} });
