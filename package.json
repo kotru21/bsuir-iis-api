@@ -1,13 +1,13 @@
 {
   "name": "bsuir-iis-api",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Type-safe ESM SDK for BSUIR IIS API",
   "type": "module",
   "author": "kotru21",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kotru21/bsuir-iis-api.git"
+    "url": "git+https://github.com/kotru21/bsuir-iis-api.git"
   },
   "homepage": "https://github.com/kotru21/bsuir-iis-api#readme",
   "bugs": {
