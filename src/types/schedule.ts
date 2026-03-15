@@ -34,7 +34,7 @@ export type WeekScheduleMap = Partial<Record<Weekday, ScheduleItem[]>>;
 export interface ScheduleResponse {
   employeeDto: Maybe<Employee>;
   studentGroupDto: Maybe<StudentGroupCatalogItem>;
-  schedules: WeekScheduleMap;
+  schedules: WeekScheduleMap | null;
   exams: ScheduleItem[];
   startDate: Maybe<string>;
   endDate: Maybe<string>;

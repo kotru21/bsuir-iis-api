@@ -165,6 +165,31 @@ describe("schedule module", () => {
     expect(filtered[0]?.lessonTypeAbbrev).toBe("Экзамен");
   });
 
+  it("handles schedules=null in raw response and normalizes safely", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({
+        body: buildScheduleResponse({
+          schedules: null,
+          exams: []
+        })
+      }),
+      createJsonResponse({
+        body: buildScheduleResponse({
+          schedules: null,
+          exams: []
+        })
+      })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+
+    const raw = await client.schedule.getGroup("053503", { raw: true });
+    const normalized = await client.schedule.getGroup("053503");
+
+    expect(raw.schedules).toBeNull();
+    expect(normalized.schedules).toEqual({});
+    expect(normalized.lessons).toEqual([]);
+  });
+
   it("supports filtering by weekday and employee", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildScheduleResponse() })]);
     const client = createBsuirClient({ fetch: fetchImpl });
@@ -195,6 +220,14 @@ describe("schedule module", () => {
     expect(exams[0]?.source).toBe("exams");
     expect(subgroupLessons).toHaveLength(1);
     expect(subgroupLessons[0]?.numSubgroup).toBe(1);
+  });
+
+  it("returns current cycle week from schedule module", async () => {
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: 3 })]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+
+    const cycleWeek = await client.schedule.getCurrentCycleWeek();
+    expect(cycleWeek).toBe(2);
   });
 
   it("returns empty normalized arrays for empty schedules", async () => {

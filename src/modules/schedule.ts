@@ -11,6 +11,7 @@ import type {
 import type { ApiDateResponse } from "../types/common";
 import type { Weekday } from "../types/common";
 import type { ReadOptions } from "./types";
+import { toCycleWeek } from "../utils/week";
 
 const WEEKDAYS: Weekday[] = [
   "Понедельник",
@@ -24,8 +25,10 @@ const WEEKDAYS: Weekday[] = [
 function normalizeSchedule(response: ScheduleResponse): NormalizedScheduleResponse {
   const lessons: FlattenedScheduleItem[] = [];
   const lessonsByDay: FlattenedLessonsByDay = {};
+  const safeSchedules = response.schedules ?? {};
+  const safeExams = response.exams ?? [];
   for (const day of WEEKDAYS) {
-    const dayItems = response.schedules[day] ?? [];
+    const dayItems = safeSchedules[day] ?? [];
     const flattenedDayItems = dayItems.map((item) => ({ ...item, day, source: "schedules" as const }));
     lessonsByDay[day] = flattenedDayItems;
     for (const item of dayItems) {
@@ -33,7 +36,7 @@ function normalizeSchedule(response: ScheduleResponse): NormalizedScheduleRespon
     }
   }
 
-  for (const exam of response.exams) {
+  for (const exam of safeExams) {
     lessons.push({
       ...exam,
       day: null,
@@ -47,6 +50,8 @@ function normalizeSchedule(response: ScheduleResponse): NormalizedScheduleRespon
 
   return {
     ...response,
+    schedules: safeSchedules,
+    exams: safeExams,
     lessons,
     lessonsByDay,
     scheduleLessons,
@@ -201,6 +206,13 @@ export function createScheduleModule(config: InternalClientConfig) {
 
     async getCurrentWeek(options: ReadOptions = {}): Promise<number> {
       return requestJson<number>(config, "/schedule/current-week", { signal: options.signal });
+    },
+
+    async getCurrentCycleWeek(
+      options: ReadOptions & { weeksPerCycle?: number } = {}
+    ): Promise<number> {
+      const semesterWeek = await this.getCurrentWeek(options);
+      return toCycleWeek(semesterWeek, options.weeksPerCycle);
     },
 
     async getLastUpdateByGroup(

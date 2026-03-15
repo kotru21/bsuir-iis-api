@@ -49,6 +49,7 @@ const client = createBsuirClient({
 - `client.schedule.getGroupBySubgroup(groupNumber, subgroup, options?)`
 - `client.schedule.getEmployeeBySubgroup(urlId, subgroup, options?)`
 - `client.schedule.getCurrentWeek(options?)`
+- `client.schedule.getCurrentCycleWeek(options?)`
 - `client.schedule.getLastUpdateByGroup({ groupNumber } | { id }, options?)`
 - `client.schedule.getLastUpdateByEmployee({ urlId } | { id }, options?)`
 
@@ -68,7 +69,8 @@ const client = createBsuirClient({
 
 ### Meta
 
-- `client.currentWeek.get(options?)`
+- `client.currentWeek.get(options?)` (alias to `client.schedule.getCurrentWeek`)
+- `client.currentWeek.getCycle(options?)` (alias to `client.schedule.getCurrentCycleWeek`)
 - `client.lastUpdate.byGroup({ groupNumber } | { id }, options?)`
 - `client.lastUpdate.byEmployee({ urlId } | { id }, options?)`
 
@@ -92,6 +94,19 @@ const raw = await client.schedule.getGroup("053503", { raw: true });
 
 Use `defaultRaw: true` in `createBsuirClient` to change global behavior.
 When `raw` is omitted, `getGroup()` and `getEmployee()` return normalized payload.
+In raw mode API may return `schedules: null`; normalized mode always converts it to `{}`.
+
+## Semester week vs cycle week
+
+`getCurrentWeek()` returns the current semester week number from API.
+For cycle week (1..4) use `getCurrentCycleWeek()` or helper `toCycleWeek()`.
+
+```ts
+import { toCycleWeek } from "bsuir-iis-api";
+
+const semesterWeek = await client.schedule.getCurrentWeek();
+const cycleWeek = toCycleWeek(semesterWeek); // default: 2 semester weeks per cycle week
+```
 
 Filtering example:
 

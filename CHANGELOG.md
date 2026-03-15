@@ -6,6 +6,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 This changelog is maintained manually and updated in release commits.
 
+## [0.2.2] - 2026-03-15
+
+### Added (0.2.2)
+
+- Added cycle week support with `toCycleWeek()` helper and
+  `schedule.getCurrentCycleWeek()` / `currentWeek.getCycle()` methods.
+- Added explicit docs clarifying semester week vs cycle week behavior and aliases.
+
+### Changed (0.2.2)
+
+- Schedule API raw types now allow `schedules: null` from upstream payload.
+- Normalized schedule responses now guarantee `schedules` is always an object.
+
 ## [0.2.1] - 2026-03-15
 
 ### Changed (0.2.1)

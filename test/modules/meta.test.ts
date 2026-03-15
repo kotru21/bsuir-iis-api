@@ -7,16 +7,19 @@ describe("meta modules", () => {
   it("gets current week and last updates", async () => {
     const fetchImpl = mockFetchSequence([
       createJsonResponse({ body: 2 }),
+      createJsonResponse({ body: 2 }),
       createJsonResponse({ body: { lastUpdateDate: "23.02.2022" } }),
       createJsonResponse({ body: { lastUpdateDate: "24.02.2022" } })
     ]);
     const client = createBsuirClient({ fetch: fetchImpl });
 
     const week = await client.currentWeek.get();
+    const cycleWeek = await client.currentWeek.getCycle();
     const groupUpdate = await client.lastUpdate.byGroup({ id: 123 });
     const employeeUpdate = await client.lastUpdate.byEmployee({ urlId: "s-nesterenkov" });
 
     expect(week).toBe(2);
+    expect(cycleWeek).toBe(1);
     expect(groupUpdate.lastUpdateDate).toBe("23.02.2022");
     expect(employeeUpdate.lastUpdateDate).toBe("24.02.2022");
   });
