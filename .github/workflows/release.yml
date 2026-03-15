@@ -15,8 +15,8 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -25,9 +25,28 @@ jobs:
       - run: npm ci
       - run: npm run build
 
+      - name: Check if version is already published
+        id: publish_check
+        shell: bash
+        run: |
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          PUBLISHED_VERSION=$(npm view "$PACKAGE_NAME" version 2>/dev/null || echo "__NOT_PUBLISHED__")
+
+          echo "package_name=$PACKAGE_NAME" >> "$GITHUB_OUTPUT"
+          echo "package_version=$PACKAGE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "published_version=$PUBLISHED_VERSION" >> "$GITHUB_OUTPUT"
+
+          if [ "$PACKAGE_VERSION" = "$PUBLISHED_VERSION" ]; then
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Create Release PR or Publish
         id: changesets
-        uses: changesets/action@v1
+        if: steps.publish_check.outputs.should_publish == 'true'
+        uses: changesets/action@v1.7.0
         with:
           publish: npm publish --provenance --access public
           version: npx changeset version
@@ -35,3 +54,8 @@ jobs:
           title: "chore: release packages"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Skip publish for already published version
+        if: steps.publish_check.outputs.should_publish != 'true'
+        run: |
+          echo "Skip release: ${{ steps.publish_check.outputs.package_name }}@${{ steps.publish_check.outputs.package_version }} is already published (latest: ${{ steps.publish_check.outputs.published_version }})."
