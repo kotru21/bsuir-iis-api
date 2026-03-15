@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 This changelog is maintained manually and updated in release commits.
 
+## [0.2.1] - 2026-03-15
+
+### Changed (0.2.1)
+
+- Updated outdated tooling dependencies to latest major versions:
+  `eslint`, `@eslint/js`, `vitest`, `@vitest/coverage-v8`, `globals`, `@types/node`.
+- Revalidated quality gates after upgrades (`check:full`, `build`, `release:dry`).
+
 ## [0.2.0] - 2026-03-15
 
 ### Added (0.2.0)
