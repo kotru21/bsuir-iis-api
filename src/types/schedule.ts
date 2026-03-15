@@ -11,7 +11,7 @@ export interface LessonStudentGroup {
 }
 
 export interface ScheduleItem {
-  weekNumber: number[];
+  weekNumber: number[] | null;
   studentGroups: LessonStudentGroup[];
   numSubgroup: number;
   auditories: string[];
@@ -20,7 +20,7 @@ export interface ScheduleItem {
   subject: string;
   subjectFullName: string;
   note: Maybe<string>;
-  lessonTypeAbbrev: string;
+  lessonTypeAbbrev: string | null;
   dateLesson: Maybe<string>;
   startLessonDate: Maybe<string>;
   endLessonDate: Maybe<string>;

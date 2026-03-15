@@ -6,6 +6,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 This changelog is maintained manually and updated in release commits.
 
+## [0.2.4] - 2026-03-15
+
+### Changed (0.2.4)
+
+- Aligned `ScheduleItem` contract with real API payloads by allowing nullable
+  `weekNumber` and `lessonTypeAbbrev`.
+- Hardened schedule filtering against nullable lesson fields to avoid runtime errors.
+- Expanded schedule tests for nullable `weekNumber` / `lessonTypeAbbrev` cases.
+- Updated README raw-mode notes to document nullable lesson fields.
+
 ## [0.2.3] - 2026-03-15
 
 ### Changed (0.2.3)

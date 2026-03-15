@@ -68,8 +68,10 @@ function matchesFilter(item: FlattenedScheduleItem, filter: ScheduleFilterOption
     return false;
   }
 
-  if (typeof filter.weekNumber === "number" && !item.weekNumber.includes(filter.weekNumber)) {
-    return false;
+  if (typeof filter.weekNumber === "number") {
+    if (!Array.isArray(item.weekNumber) || !item.weekNumber.includes(filter.weekNumber)) {
+      return false;
+    }
   }
 
   if (typeof filter.subgroup === "number" && item.numSubgroup !== filter.subgroup) {
@@ -80,7 +82,7 @@ function matchesFilter(item: FlattenedScheduleItem, filter: ScheduleFilterOption
     const types = Array.isArray(filter.lessonTypeAbbrev)
       ? filter.lessonTypeAbbrev
       : [filter.lessonTypeAbbrev];
-    if (!types.includes(item.lessonTypeAbbrev)) {
+    if (!item.lessonTypeAbbrev || !types.includes(item.lessonTypeAbbrev)) {
       return false;
     }
   }

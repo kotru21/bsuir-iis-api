@@ -267,4 +267,21 @@ describe("schedule module", () => {
     expect(filtered).toHaveLength(1);
     expect(filtered[0]?.subject).toBe("ООП");
   });
+
+  it("handles nullable weekNumber and lessonTypeAbbrev safely", async () => {
+    const payload = buildScheduleResponse();
+    payload.schedules!.Понедельник![0]!.weekNumber = null;
+    payload.schedules!.Понедельник![0]!.lessonTypeAbbrev = null;
+
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: payload })]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+
+    const filtered = await client.schedule.getGroupFiltered("053503", {
+      source: "schedules",
+      weekNumber: 1,
+      lessonTypeAbbrev: "ЛР"
+    });
+
+    expect(filtered).toHaveLength(0);
+  });
 });

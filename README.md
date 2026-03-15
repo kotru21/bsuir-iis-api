@@ -95,6 +95,7 @@ const raw = await client.schedule.getGroup("053503", { raw: true });
 Use `defaultRaw: true` in `createBsuirClient` to change global behavior.
 When `raw` is omitted, `getGroup()` and `getEmployee()` return normalized payload.
 In raw mode API may return `schedules: null`; normalized mode always converts it to `{}`.
+In raw mode some lesson fields may also be nullable (`weekNumber`, `lessonTypeAbbrev`), so keep null checks if you consume raw payload directly.
 
 ## Semester week vs cycle week
 
