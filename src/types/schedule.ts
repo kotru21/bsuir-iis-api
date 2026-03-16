@@ -35,7 +35,7 @@ export interface ScheduleResponse {
   employeeDto: Maybe<Employee>;
   studentGroupDto: Maybe<StudentGroupCatalogItem>;
   schedules: WeekScheduleMap | null;
-  exams: ScheduleItem[];
+  exams: ScheduleItem[] | null;
   startDate: Maybe<string>;
   endDate: Maybe<string>;
   startExamsDate: Maybe<string>;

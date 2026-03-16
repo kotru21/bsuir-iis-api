@@ -13,12 +13,15 @@ describe("guards", () => {
     expect(() => assertNonEmptyString("abc", "field")).not.toThrow();
     expect(() => assertNonEmptyString("", "field")).toThrow(BsuirValidationError);
     expect(() => assertNonEmptyString("   ", "field")).toThrow(BsuirValidationError);
+    expect(() => assertNonEmptyString(null, "field")).toThrow(BsuirValidationError);
+    expect(() => assertNonEmptyString(123, "field")).toThrow(BsuirValidationError);
   });
 
   it("validates positive integer values", () => {
     expect(() => assertPositiveInt(1, "id")).not.toThrow();
     expect(() => assertPositiveInt(0, "id")).toThrow(BsuirValidationError);
     expect(() => assertPositiveInt(1.5, "id")).toThrow(BsuirValidationError);
+    expect(() => assertPositiveInt("1", "id")).toThrow(BsuirValidationError);
   });
 
   it("validates group number and employee urlId formats", () => {

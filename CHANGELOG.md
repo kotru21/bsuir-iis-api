@@ -8,6 +8,14 @@ This changelog is maintained manually and updated in release commits.
 
 ## [Unreleased]
 
+## [0.2.8] - 2026-03-16
+
+### Changed (0.2.8)
+
+- Hardened error handling for malformed inputs and partial schedule payloads.
+- Extended error-focused tests with payload assertions for API/network/timeout error fields.
+- Expanded README error handling docs with retry/abort semantics and validation constraints.
+
 ## [0.2.7] - 2026-03-16
 
 ### Added (0.2.7)

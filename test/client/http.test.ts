@@ -31,7 +31,13 @@ describe("requestJson", () => {
     ]);
     const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl, retries: 0 };
 
-    await expect(requestJson(config, "/faculties")).rejects.toBeInstanceOf(BsuirApiError);
+    const request = requestJson(config, "/faculties");
+    await expect(request).rejects.toBeInstanceOf(BsuirApiError);
+    await expect(request).rejects.toMatchObject({
+      status: 500,
+      endpoint: "https://iis.bsuir.by/api/v1/faculties",
+      body: { message: "Server error" }
+    });
   });
 
   it("retries retriable status codes", async () => {
@@ -118,10 +124,16 @@ describe("requestJson", () => {
   });
 
   it("throws BsuirNetworkError on exhausted retries", async () => {
-    const fetchImpl = mockFetchSequence([new Error("ECONNRESET")]);
+    const transportError = new Error("ECONNRESET");
+    const fetchImpl = mockFetchSequence([transportError]);
     const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl, retries: 0 };
 
-    await expect(requestJson(config, "/faculties")).rejects.toBeInstanceOf(BsuirNetworkError);
+    const request = requestJson(config, "/faculties");
+    await expect(request).rejects.toBeInstanceOf(BsuirNetworkError);
+    await expect(request).rejects.toMatchObject({
+      endpoint: "https://iis.bsuir.by/api/v1/faculties",
+      causeError: transportError
+    });
   });
 
   it("retries network errors and eventually succeeds", async () => {
@@ -161,7 +173,12 @@ describe("requestJson", () => {
 
     const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl, timeoutMs: 10 };
 
-    await expect(requestJson(config, "/faculties")).rejects.toBeInstanceOf(BsuirTimeoutError);
+    const request = requestJson(config, "/faculties");
+    await expect(request).rejects.toBeInstanceOf(BsuirTimeoutError);
+    await expect(request).rejects.toMatchObject({
+      endpoint: "https://iis.bsuir.by/api/v1/faculties",
+      timeoutMs: 10
+    });
   });
 
   it("propagates external AbortSignal cancellation", async () => {

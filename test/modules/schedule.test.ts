@@ -157,6 +157,17 @@ describe("schedule module", () => {
     );
   });
 
+  it("throws on invalid subgroup in subgroup helpers", async () => {
+    const client = createBsuirClient({ fetch: mockFetchSequence([]) });
+
+    await expect(client.schedule.getGroupBySubgroup("053503", 0)).rejects.toBeInstanceOf(
+      BsuirValidationError
+    );
+    await expect(client.schedule.getEmployeeBySubgroup("s-nesterenkov", -1)).rejects.toBeInstanceOf(
+      BsuirValidationError
+    );
+  });
+
   it("supports last update endpoints", async () => {
     const fetchImpl = mockFetchSequence([
       createJsonResponse({ body: { lastUpdateDate: "23.02.2022" } }),
@@ -208,6 +219,18 @@ describe("schedule module", () => {
     expect(raw.schedules).toBeNull();
     expect(normalized.schedules).toEqual({});
     expect(normalized.lessons).toEqual([]);
+  });
+
+  it("handles missing exams field in raw payload gracefully", async () => {
+    const payload = buildScheduleResponse() as unknown as { exams?: unknown };
+    delete payload.exams;
+
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: payload })]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+
+    const normalized = await client.schedule.getGroup("053503");
+    expect(normalized.exams).toEqual([]);
+    expect(normalized.examLessons).toEqual([]);
   });
 
   it("supports filtering by weekday and employee", async () => {

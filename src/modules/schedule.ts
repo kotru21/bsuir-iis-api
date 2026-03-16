@@ -26,7 +26,7 @@ function normalizeSchedule(response: ScheduleResponse): NormalizedScheduleRespon
   const lessons: FlattenedScheduleItem[] = [];
   const lessonsByDay: FlattenedLessonsByDay = {};
   const safeSchedules = response.schedules ?? {};
-  const safeExams = response.exams;
+  const safeExams = response.exams ?? [];
   for (const day of WEEKDAYS) {
     const dayItems = safeSchedules[day] ?? [];
     const flattenedDayItems = dayItems.map((item) => ({ ...item, day, source: "schedules" as const }));

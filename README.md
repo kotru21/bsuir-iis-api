@@ -79,11 +79,25 @@ const client = createBsuirClient({
 SDK throws typed errors:
 
 - `BsuirApiError` for HTTP errors (contains `status`, `endpoint`, `body`)
-- `BsuirNetworkError` for transport errors
-- `BsuirTimeoutError` for timeouts
+- `BsuirNetworkError` for transport errors (contains `endpoint`, `causeError`, and standard `cause`)
+- `BsuirTimeoutError` for timeouts (contains `endpoint`, `timeoutMs`)
 - `BsuirValidationError` for invalid input parameters
-- Validation rules: `groupNumber` must contain digits only; `urlId` must be a slug
-  with letters/digits/hyphens (for example `s-nesterenkov`).
+
+Validation rules:
+
+- `groupNumber` must contain digits only
+- `urlId` must be a slug with letters/digits/hyphens (for example `s-nesterenkov`)
+- `id` and `subgroup` parameters must be positive integers
+- helpers like `toCycleWeek()` validate positive integer input
+
+Retry and abort behavior:
+
+- Retries are applied to `429`, `500`, `502`, `503`, `504`
+- `Retry-After` is respected for retriable responses
+- Caller-provided aborted `AbortSignal` is re-thrown as native `AbortError`
+- Internal timeout is mapped to `BsuirTimeoutError`
+
+`createBsuirClient()` throws regular `Error` if no `fetch` implementation is available.
 
 ## Raw vs normalized schedule response
 

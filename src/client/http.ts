@@ -153,5 +153,5 @@ export async function requestJson<T>(
     }
   }
 
-  throw new BsuirNetworkError(`Network error while requesting ${path}`, endpoint, null);
+  throw new BsuirNetworkError(`Unexpected retry loop termination for ${path}`, endpoint, null);
 }
