@@ -119,7 +119,7 @@ export async function requestJson<T>(
           continue;
         }
         throw new BsuirApiError(
-          `BSUIR API returned HTTP ${response.status} for ${path}`,
+          `BSUIR API returned HTTP ${String(response.status)} for ${path}`,
           response.status,
           endpoint,
           errorBody
@@ -137,7 +137,7 @@ export async function requestJson<T>(
           throw error;
         }
         throw new BsuirTimeoutError(
-          `Request timed out after ${config.timeoutMs}ms: ${path}`,
+          `Request timed out after ${String(config.timeoutMs)}ms: ${path}`,
           endpoint,
           config.timeoutMs
         );

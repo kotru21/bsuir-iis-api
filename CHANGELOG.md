@@ -8,6 +8,21 @@ This changelog is maintained manually and updated in release commits.
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-03-16
+
+### Added (0.2.7)
+
+- Added `npm run lint:fix` for convenient local autofix flow.
+
+### Changed (0.2.7)
+
+- Reworked ESLint flat config to use typed `typescript-eslint` presets:
+  `recommendedTypeChecked`, `strictTypeChecked`, and `stylisticTypeChecked`.
+- Switched ESLint typed linting to `parserOptions.projectService` with `tsconfigRootDir`.
+- Introduced explicit lint zones for `src` and `test`/`vitest` with targeted test overrides.
+- Added `linterOptions.reportUnusedDisableDirectives` and normalized flat-config ignore patterns.
+- Updated development docs with lint workflow and strict lint profile notes.
+
 ## [0.2.6] - 2026-03-16
 
 ### Added

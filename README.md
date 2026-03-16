@@ -129,9 +129,14 @@ const subgroupLessons = await client.schedule.getEmployeeBySubgroup("s-nesterenk
 
 ```bash
 npm install
+npm run lint
+npm run lint:fix
 npm run check
 npm run build
 ```
+
+Linting uses ESLint flat config with strict type-aware TypeScript rules for `src`,
+plus test-specific overrides for `test` and `vitest.config.ts`.
 
 Live contract tests against real BSUIR API are opt-in:
 
