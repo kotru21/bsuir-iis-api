@@ -82,6 +82,8 @@ SDK throws typed errors:
 - `BsuirNetworkError` for transport errors
 - `BsuirTimeoutError` for timeouts
 - `BsuirValidationError` for invalid input parameters
+- Validation rules: `groupNumber` must contain digits only; `urlId` must be a slug
+  with letters/digits/hyphens (for example `s-nesterenkov`).
 
 ## Raw vs normalized schedule response
 
@@ -130,6 +132,20 @@ npm install
 npm run check
 npm run build
 ```
+
+Live contract tests against real BSUIR API are opt-in:
+
+```bash
+BSUIR_LIVE_TESTS=1 npm run test:live
+```
+
+PowerShell:
+
+```powershell
+$env:BSUIR_LIVE_TESTS="1"; npm run test:live
+```
+
+CI has a manual `workflow_dispatch` path that also runs live contracts (`live-contract` job).
 
 ## Release checklist
 

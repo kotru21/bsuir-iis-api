@@ -145,6 +145,16 @@ describe("schedule module", () => {
     const client = createBsuirClient({ fetch: mockFetchSequence([]) });
 
     await expect(client.schedule.getGroup("")).rejects.toBeInstanceOf(BsuirValidationError);
+    await expect(client.schedule.getGroup("05350A")).rejects.toBeInstanceOf(BsuirValidationError);
+  });
+
+  it("throws on invalid employee urlId format", async () => {
+    const client = createBsuirClient({ fetch: mockFetchSequence([]) });
+
+    await expect(client.schedule.getEmployee("")).rejects.toBeInstanceOf(BsuirValidationError);
+    await expect(client.schedule.getEmployee("s/nesterenkov")).rejects.toBeInstanceOf(
+      BsuirValidationError
+    );
   });
 
   it("supports last update endpoints", async () => {
@@ -243,6 +253,15 @@ describe("schedule module", () => {
     const customCycleWeek = await client.schedule.getCurrentCycleWeek({ weeksPerCycle: 1 });
     expect(cycleWeek).toBe(2);
     expect(customCycleWeek).toBe(3);
+  });
+
+  it("supports calling destructured current cycle method", async () => {
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: 3 })]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+    const { getCurrentCycleWeek } = client.schedule;
+
+    const cycleWeek = await getCurrentCycleWeek();
+    expect(cycleWeek).toBe(2);
   });
 
   it("returns empty normalized arrays for empty schedules", async () => {

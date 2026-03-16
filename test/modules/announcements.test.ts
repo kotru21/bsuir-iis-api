@@ -26,6 +26,9 @@ describe("announcements module", () => {
     const client = createBsuirClient({ fetch: mockFetchSequence([]) });
 
     await expect(client.announcements.byEmployee("")).rejects.toBeInstanceOf(BsuirValidationError);
+    await expect(client.announcements.byEmployee("s/nesterenkov")).rejects.toBeInstanceOf(
+      BsuirValidationError
+    );
     await expect(client.announcements.byDepartment(0)).rejects.toBeInstanceOf(BsuirValidationError);
   });
 });

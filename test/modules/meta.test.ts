@@ -37,11 +37,26 @@ describe("meta modules", () => {
     expect(employeeUpdate.lastUpdateDate).toBe("24.02.2022");
   });
 
+  it("supports calling destructured cycle week method", async () => {
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: 4 })]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+    const { getCycle } = client.currentWeek;
+
+    const cycleWeek = await getCycle();
+    expect(cycleWeek).toBe(2);
+  });
+
   it("validates last update params", async () => {
     const client = createBsuirClient({ fetch: mockFetchSequence([]) });
 
     await expect(client.lastUpdate.byGroup({ id: 0 })).rejects.toBeInstanceOf(BsuirValidationError);
+    await expect(client.lastUpdate.byGroup({ groupNumber: "05350A" })).rejects.toBeInstanceOf(
+      BsuirValidationError
+    );
     await expect(client.lastUpdate.byEmployee({ urlId: "" })).rejects.toBeInstanceOf(
+      BsuirValidationError
+    );
+    await expect(client.lastUpdate.byEmployee({ urlId: "s/nesterenkov" })).rejects.toBeInstanceOf(
       BsuirValidationError
     );
   });

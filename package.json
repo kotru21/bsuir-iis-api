@@ -1,6 +1,6 @@
 {
   "name": "bsuir-iis-api",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "Type-safe ESM SDK for BSUIR IIS API",
   "type": "module",
   "author": "kotru21",
@@ -22,7 +22,7 @@
     "typescript"
   ],
   "engines": {
-    "node": ">=18"
+    "node": ">=24"
   },
   "exports": {
     ".": {
@@ -44,6 +44,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:live": "vitest run test/integration/live-api.contract.test.ts",
     "test:coverage": "vitest run --coverage",
     "check": "npm run lint && npm run typecheck && npm run test",
     "check:full": "npm run lint && npm run typecheck && npm run test:coverage",

@@ -1,6 +1,6 @@
 import type { InternalClientConfig } from "../client/types";
 import { requestJson } from "../client/http";
-import { assertNonEmptyString, assertPositiveInt } from "../utils/guards";
+import { assertEmployeeUrlId, assertGroupNumber, assertPositiveInt } from "../utils/guards";
 import type { ApiDateResponse } from "../types/common";
 import type { ReadOptions } from "./types";
 
@@ -12,7 +12,7 @@ export function createLastUpdateModule(config: InternalClientConfig) {
     ): Promise<ApiDateResponse> {
       let query: Record<string, string | number>;
       if ("groupNumber" in params) {
-        assertNonEmptyString(params.groupNumber, "groupNumber");
+        assertGroupNumber(params.groupNumber, "groupNumber");
         query = { groupNumber: params.groupNumber };
       } else {
         assertPositiveInt(params.id, "id");
@@ -31,7 +31,7 @@ export function createLastUpdateModule(config: InternalClientConfig) {
     ): Promise<ApiDateResponse> {
       let query: Record<string, string | number>;
       if ("urlId" in params) {
-        assertNonEmptyString(params.urlId, "urlId");
+        assertEmployeeUrlId(params.urlId, "urlId");
         query = { "url-id": params.urlId };
       } else {
         assertPositiveInt(params.id, "id");

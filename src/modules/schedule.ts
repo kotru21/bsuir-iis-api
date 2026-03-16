@@ -1,6 +1,6 @@
 import type { InternalClientConfig } from "../client/types";
 import { requestJson } from "../client/http";
-import { assertNonEmptyString, assertPositiveInt } from "../utils/guards";
+import { assertEmployeeUrlId, assertGroupNumber, assertPositiveInt } from "../utils/guards";
 import type {
   FlattenedLessonsByDay,
   FlattenedScheduleItem,
@@ -125,7 +125,7 @@ export function createScheduleModule(config: InternalClientConfig) {
     groupNumber: string,
     options: ReadOptions & { raw?: TRaw } = {}
   ): Promise<TRaw extends true ? ScheduleResponse : NormalizedScheduleResponse> {
-    assertNonEmptyString(groupNumber, "groupNumber");
+    assertGroupNumber(groupNumber, "groupNumber");
     const response = await requestJson<ScheduleResponse>(config, "/schedule", {
       query: { studentGroup: groupNumber },
       signal: options.signal
@@ -142,10 +142,14 @@ export function createScheduleModule(config: InternalClientConfig) {
     urlId: string,
     options: ReadOptions & { raw?: TRaw } = {}
   ): Promise<TRaw extends true ? ScheduleResponse : NormalizedScheduleResponse> {
-    assertNonEmptyString(urlId, "urlId");
-    const response = await requestJson<ScheduleResponse>(config, `/employees/schedule/${urlId}`, {
+    assertEmployeeUrlId(urlId, "urlId");
+    const response = await requestJson<ScheduleResponse>(
+      config,
+      `/employees/schedule/${encodeURIComponent(urlId)}`,
+      {
       signal: options.signal
-    });
+      }
+    );
     const result = options.raw ?? config.defaultRaw ? response : normalizeSchedule(response);
     return result as TRaw extends true ? ScheduleResponse : NormalizedScheduleResponse;
   }
@@ -172,6 +176,20 @@ export function createScheduleModule(config: InternalClientConfig) {
   ): Promise<FlattenedScheduleItem[]> {
     const normalized = await getEmployee(urlId, { ...options, raw: false });
     return filterLessons(normalized, filter);
+  }
+
+  async function getCurrentWeek(options: ReadOptions = {}): Promise<number> {
+    const payload = await requestJson<unknown>(config, "/schedule/current-week", {
+      signal: options.signal
+    });
+    return parseSemesterWeek(payload);
+  }
+
+  async function getCurrentCycleWeek(
+    options: ReadOptions & { weeksPerCycle?: number } = {}
+  ): Promise<number> {
+    const semesterWeek = await getCurrentWeek(options);
+    return toCycleWeek(semesterWeek, options.weeksPerCycle);
   }
 
   return {
@@ -206,19 +224,8 @@ export function createScheduleModule(config: InternalClientConfig) {
       return getEmployeeFiltered(urlId, { source: "schedules", subgroup }, options);
     },
 
-    async getCurrentWeek(options: ReadOptions = {}): Promise<number> {
-      const payload = await requestJson<unknown>(config, "/schedule/current-week", {
-        signal: options.signal
-      });
-      return parseSemesterWeek(payload);
-    },
-
-    async getCurrentCycleWeek(
-      options: ReadOptions & { weeksPerCycle?: number } = {}
-    ): Promise<number> {
-      const semesterWeek = await this.getCurrentWeek(options);
-      return toCycleWeek(semesterWeek, options.weeksPerCycle);
-    },
+    getCurrentWeek,
+    getCurrentCycleWeek,
 
     async getLastUpdateByGroup(
       params: { groupNumber: string } | { id: number },
@@ -226,7 +233,7 @@ export function createScheduleModule(config: InternalClientConfig) {
     ): Promise<ApiDateResponse> {
       let query: Record<string, string | number>;
       if ("groupNumber" in params) {
-        assertNonEmptyString(params.groupNumber, "groupNumber");
+        assertGroupNumber(params.groupNumber, "groupNumber");
         query = { groupNumber: params.groupNumber };
       } else {
         assertPositiveInt(params.id, "id");
@@ -244,7 +251,7 @@ export function createScheduleModule(config: InternalClientConfig) {
     ): Promise<ApiDateResponse> {
       let query: Record<string, string | number>;
       if ("urlId" in params) {
-        assertNonEmptyString(params.urlId, "urlId");
+        assertEmployeeUrlId(params.urlId, "urlId");
         query = { "url-id": params.urlId };
       } else {
         assertPositiveInt(params.id, "id");

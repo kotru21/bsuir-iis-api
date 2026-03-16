@@ -6,6 +6,28 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 This changelog is maintained manually and updated in release commits.
 
+## [Unreleased]
+
+## [0.2.6] - 2026-03-16
+
+### Added
+
+- Added opt-in live contract tests (`test/integration/live-api.contract.test.ts`) for key
+  BSUIR IIS read-only endpoints (catalogs, schedules, announcements, current week, last update).
+- Added `npm run test:live` script for explicit execution of live contract tests.
+- Added manual CI path (`workflow_dispatch`) with a dedicated `live-contract` job.
+
+### Changed
+
+- Strengthened input validation: `groupNumber` now accepts only digits and `urlId` is validated as slug
+  (`letters/digits/hyphen`).
+- Made cycle-week methods robust to method destructuring by removing `this`-dependent calls.
+- Encoded employee schedule path parameter (`urlId`) with `encodeURIComponent`.
+- Improved abort error detection to support non-DOMException abort shapes.
+- Expanded unit and module tests with regression coverage for strict validation, destructured calls,
+  and abort error detection.
+- Updated README with validation rules and live test execution instructions.
+
 ## [0.2.5] - 2026-03-16
 
 ### Fixed (0.2.5)
