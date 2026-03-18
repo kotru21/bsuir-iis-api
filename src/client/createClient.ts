@@ -1,7 +1,6 @@
 import type { BsuirClientOptions, InternalClientConfig } from "./types";
 import { createAnnouncementsModule } from "../modules/announcements";
 import { createAuditoriesModule } from "../modules/auditories";
-import { createCurrentWeekModule } from "../modules/currentWeek";
 import { createDepartmentsModule } from "../modules/departments";
 import { createEmployeesModule } from "../modules/employees";
 import { createFacultiesModule } from "../modules/faculties";
@@ -43,9 +42,10 @@ function createInternalConfig(options: BsuirClientOptions = {}): InternalClientC
  */
 export function createBsuirClient(options: BsuirClientOptions = {}) {
   const config = createInternalConfig(options);
+  const schedule = createScheduleModule(config);
 
   return {
-    schedule: createScheduleModule(config),
+    schedule,
     groups: createGroupsModule(config),
     employees: createEmployeesModule(config),
     faculties: createFacultiesModule(config),
@@ -54,7 +54,9 @@ export function createBsuirClient(options: BsuirClientOptions = {}) {
     announcements: createAnnouncementsModule(config),
     auditories: createAuditoriesModule(config),
     lastUpdate: createLastUpdateModule(config),
-    currentWeek: createCurrentWeekModule(config)
+    currentWeek: {
+      get: schedule.getCurrentWeek
+    }
   };
 }
 

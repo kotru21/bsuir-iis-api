@@ -49,7 +49,6 @@ const client = createBsuirClient({
 - `client.schedule.getGroupBySubgroup(groupNumber, subgroup, options?)`
 - `client.schedule.getEmployeeBySubgroup(urlId, subgroup, options?)`
 - `client.schedule.getCurrentWeek(options?)`
-- `client.schedule.getCurrentCycleWeek(options?)`
 - `client.schedule.getLastUpdateByGroup({ groupNumber } | { id }, options?)`
 - `client.schedule.getLastUpdateByEmployee({ urlId } | { id }, options?)`
 
@@ -70,7 +69,6 @@ const client = createBsuirClient({
 ### Meta
 
 - `client.currentWeek.get(options?)` (alias to `client.schedule.getCurrentWeek`)
-- `client.currentWeek.getCycle(options?)` (alias to `client.schedule.getCurrentCycleWeek`)
 - `client.lastUpdate.byGroup({ groupNumber } | { id }, options?)`
 - `client.lastUpdate.byEmployee({ urlId } | { id }, options?)`
 
@@ -88,8 +86,6 @@ Validation rules:
 - `groupNumber` must contain digits only
 - `urlId` must be a slug with letters/digits/hyphens (for example `s-nesterenkov`)
 - `id` and `subgroup` parameters must be positive integers
-- helpers like `toCycleWeek()` validate positive integer input
-
 Retry and abort behavior:
 
 - Retries are applied to `429`, `500`, `502`, `503`, `504`
@@ -113,18 +109,10 @@ When `raw` is omitted, `getGroup()` and `getEmployee()` return normalized payloa
 In raw mode API may return `schedules: null`; normalized mode always converts it to `{}`.
 In raw mode some lesson fields may also be nullable (`weekNumber`, `lessonTypeAbbrev`), so keep null checks if you consume raw payload directly.
 
-## Semester week vs cycle week
+## Current week
 
-`getCurrentWeek()` returns the current semester week number from API.
-For cycle week (1..4) use `getCurrentCycleWeek()` or helper `toCycleWeek()`.
+`getCurrentWeek()` returns the current week value directly from IIS API.
 The SDK normalizes `current-week` payloads, including plain-text responses like `1\n`.
-
-```ts
-import { toCycleWeek } from "bsuir-iis-api";
-
-const semesterWeek = await client.schedule.getCurrentWeek();
-const cycleWeek = toCycleWeek(semesterWeek); // default: 2 semester weeks per cycle week
-```
 
 Filtering example:
 

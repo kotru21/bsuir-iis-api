@@ -265,28 +265,6 @@ describe("schedule module", () => {
     expect(subgroupLessons[0]?.numSubgroup).toBe(1);
   });
 
-  it("returns current cycle week from schedule module", async () => {
-    const fetchImpl = mockFetchSequence([
-      createJsonResponse({ body: 3 }),
-      createJsonResponse({ body: 3 })
-    ]);
-    const client = createBsuirClient({ fetch: fetchImpl });
-
-    const cycleWeek = await client.schedule.getCurrentCycleWeek();
-    const customCycleWeek = await client.schedule.getCurrentCycleWeek({ weeksPerCycle: 1 });
-    expect(cycleWeek).toBe(2);
-    expect(customCycleWeek).toBe(3);
-  });
-
-  it("supports calling destructured current cycle method", async () => {
-    const fetchImpl = mockFetchSequence([createJsonResponse({ body: 3 })]);
-    const client = createBsuirClient({ fetch: fetchImpl });
-    const { getCurrentCycleWeek } = client.schedule;
-
-    const cycleWeek = await getCurrentCycleWeek();
-    expect(cycleWeek).toBe(2);
-  });
-
   it("returns empty normalized arrays for empty schedules", async () => {
     const fetchImpl = mockFetchSequence([
       createJsonResponse({

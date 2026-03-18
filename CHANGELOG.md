@@ -8,6 +8,17 @@ This changelog is maintained manually and updated in release commits.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-03-19
+
+### Changed (0.3.0)
+
+- Simplified current week behavior to use only IIS API `/schedule/current-week` value.
+- Removed cycle-week abstractions and conversions: `schedule.getCurrentCycleWeek()`,
+  `currentWeek.getCycle()`, and public `toCycleWeek()` export.
+- Replaced standalone `currentWeek` module implementation with `currentWeek.get` alias
+  to `schedule.getCurrentWeek`.
+- Updated tests and README to reflect single-source current week semantics.
+
 ## [0.2.8] - 2026-03-16
 
 ### Changed (0.2.8)

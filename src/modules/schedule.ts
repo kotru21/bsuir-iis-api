@@ -11,7 +11,7 @@ import type {
 import type { ApiDateResponse } from "../types/common";
 import type { Weekday } from "../types/common";
 import type { ReadOptions } from "./types";
-import { parseSemesterWeek, toCycleWeek } from "../utils/week";
+import { parseCurrentWeek } from "../utils/week";
 
 const WEEKDAYS: Weekday[] = [
   "Понедельник",
@@ -182,14 +182,7 @@ export function createScheduleModule(config: InternalClientConfig) {
     const payload = await requestJson<unknown>(config, "/schedule/current-week", {
       signal: options.signal
     });
-    return parseSemesterWeek(payload);
-  }
-
-  async function getCurrentCycleWeek(
-    options: ReadOptions & { weeksPerCycle?: number } = {}
-  ): Promise<number> {
-    const semesterWeek = await getCurrentWeek(options);
-    return toCycleWeek(semesterWeek, options.weeksPerCycle);
+    return parseCurrentWeek(payload);
   }
 
   return {
@@ -225,7 +218,6 @@ export function createScheduleModule(config: InternalClientConfig) {
     },
 
     getCurrentWeek,
-    getCurrentCycleWeek,
 
     async getLastUpdateByGroup(
       params: { groupNumber: string } | { id: number },

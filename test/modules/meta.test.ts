@@ -17,33 +17,18 @@ describe("meta modules", () => {
   it("gets current week and last updates", async () => {
     const fetchImpl = mockFetchSequence([
       createJsonResponse({ body: 2 }),
-      createJsonResponse({ body: 2 }),
-      createJsonResponse({ body: 3 }),
       createJsonResponse({ body: { lastUpdateDate: "23.02.2022" } }),
       createJsonResponse({ body: { lastUpdateDate: "24.02.2022" } })
     ]);
     const client = createBsuirClient({ fetch: fetchImpl });
 
     const week = await client.currentWeek.get();
-    const cycleWeek = await client.currentWeek.getCycle();
-    const customCycleWeek = await client.currentWeek.getCycle({ weeksPerCycle: 1 });
     const groupUpdate = await client.lastUpdate.byGroup({ id: 123 });
     const employeeUpdate = await client.lastUpdate.byEmployee({ urlId: "s-nesterenkov" });
 
     expect(week).toBe(2);
-    expect(cycleWeek).toBe(1);
-    expect(customCycleWeek).toBe(3);
     expect(groupUpdate.lastUpdateDate).toBe("23.02.2022");
     expect(employeeUpdate.lastUpdateDate).toBe("24.02.2022");
-  });
-
-  it("supports calling destructured cycle week method", async () => {
-    const fetchImpl = mockFetchSequence([createJsonResponse({ body: 4 })]);
-    const client = createBsuirClient({ fetch: fetchImpl });
-    const { getCycle } = client.currentWeek;
-
-    const cycleWeek = await getCycle();
-    expect(cycleWeek).toBe(2);
   });
 
   it("validates last update params", async () => {
