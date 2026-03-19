@@ -10,7 +10,7 @@ describe("meta modules", () => {
     ]);
     const client = createBsuirClient({ fetch: fetchImpl });
 
-    const week = await client.currentWeek.get();
+    const week = await client.schedule.getCurrentWeek();
     expect(week).toBe(1);
   });
 
@@ -22,7 +22,7 @@ describe("meta modules", () => {
     ]);
     const client = createBsuirClient({ fetch: fetchImpl });
 
-    const week = await client.currentWeek.get();
+    const week = await client.schedule.getCurrentWeek();
     const groupUpdate = await client.lastUpdate.byGroup({ id: 123 });
     const employeeUpdate = await client.lastUpdate.byEmployee({ urlId: "s-nesterenkov" });
 

@@ -8,6 +8,18 @@ This changelog is maintained manually and updated in release commits.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-03-19
+
+### Removed
+
+- `client.currentWeek` namespace; use `client.schedule.getCurrentWeek()` only.
+
+### Changed
+
+- README: Quick start and “Raw vs normalized” explicitly tie examples to the default normalized
+  shape vs `{ raw: true }`; document `lessons`, `scheduleLessons`, and `examLessons`; note keeping
+  README and installed package version in sync with exported types.
+
 ## [0.3.0] - 2026-03-19
 
 ### Changed (0.3.0)

@@ -53,10 +53,7 @@ export function createBsuirClient(options: BsuirClientOptions = {}) {
     specialities: createSpecialitiesModule(config),
     announcements: createAnnouncementsModule(config),
     auditories: createAuditoriesModule(config),
-    lastUpdate: createLastUpdateModule(config),
-    currentWeek: {
-      get: schedule.getCurrentWeek
-    }
+    lastUpdate: createLastUpdateModule(config)
   };
 }
 

@@ -10,12 +10,15 @@ npm install bsuir-iis-api
 
 ## Quick start
 
+Default schedule calls return a **normalized** payload (`defaultRaw: false`). That shape includes `lessons`, `lessonsByDay`, `scheduleLessons`, and `examLessons` (see types). With `{ raw: true }` you get the API’s raw `ScheduleResponse` instead—no `lessons` field; use `schedules` / `exams` and match examples to the option you use.
+
 ```ts
 import { createBsuirClient } from "bsuir-iis-api";
 
 const client = createBsuirClient();
 
 const schedule = await client.schedule.getGroup("053503");
+// Normalized: `lessons` = weekly + exams flattened; see `scheduleLessons` / `examLessons` to split.
 console.log(schedule.lessons.length);
 ```
 
@@ -68,7 +71,6 @@ const client = createBsuirClient({
 
 ### Meta
 
-- `client.currentWeek.get(options?)` (alias to `client.schedule.getCurrentWeek`)
 - `client.lastUpdate.byGroup({ groupNumber } | { id }, options?)`
 - `client.lastUpdate.byEmployee({ urlId } | { id }, options?)`
 
@@ -97,8 +99,7 @@ Retry and abort behavior:
 
 ## Raw vs normalized schedule response
 
-By default, schedule methods return normalized response with `lessons`, `lessonsByDay`,
-`scheduleLessons`, and `examLessons`.
+By default, schedule methods return a **normalized** `NormalizedScheduleResponse`: `lessons` is all flattened items (weekly + exams), each tagged with `source: "schedules" | "exams"`; `scheduleLessons` / `examLessons` are the same rows split by source; `lessonsByDay` groups by weekday.
 
 ```ts
 const raw = await client.schedule.getGroup("053503", { raw: true });
@@ -108,10 +109,11 @@ Use `defaultRaw: true` in `createBsuirClient` to change global behavior.
 When `raw` is omitted, `getGroup()` and `getEmployee()` return normalized payload.
 In raw mode API may return `schedules: null`; normalized mode always converts it to `{}`.
 In raw mode some lesson fields may also be nullable (`weekNumber`, `lessonTypeAbbrev`), so keep null checks if you consume raw payload directly.
+README examples match the installed package version; if types and docs ever diverge, rely on `NormalizedScheduleResponse` / `ScheduleResponse` from the same release.
 
 ## Current week
 
-`getCurrentWeek()` returns the current week value directly from IIS API.
+`client.schedule.getCurrentWeek()` returns the current week value directly from IIS API.
 The SDK normalizes `current-week` payloads, including plain-text responses like `1\n`.
 
 Filtering example:

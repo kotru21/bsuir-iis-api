@@ -7,7 +7,7 @@ describe("createBsuirClient", () => {
     const fetchImpl = vi.fn(async () => createJsonResponse({ body: 2 })) as unknown as typeof fetch;
     const client = createBsuirClient({ fetch: fetchImpl });
 
-    const week = await client.currentWeek.get();
+    const week = await client.schedule.getCurrentWeek();
     expect(week).toBe(2);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });

@@ -96,7 +96,7 @@ describeLive("live API contract", () => {
         await Promise.all([
           client.schedule.getGroup(workingGroupNumber),
           client.schedule.getEmployee(workingEmployeeUrlId),
-          client.currentWeek.get(),
+          client.schedule.getCurrentWeek(),
           client.lastUpdate.byGroup({ groupNumber: workingGroupNumber }),
           client.lastUpdate.byEmployee({ urlId: "s-nesterenkov" })
         ]);
