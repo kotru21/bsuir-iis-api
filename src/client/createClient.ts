@@ -5,7 +5,6 @@ import { createDepartmentsModule } from "../modules/departments";
 import { createEmployeesModule } from "../modules/employees";
 import { createFacultiesModule } from "../modules/faculties";
 import { createGroupsModule } from "../modules/groups";
-import { createLastUpdateModule } from "../modules/lastUpdate";
 import { createScheduleModule } from "../modules/schedule";
 import { createSpecialitiesModule } from "../modules/specialities";
 
@@ -52,8 +51,7 @@ export function createBsuirClient(options: BsuirClientOptions = {}) {
     departments: createDepartmentsModule(config),
     specialities: createSpecialitiesModule(config),
     announcements: createAnnouncementsModule(config),
-    auditories: createAuditoriesModule(config),
-    lastUpdate: createLastUpdateModule(config)
+    auditories: createAuditoriesModule(config)
   };
 }
 

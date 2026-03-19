@@ -97,8 +97,8 @@ describeLive("live API contract", () => {
           client.schedule.getGroup(workingGroupNumber),
           client.schedule.getEmployee(workingEmployeeUrlId),
           client.schedule.getCurrentWeek(),
-          client.lastUpdate.byGroup({ groupNumber: workingGroupNumber }),
-          client.lastUpdate.byEmployee({ urlId: "s-nesterenkov" })
+          client.schedule.getLastUpdateByGroup({ groupNumber: workingGroupNumber }),
+          client.schedule.getLastUpdateByEmployee({ urlId: "s-nesterenkov" })
         ]);
 
       expect(groupSchedule).toHaveProperty("lessons");

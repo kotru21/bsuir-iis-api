@@ -23,8 +23,8 @@ describe("meta modules", () => {
     const client = createBsuirClient({ fetch: fetchImpl });
 
     const week = await client.schedule.getCurrentWeek();
-    const groupUpdate = await client.lastUpdate.byGroup({ id: 123 });
-    const employeeUpdate = await client.lastUpdate.byEmployee({ urlId: "s-nesterenkov" });
+    const groupUpdate = await client.schedule.getLastUpdateByGroup({ id: 123 });
+    const employeeUpdate = await client.schedule.getLastUpdateByEmployee({ urlId: "s-nesterenkov" });
 
     expect(week).toBe(2);
     expect(groupUpdate.lastUpdateDate).toBe("23.02.2022");
@@ -34,14 +34,16 @@ describe("meta modules", () => {
   it("validates last update params", async () => {
     const client = createBsuirClient({ fetch: mockFetchSequence([]) });
 
-    await expect(client.lastUpdate.byGroup({ id: 0 })).rejects.toBeInstanceOf(BsuirValidationError);
-    await expect(client.lastUpdate.byGroup({ groupNumber: "05350A" })).rejects.toBeInstanceOf(
+    await expect(client.schedule.getLastUpdateByGroup({ id: 0 })).rejects.toBeInstanceOf(
       BsuirValidationError
     );
-    await expect(client.lastUpdate.byEmployee({ urlId: "" })).rejects.toBeInstanceOf(
+    await expect(client.schedule.getLastUpdateByGroup({ groupNumber: "05350A" })).rejects.toBeInstanceOf(
       BsuirValidationError
     );
-    await expect(client.lastUpdate.byEmployee({ urlId: "s/nesterenkov" })).rejects.toBeInstanceOf(
+    await expect(client.schedule.getLastUpdateByEmployee({ urlId: "" })).rejects.toBeInstanceOf(
+      BsuirValidationError
+    );
+    await expect(client.schedule.getLastUpdateByEmployee({ urlId: "s/nesterenkov" })).rejects.toBeInstanceOf(
       BsuirValidationError
     );
   });

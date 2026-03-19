@@ -69,11 +69,6 @@ const client = createBsuirClient({
 - `client.announcements.byEmployee(urlId, options?)`
 - `client.announcements.byDepartment(id, options?)`
 
-### Meta
-
-- `client.lastUpdate.byGroup({ groupNumber } | { id }, options?)`
-- `client.lastUpdate.byEmployee({ urlId } | { id }, options?)`
-
 ## Errors
 
 SDK throws typed errors:

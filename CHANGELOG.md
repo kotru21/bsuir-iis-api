@@ -8,6 +8,17 @@ This changelog is maintained manually and updated in release commits.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-03-19
+
+### Removed
+
+- `client.lastUpdate` namespace; use `client.schedule.getLastUpdateByGroup()` and
+  `client.schedule.getLastUpdateByEmployee()` instead.
+
+### Changed
+
+- README: dropped redundant “Meta” section (last-update calls are listed under Schedule).
+
 ## [0.4.0] - 2026-03-19
 
 ### Removed
