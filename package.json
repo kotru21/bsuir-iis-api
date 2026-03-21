@@ -1,6 +1,6 @@
 {
   "name": "bsuir-iis-api",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "Type-safe ESM SDK for BSUIR IIS API",
   "type": "module",
   "author": "kotru21",

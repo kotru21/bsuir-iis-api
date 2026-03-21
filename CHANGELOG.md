@@ -8,6 +8,12 @@ This changelog is maintained manually and updated in release commits.
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-03-21
+
+### Fixed
+
+- TypeScript: `mergeSignals` now types `AbortSignal.any` via a constructor intersection so projects compile when DOM/Node typings omit `any`.
+
 ## [0.6.1] - 2026-03-21
 
 ### Changed
