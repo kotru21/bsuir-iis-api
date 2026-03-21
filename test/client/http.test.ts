@@ -25,6 +25,24 @@ describe("requestJson", () => {
     expect(response.hello).toBe("world");
   });
 
+  it("throws BsuirApiError when JSON Content-Type body is not valid JSON", async () => {
+    const fetchImpl = mockFetchSequence([
+      new Response("{", {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      })
+    ]);
+    const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl, retries: 0 };
+
+    const error = await requestJson(config, "/faculties").catch((err: unknown) => err);
+    expect(error).toBeInstanceOf(BsuirApiError);
+    expect(error).toMatchObject({
+      message: "Invalid JSON response payload",
+      status: 200,
+      body: null
+    });
+  });
+
   it("throws BsuirApiError for non-2xx response", async () => {
     const fetchImpl = mockFetchSequence([
       createJsonResponse({ status: 500, body: { message: "Server error" } })

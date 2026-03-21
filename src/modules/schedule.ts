@@ -6,6 +6,7 @@ import type {
   FlattenedScheduleItem,
   NormalizedScheduleResponse,
   ScheduleFilterOptions,
+  ScheduleItem,
   ScheduleResponse
 } from "../types/schedule";
 import type { ApiDateResponse } from "../types/common";
@@ -22,6 +23,11 @@ const WEEKDAYS: Weekday[] = [
   "Суббота"
 ];
 
+function lessonAuditories(item: ScheduleItem): string[] {
+  const { auditories } = item;
+  return Array.isArray(auditories) ? auditories : [];
+}
+
 function normalizeSchedule(response: ScheduleResponse): NormalizedScheduleResponse {
   const lessons: FlattenedScheduleItem[] = [];
   const lessonsByDay: FlattenedLessonsByDay = {};
@@ -29,16 +35,27 @@ function normalizeSchedule(response: ScheduleResponse): NormalizedScheduleRespon
   const safeExams = response.exams ?? [];
   for (const day of WEEKDAYS) {
     const dayItems = safeSchedules[day] ?? [];
-    const flattenedDayItems = dayItems.map((item) => ({ ...item, day, source: "schedules" as const }));
+    const flattenedDayItems = dayItems.map((item) => ({
+      ...item,
+      auditories: lessonAuditories(item),
+      day,
+      source: "schedules" as const
+    }));
     lessonsByDay[day] = flattenedDayItems;
     for (const item of dayItems) {
-      lessons.push({ ...item, day, source: "schedules" });
+      lessons.push({
+        ...item,
+        auditories: lessonAuditories(item),
+        day,
+        source: "schedules"
+      });
     }
   }
 
   for (const exam of safeExams) {
     lessons.push({
       ...exam,
+      auditories: lessonAuditories(exam),
       day: null,
       // Exams are not grouped by weekday in API response.
       source: "exams"
@@ -102,7 +119,7 @@ function matchesFilter(item: FlattenedScheduleItem, filter: ScheduleFilterOption
     }
   }
 
-  if (filter.auditory && !item.auditories.includes(filter.auditory)) {
+  if (filter.auditory && !lessonAuditories(item).includes(filter.auditory)) {
     return false;
   }
 
@@ -147,7 +164,7 @@ export function createScheduleModule(config: InternalClientConfig) {
       config,
       `/employees/schedule/${encodeURIComponent(urlId)}`,
       {
-      signal: options.signal
+        signal: options.signal
       }
     );
     const result = options.raw ?? config.defaultRaw ? response : normalizeSchedule(response);

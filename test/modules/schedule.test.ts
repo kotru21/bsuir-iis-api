@@ -314,4 +314,19 @@ describe("schedule module", () => {
 
     expect(filtered).toHaveLength(0);
   });
+
+  it("treats nullish auditories as empty when filtering by auditory", async () => {
+    const payload = buildScheduleResponse();
+    (payload.schedules!.Понедельник![0] as { auditories: string[] | null }).auditories = null;
+
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: payload })]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+
+    const filtered = await client.schedule.getGroupFiltered("053503", {
+      source: "schedules",
+      auditory: "101-1"
+    });
+
+    expect(filtered).toHaveLength(0);
+  });
 });

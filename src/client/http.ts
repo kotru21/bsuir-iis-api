@@ -1,4 +1,5 @@
 import { BsuirApiError, BsuirNetworkError, BsuirTimeoutError } from "./errors";
+import { mergeSignals } from "./mergeSignals";
 import type { InternalClientConfig, QueryParams, RequestOptions } from "./types";
 import { isAbortError } from "../utils/guards";
 
@@ -19,18 +20,6 @@ function buildUrl(baseUrl: string, path: string, query?: QueryParams): string {
   }
 
   return url.toString();
-}
-
-function mergeSignals(signal: AbortSignal | undefined, timeoutMs: number): AbortSignal {
-  if (typeof AbortSignal.any === "function") {
-    return AbortSignal.any([AbortSignal.timeout(timeoutMs), signal].filter(Boolean) as AbortSignal[]);
-  }
-
-  if (signal) {
-    return signal;
-  }
-
-  return AbortSignal.timeout(timeoutMs);
 }
 
 function sleep(ms: number): Promise<void> {

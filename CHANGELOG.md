@@ -8,6 +8,24 @@ This changelog is maintained manually and updated in release commits.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-03-21
+
+### Fixed
+
+- Apply per-request timeout together with a caller `AbortSignal` when `AbortSignal.any` is unavailable, using `AbortController` and `setTimeout` (`src/client/mergeSignals.ts`).
+
+### Changed
+
+- Schedule normalization and filtering treat missing or non-array `auditories` as empty to avoid runtime errors on malformed API payloads.
+
+### Added
+
+- Tests for invalid JSON on successful responses with `Content-Type: application/json` and for manual abort/timeout signal merging.
+
+### Documentation
+
+- README: runtime requirements (`engines`, `fetch`, `AbortSignal`, and timeout merge behavior).
+
 ## [0.5.0] - 2026-03-19
 
 ### Removed

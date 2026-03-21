@@ -2,6 +2,12 @@
 
 Type-safe ESM SDK for [BSUIR IIS API](https://iis.bsuir.by/api/) with support for Node.js and browser runtimes. Example project exist in [this repo](https://github.com/kotru21/BsuirRasp).
 
+## Runtime requirements
+
+- **Node.js** `>=24` as declared in `package.json` (`engines`).
+- A global **`fetch`** implementation, or pass `fetch` into `createBsuirClient({ fetch })` (for tests or polyfills).
+- **`AbortController` / `AbortSignal`** for cancellation and timeouts. When `AbortSignal.any` is available (current Node and modern browsers), the client combines the per-request timeout with your `signal` using the platform API; otherwise it merges them manually with `setTimeout`, so timeouts still apply together with a caller-provided `AbortSignal`.
+
 ## Install
 
 ```bash
