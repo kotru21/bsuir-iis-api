@@ -8,6 +8,12 @@ This changelog is maintained manually and updated in release commits.
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-03-21
+
+### Changed
+
+- Dev tooling: bumped `@changesets/cli`, `@typescript-eslint/*`, `eslint`, and `typescript-eslint`.
+
 ## [0.6.0] - 2026-03-21
 
 ### Fixed
