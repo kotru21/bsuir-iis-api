@@ -77,13 +77,13 @@ const client = createBsuirClient({
 - `client.announcements.byEmployee(urlId, options?)`
 - `client.announcements.byDepartment(id, options?)`
 
-When IIS responds with HTTP `404` (no announcements or missing resource in their API), these methods resolve to an empty array `[]` instead of throwing `BsuirApiError`. Other HTTP errors are unchanged.
+When IIS responds with HTTP `404` or `400` (no list, missing resource, or endpoint quirks), these methods resolve to an empty array `[]` instead of throwing `BsuirApiError`. Client-side validation still runs first (`urlId`, department `id`). If IIS later returns a meaningful `400` for bad parameters, it will also map to `[]`; other HTTP errors are unchanged.
 
 ## Errors
 
 SDK throws typed errors:
 
-- `BsuirApiError` for HTTP errors (contains `status`, `endpoint`, `body`)
+- `BsuirApiError` for HTTP errors (contains `status`, `endpoint`, `body`). **Exception:** `client.announcements.byEmployee` / `byDepartment` resolve to `[]` on IIS HTTP `404` or `400` instead of throwing (see Announcements above).
 - `BsuirNetworkError` for transport errors (contains `endpoint`, `causeError`, and standard `cause`)
 - `BsuirTimeoutError` for timeouts (contains `endpoint`, `timeoutMs`)
 - `BsuirValidationError` for invalid input parameters

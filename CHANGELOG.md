@@ -8,6 +8,16 @@ This changelog is maintained manually and updated in release commits.
 
 ## [Unreleased]
 
+## [0.6.5] - 2026-03-22
+
+### Fixed
+
+- Announcements: HTTP `400` from IIS for `byEmployee` and `byDepartment` is treated as an empty list (same as `404`) instead of throwing `BsuirApiError`.
+
+### Documentation
+
+- README and JSDoc: announcements also map HTTP `400` to an empty list.
+
 ## [0.6.4] - 2026-03-22
 
 ### Fixed

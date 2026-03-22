@@ -43,8 +43,19 @@ describe("announcements module", () => {
     await expect(client.announcements.byDepartment(20027)).resolves.toEqual([]);
   });
 
-  it("still propagates non-404 API errors", async () => {
-    const fetchImpl = mockFetchSequence([createJsonResponse({ status: 400, body: { error: "x" } })]);
+  it("treats HTTP 400 as an empty list", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ status: 400, body: { error: "x" } }),
+      createJsonResponse({ status: 400, body: { error: "x" } })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+
+    await expect(client.announcements.byEmployee("s-nesterenkov")).resolves.toEqual([]);
+    await expect(client.announcements.byDepartment(20027)).resolves.toEqual([]);
+  });
+
+  it("still propagates other API errors", async () => {
+    const fetchImpl = mockFetchSequence([createJsonResponse({ status: 403, body: { error: "x" } })]);
     const client = createBsuirClient({ fetch: fetchImpl });
 
     await expect(client.announcements.byEmployee("s-nesterenkov")).rejects.toBeInstanceOf(

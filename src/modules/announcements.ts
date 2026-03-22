@@ -5,6 +5,8 @@ import type { Announcement } from "../types/announcement";
 import { assertEmployeeUrlId, assertPositiveInt } from "../utils/guards";
 import type { ReadOptions } from "./types";
 
+const ANNOUNCEMENT_EMPTY_LIST_STATUSES = new Set<number>([404, 400]);
+
 async function requestAnnouncementList(
   config: InternalClientConfig,
   path: string,
@@ -13,7 +15,7 @@ async function requestAnnouncementList(
   try {
     return await requestJson<Announcement[]>(config, path, options);
   } catch (error) {
-    if (error instanceof BsuirApiError && error.status === 404) {
+    if (error instanceof BsuirApiError && ANNOUNCEMENT_EMPTY_LIST_STATUSES.has(error.status)) {
       return [];
     }
     throw error;
@@ -23,7 +25,7 @@ async function requestAnnouncementList(
 export function createAnnouncementsModule(config: InternalClientConfig) {
   return {
     /**
-     * Lists announcements for an employee. IIS may return HTTP `404`; the SDK maps that to `[]`.
+     * Lists announcements for an employee. IIS may return HTTP `404` or `400` (no list / endpoint quirks); the SDK maps those to `[]`.
      */
     async byEmployee(urlId: string, options: ReadOptions = {}): Promise<Announcement[]> {
       assertEmployeeUrlId(urlId, "urlId");
@@ -34,7 +36,7 @@ export function createAnnouncementsModule(config: InternalClientConfig) {
     },
 
     /**
-     * Lists announcements for a department. IIS may return HTTP `404`; the SDK maps that to `[]`.
+     * Lists announcements for a department. IIS may return HTTP `404` or `400` (no list / endpoint quirks); the SDK maps those to `[]`.
      */
     async byDepartment(id: number, options: ReadOptions = {}): Promise<Announcement[]> {
       assertPositiveInt(id, "id");
