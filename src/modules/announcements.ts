@@ -1,24 +1,46 @@
-import type { InternalClientConfig } from "../client/types";
+import { BsuirApiError } from "../client/errors";
 import { requestJson } from "../client/http";
-import { assertEmployeeUrlId, assertPositiveInt } from "../utils/guards";
+import type { InternalClientConfig } from "../client/types";
 import type { Announcement } from "../types/announcement";
+import { assertEmployeeUrlId, assertPositiveInt } from "../utils/guards";
 import type { ReadOptions } from "./types";
+
+async function requestAnnouncementList(
+  config: InternalClientConfig,
+  path: string,
+  options: ReadOptions & { query: Record<string, string | number> }
+): Promise<Announcement[]> {
+  try {
+    return await requestJson<Announcement[]>(config, path, options);
+  } catch (error) {
+    if (error instanceof BsuirApiError && error.status === 404) {
+      return [];
+    }
+    throw error;
+  }
+}
 
 export function createAnnouncementsModule(config: InternalClientConfig) {
   return {
+    /**
+     * Lists announcements for an employee. IIS may return HTTP `404`; the SDK maps that to `[]`.
+     */
     async byEmployee(urlId: string, options: ReadOptions = {}): Promise<Announcement[]> {
       assertEmployeeUrlId(urlId, "urlId");
-      return requestJson<Announcement[]>(config, "/announcements/employees", {
-        query: { "url-id": urlId },
-        signal: options.signal
+      return requestAnnouncementList(config, "/announcements/employees", {
+        ...options,
+        query: { "url-id": urlId }
       });
     },
 
+    /**
+     * Lists announcements for a department. IIS may return HTTP `404`; the SDK maps that to `[]`.
+     */
     async byDepartment(id: number, options: ReadOptions = {}): Promise<Announcement[]> {
       assertPositiveInt(id, "id");
-      return requestJson<Announcement[]>(config, "/announcements/departments", {
-        query: { id },
-        signal: options.signal
+      return requestAnnouncementList(config, "/announcements/departments", {
+        ...options,
+        query: { id }
       });
     }
   };

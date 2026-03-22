@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createBsuirClient } from "../../src";
-import { BsuirValidationError } from "../../src/client/errors";
+import { BsuirApiError, BsuirValidationError } from "../../src/client/errors";
 import { createJsonResponse, mockFetchSequence } from "../helpers/fetchMock";
 
 describe("announcements module", () => {
@@ -30,5 +30,25 @@ describe("announcements module", () => {
       BsuirValidationError
     );
     await expect(client.announcements.byDepartment(0)).rejects.toBeInstanceOf(BsuirValidationError);
+  });
+
+  it("treats HTTP 404 as an empty list", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ status: 404, body: {} }),
+      createJsonResponse({ status: 404, body: {} })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+
+    await expect(client.announcements.byEmployee("s-nesterenkov")).resolves.toEqual([]);
+    await expect(client.announcements.byDepartment(20027)).resolves.toEqual([]);
+  });
+
+  it("still propagates non-404 API errors", async () => {
+    const fetchImpl = mockFetchSequence([createJsonResponse({ status: 400, body: { error: "x" } })]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+
+    await expect(client.announcements.byEmployee("s-nesterenkov")).rejects.toBeInstanceOf(
+      BsuirApiError
+    );
   });
 });

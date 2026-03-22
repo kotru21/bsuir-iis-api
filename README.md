@@ -77,6 +77,8 @@ const client = createBsuirClient({
 - `client.announcements.byEmployee(urlId, options?)`
 - `client.announcements.byDepartment(id, options?)`
 
+When IIS responds with HTTP `404` (no announcements or missing resource in their API), these methods resolve to an empty array `[]` instead of throwing `BsuirApiError`. Other HTTP errors are unchanged.
+
 ## Errors
 
 SDK throws typed errors:

@@ -123,7 +123,7 @@ describeLive("live API contract", () => {
       try {
         departmentAnnouncements = await client.announcements.byDepartment(20027);
       } catch (error) {
-        if (error instanceof BsuirApiError && [400, 404, 422].includes(error.status)) {
+        if (error instanceof BsuirApiError && [400, 422].includes(error.status)) {
           departmentAnnouncements = [];
         } else {
           throw error;
