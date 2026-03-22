@@ -8,6 +8,16 @@ This changelog is maintained manually and updated in release commits.
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-03-22
+
+### Documentation
+
+- README and JSDoc: IIS `/last-update-date/*` routes are legacy and may return errors for newer group identifiers (e.g. six-digit `524404`); `ApiDateResponse` described as legacy payload.
+
+### Fixed
+
+- Live contract test: tolerate `BsuirApiError` from `getLastUpdateByGroup` when the legacy IIS endpoint fails for the sampled working group.
+
 ## [0.6.2] - 2026-03-21
 
 ### Fixed

@@ -6,6 +6,7 @@ export type Weekday =
   | "Пятница"
   | "Суббота";
 
+/** Payload from IIS legacy `last-update-date/*` endpoints (`schedule.getLastUpdateByGroup` / `getLastUpdateByEmployee`). */
 export interface ApiDateResponse {
   lastUpdateDate: string;
 }

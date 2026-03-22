@@ -61,6 +61,8 @@ const client = createBsuirClient({
 - `client.schedule.getLastUpdateByGroup({ groupNumber } | { id }, options?)`
 - `client.schedule.getLastUpdateByEmployee({ urlId } | { id }, options?)`
 
+**Last update (legacy IIS).** The upstream routes `/last-update-date/student-group` and `/last-update-date/employee` are legacy on the BSUIR IIS side and are no longer maintained. For newer group identifiers (six-digit numbers such as `524404`), the student-group endpoint may respond with an error; do not rely on these calls for cache freshness or invalidation for such groups.
+
 ### Catalogs
 
 - `client.groups.listAll(options?)`

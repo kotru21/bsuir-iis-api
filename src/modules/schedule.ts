@@ -236,6 +236,10 @@ export function createScheduleModule(config: InternalClientConfig) {
 
     getCurrentWeek,
 
+    /**
+     * Calls IIS `/last-update-date/student-group`. That route is legacy and unsupported on the server;
+     * it may return an error for newer group numbers (e.g. six-digit `524404`).
+     */
     async getLastUpdateByGroup(
       params: { groupNumber: string } | { id: number },
       options: ReadOptions = {}
@@ -254,6 +258,10 @@ export function createScheduleModule(config: InternalClientConfig) {
       });
     },
 
+    /**
+     * Calls IIS `/last-update-date/employee`. That route is legacy and unsupported on the server; prefer
+     * not relying on it for critical cache logic.
+     */
     async getLastUpdateByEmployee(
       params: { urlId: string } | { id: number },
       options: ReadOptions = {}
