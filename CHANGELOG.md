@@ -8,6 +8,12 @@ This changelog is maintained manually and updated in release commits.
 
 ## [Unreleased]
 
+## [0.6.6] - 2026-03-23
+
+### Changed
+
+- Dev tooling: bumped `@typescript-eslint/*`, `typescript-eslint`, `vitest`, `@vitest/coverage-v8`, `prettier`, `tsup`; regenerated `package-lock.json`. TypeScript remains on 5.9.x until `@typescript-eslint` widens its peer range for TypeScript 6.
+
 ## [0.6.5] - 2026-03-22
 
 ### Fixed
