@@ -8,6 +8,18 @@ This changelog is maintained manually and updated in release commits.
 
 ## [Unreleased]
 
+## [0.6.7] - 2026-04-02
+
+### Changed
+
+- Dev tooling: bumped TypeScript to 6.x, `@typescript-eslint/*` and `typescript-eslint` to ^8.58.0, `vitest` and `@vitest/coverage-v8` to ^4.1.2; added `@microsoft/api-extractor` for declaration emit; regenerated `package-lock.json`.
+- Build: enable tsup [`experimentalDts`](https://tsup.egoist.dev/) (API Extractor) instead of the default DTS plugin so declaration builds work on TypeScript 6 without relying on deprecated `baseUrl` injection.
+- Dev: npm [`overrides`](https://docs.npmjs.com/cli/v10/configuring-npm/package-json#overrides) pin transitive `lodash` to ^4.17.24 so `npm audit` stays clean with `@microsoft/api-extractor`.
+
+### Documentation
+
+- README: note on `experimentalDts` / API Extractor and TypeScript [`paths` without `baseUrl`](https://www.typescriptlang.org/docs/handbook/modules/reference.html).
+
 ## [0.6.6] - 2026-03-23
 
 ### Changed

@@ -144,6 +144,8 @@ npm run check
 npm run build
 ```
 
+`npm run build` uses [tsup](https://tsup.egoist.dev/) with [`experimentalDts`](https://tsup.egoist.dev/) so `.d.ts` output is produced via `@microsoft/api-extractor` rather than the legacy Rollup declaration path (which is awkward with TypeScript 6’s `baseUrl` deprecation). TypeScript’s handbook notes that [`paths` can be used without `baseUrl`](https://www.typescriptlang.org/docs/handbook/modules/reference.html) when you need path mapping.
+
 Linting uses ESLint flat config with strict type-aware TypeScript rules for `src`,
 plus test-specific overrides for `test` and `vitest.config.ts`.
 
