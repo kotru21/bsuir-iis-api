@@ -12,6 +12,10 @@ This changelog is maintained manually and updated in release commits.
 
 - `BsuirConfigurationError` when the runtime has no `fetch` and none was passed to `createBsuirClient({ fetch })`.
 
+### Documentation
+
+- README: section **Successful HTTP responses (body parsing)** for JSON vs empty-body behavior on 2xx responses.
+
 ### Changed
 
 - Successful HTTP responses: JSON bodies are parsed even when the server omits `application/json` in `Content-Type`; if the header declares JSON and the body is invalid JSON or empty, behavior unchanged (`BsuirApiError`).

@@ -103,6 +103,14 @@ Retry and abort behavior:
 
 `createBsuirClient()` throws `BsuirConfigurationError` if no `fetch` implementation is available.
 
+## Successful HTTP responses (body parsing)
+
+For **2xx** responses the client reads the body as text, then applies `JSON.parse` when the payload is valid JSON:
+
+- Valid JSON is returned even when `Content-Type` does **not** include `application/json` (mislabeled responses still parse).
+- If `Content-Type` indicates **`application/json`** but the body is empty or not valid JSON, the client throws `BsuirApiError` (`Invalid JSON response payload`), same as for a truncated `{` payload.
+- If the body is **empty** and the content type does **not** indicate JSON, the result is an empty string `""` (analogous to reading plain text). Typical IIS catalog JSON endpoints return a non-empty body.
+
 ## Raw vs normalized schedule response
 
 By default, schedule methods return a **normalized** `NormalizedScheduleResponse`: `lessons` is all flattened items (weekly + exams), each tagged with `source: "schedules" | "exams"`; `scheduleLessons` / `examLessons` are the same rows split by source; `lessonsByDay` groups by weekday.
