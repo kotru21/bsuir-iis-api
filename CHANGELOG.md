@@ -8,6 +8,10 @@ This changelog is maintained manually and updated in release commits.
 
 ## [Unreleased]
 
+### Changed
+
+- Dev tooling: bumped TypeScript to 6.0.3, ESLint to ^10.2.1, Vitest and `@vitest/coverage-v8` to ^4.1.4, `@types/node` to ^25.6.0, `@typescript-eslint/*` and `typescript-eslint` to ^8.58.2, `@changesets/cli` to ^2.31.0, `@microsoft/api-extractor` to ^7.58.5, Prettier to ^3.8.3, `globals` to ^17.5.0; regenerated `package-lock.json`.
+
 ## [0.7.0] - 2026-04-19
 
 ### Added
