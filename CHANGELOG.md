@@ -8,19 +8,22 @@ This changelog is maintained manually and updated in release commits.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-04-19
+
 ### Added
 
 - `BsuirConfigurationError` when the runtime has no `fetch` and none was passed to `createBsuirClient({ fetch })`.
 
-### Documentation
-
-- README: section **Successful HTTP responses (body parsing)** for JSON vs empty-body behavior on 2xx responses.
-
 ### Changed
 
-- Successful HTTP responses: JSON bodies are parsed even when the server omits `application/json` in `Content-Type`; if the header declares JSON and the body is invalid JSON or empty, behavior unchanged (`BsuirApiError`).
-- Successful HTTP responses with an empty body and without a JSON `Content-Type` yield an empty string (same as returning `response.text()` for a non-JSON success).
-- Supported Node.js versions: `>=20` (CI runs Node 20, 22, and 24).
+- HTTP client (2xx): valid JSON is parsed even when the server omits `application/json` in `Content-Type`; if the header declares JSON and the body is invalid, empty, or truncated, `BsuirApiError` (`Invalid JSON response payload`) is thrown; an empty body without a JSON `Content-Type` yields an empty string `""`.
+- `package.json` `engines.node`: `>=20.0.0`. GitHub Actions **CI** runs on Node.js 20, 22, and 24 (`fail-fast: false`).
+
+### Documentation
+
+- README: **Runtime requirements** (Node 20+ and CI), **Errors** (`BsuirConfigurationError`), **Successful HTTP responses (body parsing)**.
+- JSDoc on catalog `listAll` methods (student groups, employees, faculties, departments, specialities, auditories), including caller abort / `AbortError` behavior.
+- `.cursorrules` in the repository aligned with ESM-only build and the actual stack (Vitest, tsup, ESLint, native `fetch`).
 
 ## [0.6.7] - 2026-04-02
 
