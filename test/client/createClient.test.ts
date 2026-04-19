@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createBsuirClient } from "../../src";
+import { BsuirConfigurationError, createBsuirClient } from "../../src";
 import { createJsonResponse } from "../helpers/fetchMock";
 
 describe("createBsuirClient", () => {
@@ -12,9 +12,10 @@ describe("createBsuirClient", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
-  it("throws when neither custom nor global fetch is available", () => {
+  it("throws BsuirConfigurationError when neither custom nor global fetch is available", () => {
     vi.stubGlobal("fetch", undefined);
     try {
+      expect(() => createBsuirClient()).toThrow(BsuirConfigurationError);
       expect(() => createBsuirClient()).toThrow(
         "Global fetch is unavailable. Provide 'fetch' in createBsuirClient options."
       );

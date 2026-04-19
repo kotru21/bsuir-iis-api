@@ -50,3 +50,11 @@ export class BsuirValidationError extends Error {
     this.name = "BsuirValidationError";
   }
 }
+
+export class BsuirConfigurationError extends Error {
+  constructor(message: string) {
+    super(message);
+    fixErrorPrototype(this, BsuirConfigurationError.prototype);
+    this.name = "BsuirConfigurationError";
+  }
+}

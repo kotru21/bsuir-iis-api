@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   BsuirApiError,
+  BsuirConfigurationError,
   BsuirNetworkError,
   BsuirTimeoutError,
   BsuirValidationError,
@@ -15,6 +16,7 @@ describe("public api", () => {
 
     expect(client).toHaveProperty("schedule");
     expect(BsuirApiError).toBeDefined();
+    expect(BsuirConfigurationError).toBeDefined();
     expect(BsuirNetworkError).toBeDefined();
     expect(BsuirTimeoutError).toBeDefined();
     expect(BsuirValidationError).toBeDefined();

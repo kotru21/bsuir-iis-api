@@ -1,3 +1,4 @@
+import { BsuirConfigurationError } from "./errors";
 import type { BsuirClientOptions, InternalClientConfig } from "./types";
 import { createAnnouncementsModule } from "../modules/announcements";
 import { createAuditoriesModule } from "../modules/auditories";
@@ -16,7 +17,9 @@ function resolveFetch(customFetch?: typeof globalThis.fetch): typeof globalThis.
   }
 
   if (typeof globalThis.fetch !== "function") {
-    throw new Error("Global fetch is unavailable. Provide 'fetch' in createBsuirClient options.");
+    throw new BsuirConfigurationError(
+      "Global fetch is unavailable. Provide 'fetch' in createBsuirClient options."
+    );
   }
 
   return globalThis.fetch;

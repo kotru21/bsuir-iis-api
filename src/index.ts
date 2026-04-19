@@ -5,6 +5,7 @@ export type { BsuirClientOptions, RequestOptions } from "./client/types";
 export type { ReadOptions } from "./modules/types";
 export {
   BsuirApiError,
+  BsuirConfigurationError,
   BsuirNetworkError,
   BsuirTimeoutError,
   BsuirValidationError
