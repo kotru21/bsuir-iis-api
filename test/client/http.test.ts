@@ -25,6 +25,19 @@ describe("requestJson", () => {
     expect(response.hello).toBe("world");
   });
 
+  it("parses JSON success body even when Content-Type omits application/json", async () => {
+    const fetchImpl = mockFetchSequence([
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "Content-Type": "text/plain; charset=utf-8" }
+      })
+    ]);
+    const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl, retries: 0 };
+
+    const response = await requestJson<{ ok: boolean }>(config, "/faculties");
+    expect(response.ok).toBe(true);
+  });
+
   it("throws BsuirApiError when JSON Content-Type body is not valid JSON", async () => {
     const fetchImpl = mockFetchSequence([
       new Response("{", {

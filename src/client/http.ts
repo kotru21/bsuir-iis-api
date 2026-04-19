@@ -66,14 +66,18 @@ function getRetryDelayMs(
 
 async function parseBody(response: Response): Promise<unknown> {
   const contentType = response.headers.get("content-type") ?? "";
-  if (!contentType.includes("application/json")) {
-    return response.text();
+  const declaredJson = contentType.includes("application/json");
+  const text = await response.text();
+  if (text.length === 0) {
+    return null;
   }
-
   try {
-    return await response.json();
+    return JSON.parse(text) as unknown;
   } catch {
-    throw new BsuirApiError("Invalid JSON response payload", response.status, response.url, null);
+    if (declaredJson) {
+      throw new BsuirApiError("Invalid JSON response payload", response.status, response.url, null);
+    }
+    return text;
   }
 }
 
