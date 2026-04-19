@@ -7,6 +7,7 @@ export function createGroupsModule(config: InternalClientConfig) {
   return {
     /**
      * Returns the full list of student groups from `/student-groups`.
+     * If the caller aborts `options.signal`, the platform propagates `AbortError` (not wrapped by the SDK).
      *
      * @throws {BsuirApiError} When the API returns a non-success HTTP status
      * @throws {BsuirNetworkError} On transport failures after retries

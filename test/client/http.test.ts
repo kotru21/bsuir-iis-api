@@ -38,6 +38,31 @@ describe("requestJson", () => {
     expect(response.ok).toBe(true);
   });
 
+  it("throws BsuirApiError when Content-Type is JSON but success body is empty", async () => {
+    const fetchImpl = mockFetchSequence([
+      new Response("", {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      })
+    ]);
+    const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl, retries: 0 };
+
+    await expect(requestJson(config, "/faculties")).rejects.toBeInstanceOf(BsuirApiError);
+  });
+
+  it("returns empty string when success body is empty and Content-Type is not JSON", async () => {
+    const fetchImpl = mockFetchSequence([
+      new Response("", {
+        status: 200,
+        headers: { "Content-Type": "text/plain; charset=utf-8" }
+      })
+    ]);
+    const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl, retries: 0 };
+
+    const body = await requestJson<string>(config, "/faculties");
+    expect(body).toBe("");
+  });
+
   it("throws BsuirApiError when JSON Content-Type body is not valid JSON", async () => {
     const fetchImpl = mockFetchSequence([
       new Response("{", {

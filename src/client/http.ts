@@ -69,7 +69,10 @@ async function parseBody(response: Response): Promise<unknown> {
   const declaredJson = contentType.includes("application/json");
   const text = await response.text();
   if (text.length === 0) {
-    return null;
+    if (declaredJson) {
+      throw new BsuirApiError("Invalid JSON response payload", response.status, response.url, null);
+    }
+    return "";
   }
   try {
     return JSON.parse(text) as unknown;

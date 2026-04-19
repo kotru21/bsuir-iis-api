@@ -7,6 +7,7 @@ export function createEmployeesModule(config: InternalClientConfig) {
   return {
     /**
      * Returns the full list of employees from `/employees/all`.
+     * If the caller aborts `options.signal`, the platform propagates `AbortError` (not wrapped by the SDK).
      *
      * @throws {BsuirApiError} When the API returns a non-success HTTP status
      * @throws {BsuirNetworkError} On transport failures after retries

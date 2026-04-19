@@ -15,8 +15,14 @@ describe("createBsuirClient", () => {
   it("throws BsuirConfigurationError when neither custom nor global fetch is available", () => {
     vi.stubGlobal("fetch", undefined);
     try {
-      expect(() => createBsuirClient()).toThrow(BsuirConfigurationError);
-      expect(() => createBsuirClient()).toThrow(
+      let caught: unknown;
+      try {
+        createBsuirClient();
+      } catch (error) {
+        caught = error;
+      }
+      expect(caught).toBeInstanceOf(BsuirConfigurationError);
+      expect((caught as Error).message).toBe(
         "Global fetch is unavailable. Provide 'fetch' in createBsuirClient options."
       );
     } finally {

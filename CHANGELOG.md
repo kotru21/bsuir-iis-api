@@ -14,7 +14,8 @@ This changelog is maintained manually and updated in release commits.
 
 ### Changed
 
-- Successful HTTP responses: JSON bodies are parsed even when the server omits `application/json` in `Content-Type`; if the header declares JSON and the body is invalid JSON, behavior unchanged (`BsuirApiError`).
+- Successful HTTP responses: JSON bodies are parsed even when the server omits `application/json` in `Content-Type`; if the header declares JSON and the body is invalid JSON or empty, behavior unchanged (`BsuirApiError`).
+- Successful HTTP responses with an empty body and without a JSON `Content-Type` yield an empty string (same as returning `response.text()` for a non-JSON success).
 - Supported Node.js versions: `>=20` (CI runs Node 20, 22, and 24).
 
 ## [0.6.7] - 2026-04-02

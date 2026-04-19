@@ -2,7 +2,7 @@
 
 TypeScript npm library `bsuir-iis-api` — a typed HTTP client for BSUIR IIS REST API.
 - Runtime: Node.js 20+ (`engines`), ESM-only published build (`tsup` → `dist/index.js`)
-- Stack: TypeScript strict, [vitest / jest], [fetch / ky / axios]
+- Stack: TypeScript strict, Vitest, tsup, ESLint; HTTP via native `fetch` (pass a custom `fetch` in tests or polyfills where needed)
 - Public package: every exported type is part of the API contract
 
 # Core Principles
