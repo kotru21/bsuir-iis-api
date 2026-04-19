@@ -8,6 +8,15 @@ This changelog is maintained manually and updated in release commits.
 
 ## [Unreleased]
 
+### Added
+
+- `BsuirConfigurationError` when the runtime has no `fetch` and none was passed to `createBsuirClient({ fetch })`.
+
+### Changed
+
+- Successful HTTP responses: JSON bodies are parsed even when the server omits `application/json` in `Content-Type`; if the header declares JSON and the body is invalid JSON, behavior unchanged (`BsuirApiError`).
+- Supported Node.js versions: `>=20` (CI runs Node 20, 22, and 24).
+
 ## [0.6.7] - 2026-04-02
 
 ### Changed

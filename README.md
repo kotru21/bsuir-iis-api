@@ -87,6 +87,7 @@ SDK throws typed errors:
 - `BsuirNetworkError` for transport errors (contains `endpoint`, `causeError`, and standard `cause`)
 - `BsuirTimeoutError` for timeouts (contains `endpoint`, `timeoutMs`)
 - `BsuirValidationError` for invalid input parameters
+- `BsuirConfigurationError` when the runtime has no `fetch` and none was passed to `createBsuirClient({ fetch })`
 
 Validation rules:
 
@@ -100,7 +101,7 @@ Retry and abort behavior:
 - Caller-provided aborted `AbortSignal` is re-thrown as native `AbortError`
 - Internal timeout is mapped to `BsuirTimeoutError`
 
-`createBsuirClient()` throws regular `Error` if no `fetch` implementation is available.
+`createBsuirClient()` throws `BsuirConfigurationError` if no `fetch` implementation is available.
 
 ## Raw vs normalized schedule response
 
