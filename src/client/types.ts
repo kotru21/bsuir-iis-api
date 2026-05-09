@@ -104,6 +104,17 @@ export interface BsuirClientOptions {
   /**
    * Force raw API payload for schedule endpoints by default.
    * This changes return types for `schedule.getGroup/getEmployee` when `raw` is omitted.
+   *
+   * Per-call `raw` option always takes precedence over this default.
+   *
+   * @example
+   * ```ts
+   * const client = createBsuirClient({ defaultRaw: true });
+   * // Returns ScheduleResponse (raw)
+   * const raw = await client.schedule.getGroup("053503");
+   * // Returns NormalizedScheduleResponse (per-call override)
+   * const normalized = await client.schedule.getGroup("053503", { raw: false });
+   * ```
    */
   defaultRaw?: boolean;
 }

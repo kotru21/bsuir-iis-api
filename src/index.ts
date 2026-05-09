@@ -13,6 +13,7 @@ export type {
 } from "./client/types";
 export type { ReadOptions } from "./modules/types";
 export { filterLessons, normalizeSchedule } from "./modules/schedule";
+export type { ScheduleFilterOptions } from "./types/schedule";
 export {
   BsuirApiError,
   BsuirConfigurationError,

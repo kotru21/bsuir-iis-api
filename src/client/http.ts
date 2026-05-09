@@ -73,22 +73,15 @@ function setCache(config: Readonly<InternalClientConfig>, key: string, value: un
     }
   }
 
-  // Apply LRU eviction if still over capacity
+  // Apply pseudo-LRU eviction if still over capacity.
+  // Map preserves insertion order; the first key is the oldest-inserted entry,
+  // which serves as a fast O(1) approximation of LRU without a separate bookkeeping structure.
   while (config.responseCache.size > config.cacheMaxEntries) {
-    let lruKey: string | undefined;
-    let lruTime = Number.POSITIVE_INFINITY;
-
-    for (const [k, v] of config.responseCache) {
-      if (v.accessedAt < lruTime) {
-        lruTime = v.accessedAt;
-        lruKey = k;
-      }
-    }
-
-    if (lruKey === undefined) {
+    const firstKey = config.responseCache.keys().next().value;
+    if (firstKey === undefined) {
       break;
     }
-    config.responseCache.delete(lruKey);
+    config.responseCache.delete(firstKey);
   }
 }
 

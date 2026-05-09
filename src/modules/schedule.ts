@@ -182,6 +182,10 @@ export function filterLessons(
   response: NormalizedScheduleResponse,
   filter: ScheduleFilterOptions
 ): FlattenedScheduleItem[] {
+  // Validate weekNumber early — week 0 does not exist in BSUIR schedule
+  if (typeof filter.weekNumber === "number") {
+    assertPositiveInt(filter.weekNumber, "filter.weekNumber");
+  }
   return response.lessons.filter((item) => matchesFilter(item, filter));
 }
 
@@ -219,13 +223,7 @@ export function createScheduleModule<TRawDefault extends boolean>(
   ): Promise<ScheduleResponseByRawOption<TRaw, TRawDefault>> {
     assertEmployeeUrlId(urlId, "urlId");
     const endpoint = `/employees/schedule/${encodeURIComponent(urlId)}`;
-    const payload = await requestJson<unknown>(
-      config,
-      endpoint,
-      {
-        signal: options.signal
-      }
-    );
+    const payload = await requestJson<unknown>(config, endpoint, { signal: options.signal });
     if (config.validateResponses) {
       assertScheduleResponse(payload, endpoint);
     }
