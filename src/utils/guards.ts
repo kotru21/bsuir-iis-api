@@ -34,10 +34,12 @@ export function assertEmployeeUrlId(value: unknown, fieldName = "urlId"): assert
 }
 
 export function isAbortError(error: unknown): boolean {
+  // Browser: DOMException with name "AbortError"
   if (error instanceof DOMException && error.name === "AbortError") {
     return true;
   }
 
+  // Node.js: Error-like object with code "ABORT_ERR"
   if (typeof error === "object" && error !== null) {
     const maybeError = error as { name?: unknown; code?: unknown };
     return maybeError.name === "AbortError" || maybeError.code === "ABORT_ERR";

@@ -4,7 +4,7 @@ import { assertArrayResponse } from "../client/responseValidators";
 import type { Auditory } from "../types/catalog";
 import type { ReadOptions } from "./types";
 
-export function createAuditoriesModule(config: InternalClientConfig) {
+export function createAuditoriesModule(config: Readonly<InternalClientConfig>) {
   return {
     /**
      * Returns the full list of auditories from `/auditories`.

@@ -1,4 +1,9 @@
-// Maintains proper prototype chains for custom Error subclasses in transpiled outputs.
+/**
+ * Restores proper prototype chain for Error subclasses in transpiled outputs.
+ * TypeScript's ES<2015 transpilation breaks `class Foo extends Error`:
+ * the compiled function lacks Error.prototype in its chain. This restores it.
+ * See: https://github.com/microsoft/TypeScript/wiki/Breaking-Changes#extending-built-ins
+ */
 function fixErrorPrototype(instance: Error, prototype: object): void {
   Object.setPrototypeOf(instance, prototype);
 }

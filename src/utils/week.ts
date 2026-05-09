@@ -1,6 +1,9 @@
 import { BsuirValidationError } from "../client/errors";
 import { assertPositiveInt } from "./guards";
 
+// API response should never nest deeper than 2 levels; 10 is a generous safety cap to prevent stack overflow
+const MAX_PARSE_DEPTH = 10;
+
 /**
  * Normalizes current week payload from API to a positive integer.
  * API can return plain text (`"1\n"`) or number.
@@ -11,7 +14,7 @@ export function parseCurrentWeek(payload: unknown): number {
 
 function parseCurrentWeekInternal(payload: unknown, depth: number): number {
   // Prevent stack overflow from circular/deeply nested structures
-  if (depth > 10) {
+  if (depth > MAX_PARSE_DEPTH) {
     throw new BsuirValidationError("'currentWeek' response payload has excessive nesting depth");
   }
 

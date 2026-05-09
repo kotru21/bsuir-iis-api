@@ -4,7 +4,7 @@ import { assertArrayResponse } from "../client/responseValidators";
 import type { EmployeeCatalogItem } from "../types/employee";
 import type { ReadOptions } from "./types";
 
-export function createEmployeesModule(config: InternalClientConfig) {
+export function createEmployeesModule(config: Readonly<InternalClientConfig>) {
   return {
     /**
      * Returns the full list of employees from `/employees/all`.

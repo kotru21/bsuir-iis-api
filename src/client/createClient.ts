@@ -46,7 +46,15 @@ function assertIntegerOption(
 function createInternalConfig<TRawDefault extends boolean>(
   options: BsuirClientOptions & { defaultRaw: TRawDefault }
 ): InternalClientConfig<TRawDefault> {
+  const MAX_TIMEOUT_MS = 300_000; // 5 minutes — prevent setTimeout() overflow (max ~24.8 days)
+  
   const timeoutMs = assertIntegerOption(options.timeoutMs, "timeoutMs", 1) ?? 10_000;
+  if (timeoutMs > MAX_TIMEOUT_MS) {
+    throw new BsuirConfigurationError(
+      `'timeoutMs' must not exceed ${String(MAX_TIMEOUT_MS)}ms (5 minutes)`
+    );
+  }
+  
   const retries = assertIntegerOption(options.retries, "retries", 0) ?? 1;
   const retryDelayMs = assertIntegerOption(options.retryDelayMs, "retryDelayMs", 0) ?? 300;
   const retryMaxDelayMs =
@@ -79,7 +87,7 @@ function createInternalConfig<TRawDefault extends boolean>(
   };
 }
 
-function buildClient<TRawDefault extends boolean>(config: InternalClientConfig<TRawDefault>) {
+function buildClient<TRawDefault extends boolean>(config: Readonly<InternalClientConfig<TRawDefault>>) {
   const schedule = createScheduleModule(config);
 
   return {

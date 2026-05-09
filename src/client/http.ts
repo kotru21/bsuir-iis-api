@@ -1,10 +1,18 @@
 import { BsuirApiError, BsuirNetworkError, BsuirTimeoutError } from "./errors";
 import { mergeSignals } from "./mergeSignals";
-import type { InternalClientConfig, QueryParams, RequestMethod, RequestOptions } from "./types";
+import type {
+  ErrorHookContext,
+  InternalClientConfig,
+  QueryParams,
+  RequestHookContext,
+  RequestMethod,
+  RequestOptions,
+  ResponseHookContext,
+  RetryHookContext,
+} from "./types";
 import { isAbortError } from "../utils/guards";
 
 const RETRIABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
-type AbortSignalConstructor = typeof AbortSignal & { any?: (signals: AbortSignal[]) => AbortSignal };
 
 function buildUrl(baseUrl: string, path: string, query?: QueryParams): string {
   const normalizedBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
@@ -27,7 +35,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function tryReadCache(config: InternalClientConfig, key: string): unknown {
+function tryReadCache(config: Readonly<InternalClientConfig>, key: string): unknown {
   const entry = config.responseCache.get(key);
   if (!entry) {
     return undefined;
@@ -41,7 +49,7 @@ function tryReadCache(config: InternalClientConfig, key: string): unknown {
   return entry.value;
 }
 
-function setCache(config: InternalClientConfig, key: string, value: unknown): void {
+function setCache(config: Readonly<InternalClientConfig>, key: string, value: unknown): void {
   if (config.cacheTtlMs === undefined) {
     return;
   }
@@ -49,17 +57,23 @@ function setCache(config: InternalClientConfig, key: string, value: unknown): vo
   config.responseCache.set(key, {
     value,
     expiresAt: now + config.cacheTtlMs,
-    accessedAt: now
+    accessedAt: now,
   });
 
-  // O(n) linear scan: remove expired entries first to minimize evictions
+  // Only trigger cleanup when cache is approaching capacity (>90%) to avoid O(n) scan on every set
+  const cleanupThreshold = config.cacheMaxEntries * 0.9;
+  if (config.responseCache.size <= cleanupThreshold) {
+    return;
+  }
+
+  // Remove expired entries first
   for (const [k, v] of config.responseCache) {
     if (v.expiresAt <= now) {
       config.responseCache.delete(k);
     }
   }
 
-  // O(n) linear scan for LRU eviction — acceptable for default maxEntries ≤ 200
+  // Apply LRU eviction if still over capacity
   while (config.responseCache.size > config.cacheMaxEntries) {
     let lruKey: string | undefined;
     let lruTime = Number.POSITIVE_INFINITY;
@@ -80,7 +94,7 @@ function setCache(config: InternalClientConfig, key: string, value: unknown): vo
 
 function combineAbortSignals(
   first: AbortSignal | undefined,
-  second: AbortSignal | undefined
+  second: AbortSignal | undefined,
 ): AbortSignal | undefined {
   if (!first) {
     return second;
@@ -88,35 +102,8 @@ function combineAbortSignals(
   if (!second) {
     return first;
   }
-
-  const AbortSignalCtor = AbortSignal as AbortSignalConstructor;
-  if (typeof AbortSignalCtor.any === "function") {
-    return AbortSignalCtor.any([first, second]);
-  }
-
-  const controller = new AbortController();
-  const onAbort = (): void => {
-    first.removeEventListener("abort", onAbort);
-    second.removeEventListener("abort", onAbort);
-    controller.abort();
-  };
-
-  if (first.aborted || second.aborted) {
-    onAbort();
-    return controller.signal;
-  }
-
-  first.addEventListener("abort", onAbort, { once: true });
-  second.addEventListener("abort", onAbort, { once: true });
-
-    // Cleanup listeners when combined signal is aborted (e.g., request completes)
-    // Prevents memory leak for long-lived signals that never abort
-    controller.signal.addEventListener("abort", () => {
-      first.removeEventListener("abort", onAbort);
-      second.removeEventListener("abort", onAbort);
-    });
-
-  return controller.signal;
+  // Delegate to mergeSignals for consistent signal combination logic
+  return mergeSignals([first, second]);
 }
 
 function parseRetryAfterMs(retryAfter: string | null): number | null {
@@ -147,9 +134,9 @@ function parseRetryAfterMs(retryAfter: string | null): number | null {
 }
 
 function getRetryDelayMs(
-  config: InternalClientConfig,
+  config: Readonly<InternalClientConfig>,
   attempt: number,
-  retryAfterHeader?: string | null
+  retryAfterHeader?: string | null,
 ): number {
   const retryAfterDelay = parseRetryAfterMs(retryAfterHeader ?? null);
   if (retryAfterDelay !== null) {
@@ -192,22 +179,22 @@ function baseHookContext(
   endpoint: string,
   attempt: number,
   maxAttempts: number,
-  query: QueryParams | undefined
-) {
+  query: QueryParams | undefined,
+): RequestHookContext {
   return {
     method,
     path,
     endpoint,
     attempt,
     maxAttempts,
-    query
+    query,
   };
 }
 
 export async function requestJson<T>(
-  config: InternalClientConfig,
+  config: Readonly<InternalClientConfig>,
   path: string,
-  options: RequestOptions = {}
+  options: RequestOptions = {},
 ): Promise<T> {
   const endpoint = buildUrl(config.baseUrl, path, options.query);
   const method = options.method ?? "GET";
@@ -215,7 +202,7 @@ export async function requestJson<T>(
   const maxRetries = requestCanRetry ? config.retries : 0;
   const maxAttempts = maxRetries + 1;
   const headers = new Headers({
-    Accept: "application/json"
+    Accept: "application/json",
   });
 
   if (config.userAgent) {
@@ -239,12 +226,13 @@ export async function requestJson<T>(
   if (canUseCaching) {
     const cached = tryReadCache(config, cacheKey);
     if (cached !== undefined) {
-      config.hooks.onResponse?.({
+      const cacheHitCtx: ResponseHookContext = {
         ...baseHookContext(method, path, endpoint, 1, maxAttempts, options.query),
         status: 200,
         durationMs: 0,
-        fromCache: true
-      });
+        fromCache: true,
+      };
+      config.hooks.onResponse?.(cacheHitCtx);
       return cached as T;
     }
   }
@@ -253,16 +241,18 @@ export async function requestJson<T>(
     for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
       const attemptNumber = attempt + 1;
       const startedAt = Date.now();
-      config.hooks.onRequest?.(
-        baseHookContext(method, path, endpoint, attemptNumber, maxAttempts, options.query)
-      );
+      const hookCtx = baseHookContext(method, path, endpoint, attemptNumber, maxAttempts, options.query);
+
+      config.hooks.onRequest?.(hookCtx);
+
       const externalSignal = combineAbortSignals(options.signal, config.signal);
       const requestSignal = mergeSignals(externalSignal, config.timeoutMs);
+
       try {
         const requestInit: RequestInit = {
           method,
           headers,
-          signal: requestSignal
+          signal: requestSignal,
         };
         if (body !== undefined) {
           requestInit.body = body;
@@ -274,12 +264,13 @@ export async function requestJson<T>(
           const errorBody = await parseBody(response);
           if (attempt < maxRetries && RETRIABLE_STATUS_CODES.has(response.status)) {
             const delayMs = getRetryDelayMs(config, attempt, response.headers.get("retry-after"));
-            config.hooks.onRetry?.({
-              ...baseHookContext(method, path, endpoint, attemptNumber, maxAttempts, options.query),
+            const retryCtx: RetryHookContext = {
+              ...hookCtx,
               delayMs,
               reason: "http_status",
-              status: response.status
-            });
+              status: response.status,
+            };
+            config.hooks.onRetry?.(retryCtx);
             await sleep(delayMs);
             continue;
           }
@@ -287,59 +278,65 @@ export async function requestJson<T>(
             `BSUIR API returned HTTP ${String(response.status)} for ${method} ${path}`,
             response.status,
             endpoint,
-            errorBody
+            errorBody,
           );
-          config.hooks.onError?.({
-            ...baseHookContext(method, path, endpoint, attemptNumber, maxAttempts, options.query),
+          const errorCtx: ErrorHookContext = {
+            ...hookCtx,
             durationMs: Date.now() - startedAt,
-            error: apiError
-          });
+            error: apiError,
+          };
+          config.hooks.onError?.(errorCtx);
           throw apiError;
         }
 
         const parsed = (await parseBody(response)) as T;
-        config.hooks.onResponse?.({
-          ...baseHookContext(method, path, endpoint, attemptNumber, maxAttempts, options.query),
+        const responseCtx: ResponseHookContext = {
+          ...hookCtx,
           status: response.status,
           durationMs: Date.now() - startedAt,
-          fromCache: false
-        });
+          fromCache: false,
+        };
+        config.hooks.onResponse?.(responseCtx);
         return parsed;
-      } catch (error) {
+      } catch (error: unknown) {
         if (error instanceof BsuirApiError) {
           throw error;
         }
 
         if (isAbortError(error)) {
           if (options.signal?.aborted || config.signal?.aborted) {
-            config.hooks.onError?.({
-              ...baseHookContext(method, path, endpoint, attemptNumber, maxAttempts, options.query),
+            const abortCtx: ErrorHookContext = {
+              ...hookCtx,
               durationMs: Date.now() - startedAt,
-              error
-            });
+              error,
+            };
+            config.hooks.onError?.(abortCtx);
             throw error;
           }
           const timeoutError = new BsuirTimeoutError(
             `Request timed out after ${String(config.timeoutMs)}ms: ${path}`,
             endpoint,
-            config.timeoutMs
+            config.timeoutMs,
+            error,
           );
-          config.hooks.onError?.({
-            ...baseHookContext(method, path, endpoint, attemptNumber, maxAttempts, options.query),
+          const timeoutCtx: ErrorHookContext = {
+            ...hookCtx,
             durationMs: Date.now() - startedAt,
-            error: timeoutError
-          });
+            error: timeoutError,
+          };
+          config.hooks.onError?.(timeoutCtx);
           throw timeoutError;
         }
 
         if (attempt < maxRetries) {
           const delayMs = getRetryDelayMs(config, attempt);
-          config.hooks.onRetry?.({
-            ...baseHookContext(method, path, endpoint, attemptNumber, maxAttempts, options.query),
+          const retryCtx: RetryHookContext = {
+            ...hookCtx,
             delayMs,
             reason: "network_error",
-            status: undefined
-          });
+            status: undefined,
+          };
+          config.hooks.onRetry?.(retryCtx);
           await sleep(delayMs);
           continue;
         }
@@ -347,13 +344,14 @@ export async function requestJson<T>(
         const networkError = new BsuirNetworkError(
           `Network error while requesting ${path}`,
           endpoint,
-          error
+          error,
         );
-        config.hooks.onError?.({
-          ...baseHookContext(method, path, endpoint, attemptNumber, maxAttempts, options.query),
+        const networkErrorCtx: ErrorHookContext = {
+          ...hookCtx,
           durationMs: Date.now() - startedAt,
-          error: networkError
-        });
+          error: networkError,
+        };
+        config.hooks.onError?.(networkErrorCtx);
         throw networkError;
       }
     }

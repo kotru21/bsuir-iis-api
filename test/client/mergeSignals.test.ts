@@ -5,7 +5,7 @@ describe("mergeSignalsManual", () => {
   it("aborts merged signal after timeout when no caller signal is passed", async () => {
     vi.useFakeTimers();
     try {
-      const merged = mergeSignalsManual(undefined, 500);
+      const merged = mergeSignalsManual([], 500);
       expect(merged.aborted).toBe(false);
       await vi.advanceTimersByTimeAsync(500);
       expect(merged.aborted).toBe(true);
@@ -18,7 +18,7 @@ describe("mergeSignalsManual", () => {
     vi.useFakeTimers();
     try {
       const parent = new AbortController();
-      const merged = mergeSignalsManual(parent.signal, 60_000);
+      const merged = mergeSignalsManual([parent.signal], 60_000);
       parent.abort();
       expect(merged.aborted).toBe(true);
       await vi.advanceTimersByTimeAsync(60_000);
@@ -31,7 +31,7 @@ describe("mergeSignalsManual", () => {
   it("returns an already-aborted merged signal when caller is already aborted", () => {
     const parent = new AbortController();
     parent.abort();
-    const merged = mergeSignalsManual(parent.signal, 60_000);
+    const merged = mergeSignalsManual([parent.signal], 60_000);
     expect(merged.aborted).toBe(true);
   });
 });

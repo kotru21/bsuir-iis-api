@@ -4,7 +4,7 @@ import { assertArrayResponse } from "../client/responseValidators";
 import type { Department } from "../types/catalog";
 import type { ReadOptions } from "./types";
 
-export function createDepartmentsModule(config: InternalClientConfig) {
+export function createDepartmentsModule(config: Readonly<InternalClientConfig>) {
   return {
     /**
      * Returns the full list of departments from `/departments`.

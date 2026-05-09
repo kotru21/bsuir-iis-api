@@ -4,7 +4,7 @@ import { assertArrayResponse } from "../client/responseValidators";
 import type { Faculty } from "../types/catalog";
 import type { ReadOptions } from "./types";
 
-export function createFacultiesModule(config: InternalClientConfig) {
+export function createFacultiesModule(config: Readonly<InternalClientConfig>) {
   return {
     /**
      * Returns the full list of faculties from `/faculties`.

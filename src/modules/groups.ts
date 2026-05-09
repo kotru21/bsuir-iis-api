@@ -4,7 +4,7 @@ import { assertArrayResponse } from "../client/responseValidators";
 import type { StudentGroupCatalogItem } from "../types/catalog";
 import type { ReadOptions } from "./types";
 
-export function createGroupsModule(config: InternalClientConfig) {
+export function createGroupsModule(config: Readonly<InternalClientConfig>) {
   return {
     /**
      * Returns the full list of student groups from `/student-groups`.

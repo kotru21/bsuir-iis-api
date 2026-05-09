@@ -8,8 +8,18 @@ import type { ReadOptions } from "./types";
 
 const ANNOUNCEMENT_EMPTY_LIST_STATUSES = new Set<number>([404, 400]);
 
+/**
+ * Fetches an announcement list, converting empty responses (404/400) to empty arrays.
+ * The BSUIR IIS API returns 404 or 400 when an entity has no announcements or endpoint doesn't exist.
+ * This function normalizes those to an empty list instead of throwing an error.
+ *
+ * @returns The announcement list, or empty array if API returned 404/400
+ * @throws {BsuirApiError} For non-empty responses with error status codes
+ * @throws {BsuirNetworkError} On transport failures
+ * @throws {BsuirTimeoutError} When request times out
+ */
 async function requestAnnouncementList(
-  config: InternalClientConfig,
+  config: Readonly<InternalClientConfig>,
   path: string,
   options: ReadOptions & { query: Record<string, string | number> }
 ): Promise<Announcement[]> {
@@ -27,7 +37,7 @@ async function requestAnnouncementList(
   }
 }
 
-export function createAnnouncementsModule(config: InternalClientConfig) {
+export function createAnnouncementsModule(config: Readonly<InternalClientConfig>) {
   return {
     /**
      * Lists announcements for an employee. IIS may return HTTP `404` or `400` (no list / endpoint quirks); the SDK maps those to `[]`.

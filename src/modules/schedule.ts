@@ -63,7 +63,10 @@ export function normalizeSchedule(response: ScheduleResponse): NormalizedSchedul
   const lessons: FlattenedScheduleItem[] = [];
   const scheduleLessons: FlattenedScheduleItem[] = [];
   const examLessons: FlattenedScheduleItem[] = [];
-  const lessonsByDay: FlattenedLessonsByDay = {} as FlattenedLessonsByDay;
+  // Initialize with all WEEKDAYS keys mapped to empty arrays to satisfy Readonly<> type
+  const lessonsByDay = Object.fromEntries(
+    WEEKDAYS.map((day) => [day, [] as FlattenedScheduleItem[]])
+  ) as FlattenedLessonsByDay;
   const safeSchedules = response.schedules ?? {};
   const safeExams = response.exams ?? [];
 
@@ -183,7 +186,7 @@ export function filterLessons(
 }
 
 export function createScheduleModule<TRawDefault extends boolean>(
-  config: InternalClientConfig<TRawDefault>
+  config: Readonly<InternalClientConfig<TRawDefault>>
 ) {
   /**
    * Returns schedule for a student group.
