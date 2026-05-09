@@ -355,7 +355,7 @@ export async function requestJson<T>(
   if (canUseDedup) {
     const inFlight = config.inFlightRequests.get(cacheKey);
     if (inFlight) {
-      return await (inFlight as Promise<T>);
+      return (await inFlight) as T;
     }
 
     const inFlightPromise: Promise<T> = performRequest()
