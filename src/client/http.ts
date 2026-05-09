@@ -36,6 +36,8 @@ function tryReadCache(config: InternalClientConfig, key: string): unknown {
     config.responseCache.delete(key);
     return undefined;
   }
+  // Update accessedAt for LRU eviction
+  entry.accessedAt = Date.now();
   return entry.value;
 }
 
@@ -43,17 +45,36 @@ function setCache(config: InternalClientConfig, key: string, value: unknown): vo
   if (config.cacheTtlMs === undefined) {
     return;
   }
+  const now = Date.now();
   config.responseCache.set(key, {
     value,
-    expiresAt: Date.now() + config.cacheTtlMs
+    expiresAt: now + config.cacheTtlMs,
+    accessedAt: now
   });
 
+  // O(n) linear scan: remove expired entries first to minimize evictions
+  for (const [k, v] of config.responseCache) {
+    if (v.expiresAt <= now) {
+      config.responseCache.delete(k);
+    }
+  }
+
+  // O(n) linear scan for LRU eviction — acceptable for default maxEntries ≤ 200
   while (config.responseCache.size > config.cacheMaxEntries) {
-    const oldestKey = config.responseCache.keys().next().value;
-    if (oldestKey === undefined) {
+    let lruKey: string | undefined;
+    let lruTime = Number.POSITIVE_INFINITY;
+
+    for (const [k, v] of config.responseCache) {
+      if (v.accessedAt < lruTime) {
+        lruTime = v.accessedAt;
+        lruKey = k;
+      }
+    }
+
+    if (lruKey === undefined) {
       break;
     }
-    config.responseCache.delete(oldestKey);
+    config.responseCache.delete(lruKey);
   }
 }
 
@@ -91,18 +112,27 @@ function combineAbortSignals(
 }
 
 function parseRetryAfterMs(retryAfter: string | null): number | null {
-  if (!retryAfter) {
+  if (!retryAfter || retryAfter.trim().length === 0) {
     return null;
   }
 
+  // Try parsing as seconds (RFC 7231: numeric-value)
   const asSeconds = Number(retryAfter);
-  if (!Number.isNaN(asSeconds)) {
-    return Math.max(0, Math.floor(asSeconds * 1000));
+  if (Number.isFinite(asSeconds) && asSeconds >= 0) {
+    // Validate it's actually numeric format, not a date string starting with a digit
+    if (/^\d+(\.\d+)?$/.test(retryAfter.trim())) {
+      return Math.floor(asSeconds * 1000);
+    }
   }
 
+  // Try parsing as HTTP date format (RFC 7231: http-date)
   const dateValue = Date.parse(retryAfter);
-  if (!Number.isNaN(dateValue)) {
-    return Math.max(0, dateValue - Date.now());
+  if (Number.isFinite(dateValue)) {
+    const delayMs = dateValue - Date.now();
+    // Only accept if date is in the future
+    if (delayMs > 0) {
+      return Math.min(delayMs, 86_400_000); // Cap at 24 hours to prevent unreasonably long waits
+    }
   }
 
   return null;

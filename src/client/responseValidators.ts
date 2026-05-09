@@ -23,7 +23,7 @@ function ensureRecord(payload: unknown, endpoint: string, expected: string): Rec
 export function assertArrayResponse(payload: unknown, endpoint: string): asserts payload is unknown[] {
   if (!Array.isArray(payload)) {
     throw new BsuirResponseValidationError(
-      `Invalid response payload for ${endpoint}: expected array`,
+      `Invalid response payload for ${endpoint}: expected array, got ${typeof payload}`,
       endpoint
     );
   }
@@ -33,10 +33,10 @@ export function assertApiDateResponse(
   payload: unknown,
   endpoint: string
 ): asserts payload is ApiDateResponse {
-  const record = ensureRecord(payload, endpoint, "object");
-  if (typeof record.lastUpdateDate !== "string") {
+  const record = ensureRecord(payload, endpoint, "object with lastUpdateDate");
+  if (typeof record.lastUpdateDate !== "string" || record.lastUpdateDate.trim().length === 0) {
     throw new BsuirResponseValidationError(
-      `Invalid response payload for ${endpoint}: missing 'lastUpdateDate' string`,
+      `Invalid response payload for ${endpoint}: 'lastUpdateDate' must be a non-empty string, got ${typeof record.lastUpdateDate}`,
       endpoint
     );
   }
@@ -52,24 +52,41 @@ export function assertScheduleResponse(
   const employeeDto = record.employeeDto;
   const studentGroupDto = record.studentGroupDto;
 
-  if (schedules !== null && (typeof schedules !== "object" || Array.isArray(schedules))) {
+  // undefined treated as absent field — API may omit schedules/exams for exam-only or schedule-only entries
+  if (schedules !== null && schedules !== undefined) {
+    if (typeof schedules !== "object" || Array.isArray(schedules)) {
+      throw new BsuirResponseValidationError(
+        `Invalid response payload for ${endpoint}: 'schedules' must be object or null, got ${
+          Array.isArray(schedules) ? "array" : typeof schedules
+        }`,
+        endpoint
+      );
+    }
+  }
+
+  if (exams !== null && exams !== undefined) {
+    if (!Array.isArray(exams)) {
+      throw new BsuirResponseValidationError(
+        `Invalid response payload for ${endpoint}: 'exams' must be array or null, got ${typeof exams}`,
+        endpoint
+      );
+    }
+  }
+
+  const isNullableObject = (value: unknown): boolean => {
+    return value === null || value === undefined || (typeof value === "object" && !Array.isArray(value));
+  };
+
+  if (!isNullableObject(employeeDto)) {
     throw new BsuirResponseValidationError(
-      `Invalid response payload for ${endpoint}: 'schedules' must be object or null`,
+      `Invalid response payload for ${endpoint}: 'employeeDto' must be object or null, got ${typeof employeeDto}`,
       endpoint
     );
   }
 
-  if (!(exams === null || Array.isArray(exams))) {
+  if (!isNullableObject(studentGroupDto)) {
     throw new BsuirResponseValidationError(
-      `Invalid response payload for ${endpoint}: 'exams' must be array or null`,
-      endpoint
-    );
-  }
-
-  const nullableObject = (value: unknown): boolean => value === null || typeof value === "object";
-  if (!nullableObject(employeeDto) || !nullableObject(studentGroupDto)) {
-    throw new BsuirResponseValidationError(
-      `Invalid response payload for ${endpoint}: expected nullable DTO objects`,
+      `Invalid response payload for ${endpoint}: 'studentGroupDto' must be object or null, got ${typeof studentGroupDto}`,
       endpoint
     );
   }

@@ -38,6 +38,27 @@ type ScheduleResponseByRawOption<TRaw extends boolean | undefined, TRawDefault e
         ? ScheduleResponse
         : NormalizedScheduleResponse;
 
+/**
+ * Transforms raw API schedule response into a normalized structure with flattened lessons.
+ *
+ * Raw API response contains lessons grouped by weekday (`schedules` object with day keys)
+ * and exams in a separate array. This function flattens them into a single `lessons` array
+ * for easier filtering and iteration, while preserving day-grouped view in `lessonsByDay`.
+ *
+ * @param response - Raw schedule response from API
+ * @returns Normalized schedule with additional computed fields: `lessons` (flattened array),
+ *          `lessonsByDay` (grouped by weekday), `scheduleLessons`, and `examLessons`
+ *
+ * @example
+ * ```ts
+ * const rawSchedule = await client.schedule.getGroup("053503", { raw: true });
+ * const normalized = normalizeSchedule(rawSchedule);
+ * console.log(normalized.lessons.length); // All lessons + exams flattened
+ * console.log(normalized.lessonsByDay["Понедельник"]); // Monday-only lessons
+ * console.log(normalized.scheduleLessons.length); // Only regular schedule
+ * console.log(normalized.examLessons.length); // Only exams
+ * ```
+ */
 export function normalizeSchedule(response: ScheduleResponse): NormalizedScheduleResponse {
   const lessons: FlattenedScheduleItem[] = [];
   const lessonsByDay: FlattenedLessonsByDay = {};
@@ -133,6 +154,22 @@ function matchesFilter(item: FlattenedScheduleItem, filter: ScheduleFilterOption
   return true;
 }
 
+/**
+ * Filters normalized schedule lessons by specified criteria.
+ *
+ * @param response - Normalized schedule response containing lessons
+ * @param filter - Filter options with optional fields: source, weekday, weekNumber, subgroup,
+ *                 lessonTypeAbbrev, subjectQuery, employeeUrlId, auditory
+ * @returns Array of lessons matching all provided filter criteria
+ *
+ * @example
+ * ```ts
+ * const schedule = await client.schedule.getGroup("053503");
+ * const mondayLessons = filterLessons(schedule, { weekday: "Понедельник" });
+ * const practiceLessons = filterLessons(schedule, { lessonTypeAbbrev: "пр" });
+ * const lectureLessons = filterLessons(schedule, { lessonTypeAbbrev: ["лк", "лекция"] });
+ * ```
+ */
 export function filterLessons(
   response: NormalizedScheduleResponse,
   filter: ScheduleFilterOptions

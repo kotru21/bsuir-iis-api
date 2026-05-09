@@ -23,10 +23,21 @@ const BASE_CONFIG: Omit<InternalClientConfig, "fetchImpl"> = {
   defaultRaw: false
 };
 
+function createConfig(fetchImpl: typeof globalThis.fetch, overrides: Partial<InternalClientConfig> = {}): InternalClientConfig {
+  return {
+    ...BASE_CONFIG,
+    // Always create fresh cache maps for each test to avoid cross-test contamination
+    responseCache: new Map(),
+    inFlightRequests: new Map(),
+    fetchImpl,
+    ...overrides
+  };
+}
+
 describe("requestJson", () => {
   it("returns parsed JSON on success", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: { hello: "world" } })]);
-    const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl };
+    const config = createConfig(fetchImpl);
 
     const response = await requestJson<{ hello: string }>(config, "/faculties");
 
@@ -37,11 +48,9 @@ describe("requestJson", () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: { ok: true } })]);
     const onRequest = vi.fn();
     const onResponse = vi.fn();
-    const config: InternalClientConfig = {
-      ...BASE_CONFIG,
-      fetchImpl,
+    const config = createConfig(fetchImpl, {
       hooks: { onRequest, onResponse }
-    };
+    });
 
     await requestJson<{ ok: boolean }>(config, "/faculties", {
       query: { lang: "ru" }
@@ -67,7 +76,7 @@ describe("requestJson", () => {
         headers: { "Content-Type": "text/plain; charset=utf-8" }
       })
     ]);
-    const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl, retries: 0 };
+    const config = createConfig(fetchImpl, { retries: 0 });
 
     const response = await requestJson<{ ok: boolean }>(config, "/faculties");
     expect(response.ok).toBe(true);
@@ -80,7 +89,7 @@ describe("requestJson", () => {
         headers: { "Content-Type": "application/json" }
       })
     ]);
-    const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl, retries: 0 };
+    const config = createConfig(fetchImpl, { retries: 0 });
 
     await expect(requestJson(config, "/faculties")).rejects.toBeInstanceOf(BsuirApiError);
   });
@@ -92,7 +101,7 @@ describe("requestJson", () => {
         headers: { "Content-Type": "text/plain; charset=utf-8" }
       })
     ]);
-    const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl, retries: 0 };
+    const config = createConfig(fetchImpl, { retries: 0 });
 
     const body = await requestJson<string>(config, "/faculties");
     expect(body).toBe("");
@@ -105,7 +114,7 @@ describe("requestJson", () => {
         headers: { "Content-Type": "application/json" }
       })
     ]);
-    const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl, retries: 0 };
+    const config = createConfig(fetchImpl, { retries: 0 });
 
     const error = await requestJson(config, "/faculties").catch((err: unknown) => err);
     expect(error).toBeInstanceOf(BsuirApiError);
@@ -120,7 +129,7 @@ describe("requestJson", () => {
     const fetchImpl = mockFetchSequence([
       createJsonResponse({ status: 500, body: { message: "Server error" } })
     ]);
-    const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl, retries: 0 };
+    const config = createConfig(fetchImpl, { retries: 0 });
 
     const request = requestJson(config, "/faculties");
     await expect(request).rejects.toBeInstanceOf(BsuirApiError);
@@ -136,7 +145,7 @@ describe("requestJson", () => {
       createJsonResponse({ status: 503, body: { message: "unavailable" } }),
       createJsonResponse({ body: { ok: true } })
     ]);
-    const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl, retries: 1 };
+    const config = createConfig(fetchImpl, { retries: 1 });
 
     const response = await requestJson<{ ok: boolean }>(config, "/faculties");
     expect(response.ok).toBe(true);
@@ -148,12 +157,10 @@ describe("requestJson", () => {
       createJsonResponse({ body: { ok: true } })
     ]);
     const onRetry = vi.fn();
-    const config: InternalClientConfig = {
-      ...BASE_CONFIG,
-      fetchImpl,
+    const config = createConfig(fetchImpl, {
       retries: 1,
       hooks: { onRetry }
-    };
+    });
 
     await requestJson<{ ok: boolean }>(config, "/faculties");
     expect(onRetry).toHaveBeenCalledWith(
@@ -168,7 +175,7 @@ describe("requestJson", () => {
     const fetchImpl = mockFetchSequence([
       createJsonResponse({ status: 400, body: { message: "bad request" } })
     ]);
-    const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl, retries: 2 };
+    const config = createConfig(fetchImpl, { retries: 2 });
 
     await expect(requestJson(config, "/faculties")).rejects.toBeInstanceOf(BsuirApiError);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
@@ -183,7 +190,7 @@ describe("requestJson", () => {
       }),
       createJsonResponse({ body: { ok: true } })
     ]);
-    const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl, retries: 1, retryDelayMs: 200 };
+    const config = createConfig(fetchImpl, { retries: 1 });
 
     const response = await requestJson<{ ok: boolean }>(config, "/faculties");
     expect(response.ok).toBe(true);
@@ -198,7 +205,7 @@ describe("requestJson", () => {
       }),
       createJsonResponse({ body: { ok: true } })
     ]);
-    const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl, retries: 1 };
+    const config = createConfig(fetchImpl, { retries: 1 });
 
     const response = await requestJson<{ ok: boolean }>(config, "/faculties");
     expect(response.ok).toBe(true);
@@ -211,14 +218,12 @@ describe("requestJson", () => {
         createJsonResponse({ status: 503, body: { message: "temporary error" } }),
         createJsonResponse({ body: { ok: true } })
       ]);
-      const config: InternalClientConfig = {
-        ...BASE_CONFIG,
-        fetchImpl,
+      const config = createConfig(fetchImpl, {
         retries: 1,
         retryDelayMs: 2_000,
         retryMaxDelayMs: 50,
         retryJitter: false
-      };
+      });
 
       const requestPromise = requestJson<{ ok: boolean }>(config, "/faculties");
       await Promise.resolve();
@@ -239,7 +244,7 @@ describe("requestJson", () => {
   it("throws BsuirNetworkError on exhausted retries", async () => {
     const transportError = new Error("ECONNRESET");
     const fetchImpl = mockFetchSequence([transportError]);
-    const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl, retries: 0 };
+    const config = createConfig(fetchImpl, { retries: 0 });
 
     const request = requestJson(config, "/faculties");
     await expect(request).rejects.toBeInstanceOf(BsuirNetworkError);
@@ -253,7 +258,7 @@ describe("requestJson", () => {
     const fetchImpl = mockFetchSequence([
       createJsonResponse({ status: 503, body: { message: "temporary error" } })
     ]);
-    const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl, retries: 3 };
+    const config = createConfig(fetchImpl, { retries: 3 });
 
     await expect(
       requestJson(config, "/faculties", {
@@ -274,20 +279,16 @@ describe("requestJson", () => {
       }
       return createJsonResponse({ body: { ok: true } });
     }) as typeof globalThis.fetch;
-    const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl, signal: controller.signal };
+    const config = createConfig(fetchImpl, { signal: controller.signal });
 
     await expect(requestJson(config, "/faculties")).rejects.toMatchObject({ name: "AbortError" });
   });
 
   it("returns cached GET response within ttl window", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: { ok: true } })]);
-    const config: InternalClientConfig = {
-      ...BASE_CONFIG,
-      fetchImpl,
-      cacheTtlMs: 60_000,
-      responseCache: new Map(),
-      inFlightRequests: new Map()
-    };
+    const config = createConfig(fetchImpl, {
+      cacheTtlMs: 60_000
+    });
 
     const first = await requestJson<{ ok: boolean }>(config, "/faculties");
     const second = await requestJson<{ ok: boolean }>(config, "/faculties");
@@ -305,12 +306,7 @@ describe("requestJson", () => {
           resolveFetch = resolve;
         })
     ) as unknown as typeof globalThis.fetch;
-    const config: InternalClientConfig = {
-      ...BASE_CONFIG,
-      fetchImpl,
-      responseCache: new Map(),
-      inFlightRequests: new Map()
-    };
+    const config = createConfig(fetchImpl);
 
     const firstPromise = requestJson<{ ok: boolean }>(config, "/faculties");
     const secondPromise = requestJson<{ ok: boolean }>(config, "/faculties");
@@ -331,12 +327,7 @@ describe("requestJson", () => {
       createJsonResponse({ body: { ok: true } }),
       createJsonResponse({ body: { ok: true } })
     ]);
-    const config: InternalClientConfig = {
-      ...BASE_CONFIG,
-      fetchImpl,
-      responseCache: new Map(),
-      inFlightRequests: new Map()
-    };
+    const config = createConfig(fetchImpl);
     const signalA = new AbortController().signal;
     const signalB = new AbortController().signal;
 
@@ -354,13 +345,11 @@ describe("requestJson", () => {
       new Error("ECONNRESET"),
       createJsonResponse({ body: { ok: true } })
     ]);
-    const config: InternalClientConfig = {
-      ...BASE_CONFIG,
-      fetchImpl,
+    const config = createConfig(fetchImpl, {
       retries: 2,
       retryDelayMs: 1,
       retryMaxDelayMs: 10
-    };
+    });
 
     const response = await requestJson<{ ok: boolean }>(config, "/faculties");
     expect(response.ok).toBe(true);
@@ -383,7 +372,7 @@ describe("requestJson", () => {
       return createJsonResponse({ body: {} });
     }) as typeof globalThis.fetch;
 
-    const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl, timeoutMs: 10 };
+    const config = createConfig(fetchImpl, { timeoutMs: 10 });
 
     const request = requestJson(config, "/faculties");
     await expect(request).rejects.toBeInstanceOf(BsuirTimeoutError);
@@ -402,7 +391,7 @@ describe("requestJson", () => {
       }
       return createJsonResponse({ body: { ok: true } });
     }) as typeof globalThis.fetch;
-    const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl, timeoutMs: 5_000 };
+    const config = createConfig(fetchImpl, { timeoutMs: 5_000 });
 
     await expect(requestJson(config, "/faculties", { signal: controller.signal })).rejects.toMatchObject(
       { name: "AbortError" }

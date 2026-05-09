@@ -123,7 +123,7 @@ export interface InternalClientConfig<TRawDefault extends boolean = boolean> {
   dedupeInFlight: boolean;
   validateResponses: boolean;
   hooks: ClientHooks;
-  responseCache: Map<string, { expiresAt: number; value: unknown }>;
+  responseCache: Map<string, { expiresAt: number; value: unknown; accessedAt: number }>;
   inFlightRequests: Map<string, Promise<unknown>>;
   defaultRaw: TRawDefault;
 }

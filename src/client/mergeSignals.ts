@@ -24,17 +24,18 @@ export function mergeSignals(signal: AbortSignal | undefined, timeoutMs: number)
 export function mergeSignalsManual(signal: AbortSignal | undefined, timeoutMs: number): AbortSignal {
   const combined = new AbortController();
 
+  // Store listeners and timeout for cleanup
+  const listeners: { signal: AbortSignal; handler: () => void }[] = [];
+  const timeoutId = setTimeout(() => {
+    if (!combined.signal.aborted) {
+      combined.abort();
+    }
+  }, timeoutMs);
+
   const onSignalAbort = (): void => {
     clearTimeout(timeoutId);
     combined.abort();
   };
-
-  const timeoutId = setTimeout(() => {
-    if (signal) {
-      signal.removeEventListener("abort", onSignalAbort);
-    }
-    combined.abort();
-  }, timeoutMs);
 
   if (signal) {
     if (signal.aborted) {
@@ -42,8 +43,20 @@ export function mergeSignalsManual(signal: AbortSignal | undefined, timeoutMs: n
       combined.abort();
     } else {
       signal.addEventListener("abort", onSignalAbort, { once: true });
+      listeners.push({ signal, handler: onSignalAbort });
     }
   }
+
+  // Cleanup function to prevent memory leaks (stored for external cleanup if needed)
+  const cleanup = (): void => {
+    clearTimeout(timeoutId);
+    for (const listener of listeners) {
+      listener.signal.removeEventListener("abort", listener.handler);
+    }
+  };
+
+  // Attach cleanup to signal's abort event to ensure cleanup happens
+  combined.signal.addEventListener("abort", cleanup, { once: true });
 
   return combined.signal;
 }
