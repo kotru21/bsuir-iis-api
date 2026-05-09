@@ -13,6 +13,10 @@ import {
 
 const DEFAULT_BASE_URL = "https://iis.bsuir.by/api/v1";
 
+// Prevents setTimeout() integer overflow (max safe value ~24.8 days).
+// 5 minutes is a generous upper bound for any HTTP request in this context.
+const MAX_TIMEOUT_MS = 300_000;
+
 function resolveFetch(customFetch?: typeof globalThis.fetch): typeof globalThis.fetch {
   if (customFetch) {
     return customFetch;
@@ -46,15 +50,13 @@ function assertIntegerOption(
 function createInternalConfig<TRawDefault extends boolean>(
   options: BsuirClientOptions & { defaultRaw: TRawDefault }
 ): InternalClientConfig<TRawDefault> {
-  const MAX_TIMEOUT_MS = 300_000; // 5 minutes — prevent setTimeout() overflow (max ~24.8 days)
-  
   const timeoutMs = assertIntegerOption(options.timeoutMs, "timeoutMs", 1) ?? 10_000;
   if (timeoutMs > MAX_TIMEOUT_MS) {
     throw new BsuirConfigurationError(
       `'timeoutMs' must not exceed ${String(MAX_TIMEOUT_MS)}ms (5 minutes)`
     );
   }
-  
+
   const retries = assertIntegerOption(options.retries, "retries", 0) ?? 1;
   const retryDelayMs = assertIntegerOption(options.retryDelayMs, "retryDelayMs", 0) ?? 300;
   const retryMaxDelayMs =

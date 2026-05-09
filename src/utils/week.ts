@@ -27,10 +27,9 @@ function parseCurrentWeekInternal(payload: unknown, depth: number): number {
     const normalized = payload.trim();
     if (normalized.length > 0) {
       const parsed = Number(normalized);
-      if (Number.isInteger(parsed)) {
-        assertPositiveInt(parsed, "currentWeek");
-        return parsed;
-      }
+      // assertPositiveInt validates both isInteger and > 0 — no need to pre-check isInteger
+      assertPositiveInt(parsed, "currentWeek");
+      return parsed;
     }
   }
 
