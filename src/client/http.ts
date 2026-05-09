@@ -108,6 +108,14 @@ function combineAbortSignals(
 
   first.addEventListener("abort", onAbort, { once: true });
   second.addEventListener("abort", onAbort, { once: true });
+
+    // Cleanup listeners when combined signal is aborted (e.g., request completes)
+    // Prevents memory leak for long-lived signals that never abort
+    controller.signal.addEventListener("abort", () => {
+      first.removeEventListener("abort", onAbort);
+      second.removeEventListener("abort", onAbort);
+    });
+
   return controller.signal;
 }
 

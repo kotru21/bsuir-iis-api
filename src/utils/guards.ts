@@ -1,5 +1,7 @@
 import { BsuirValidationError } from "../client/errors";
 
+// BSUIR IIS API accepts only numeric group IDs (e.g., "053503").
+// Pattern is intentionally strict and covers only current IIS format.
 const GROUP_NUMBER_PATTERN = /^\d+$/;
 const EMPLOYEE_URL_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/i;
 

@@ -20,6 +20,10 @@ function ensureRecord(payload: unknown, endpoint: string, expected: string): Rec
   return record;
 }
 
+function isNullableObject(value: unknown): boolean {
+  return value === null || value === undefined || (typeof value === "object" && !Array.isArray(value));
+}
+
 export function assertArrayResponse(payload: unknown, endpoint: string): asserts payload is unknown[] {
   if (!Array.isArray(payload)) {
     throw new BsuirResponseValidationError(
@@ -72,10 +76,6 @@ export function assertScheduleResponse(
       );
     }
   }
-
-  const isNullableObject = (value: unknown): boolean => {
-    return value === null || value === undefined || (typeof value === "object" && !Array.isArray(value));
-  };
 
   if (!isNullableObject(employeeDto)) {
     throw new BsuirResponseValidationError(

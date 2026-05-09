@@ -33,8 +33,8 @@ export class BsuirTimeoutError extends Error {
   readonly endpoint: string;
   readonly timeoutMs: number;
 
-  constructor(message: string, endpoint: string, timeoutMs: number) {
-    super(message);
+  constructor(message: string, endpoint: string, timeoutMs: number, cause?: unknown) {
+    super(message, { cause });
     fixErrorPrototype(this, BsuirTimeoutError.prototype);
     this.name = "BsuirTimeoutError";
     this.endpoint = endpoint;

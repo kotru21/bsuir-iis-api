@@ -20,7 +20,7 @@ export interface ScheduleItem {
   subject: string;
   subjectFullName: string;
   note: Maybe<string>;
-  lessonTypeAbbrev: string | null;
+  lessonTypeAbbrev: Maybe<string>;
   dateLesson: Maybe<string>;
   startLessonDate: Maybe<string>;
   endLessonDate: Maybe<string>;
@@ -47,7 +47,7 @@ export interface FlattenedScheduleItem extends ScheduleItem {
   source: "schedules" | "exams";
 }
 
-export type FlattenedLessonsByDay = Partial<Record<Weekday, FlattenedScheduleItem[]>>;
+export type FlattenedLessonsByDay = Record<Weekday, FlattenedScheduleItem[]>;
 
 export interface ScheduleFilterOptions {
   source?: "schedules" | "exams";

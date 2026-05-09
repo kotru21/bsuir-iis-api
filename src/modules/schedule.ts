@@ -61,9 +61,13 @@ type ScheduleResponseByRawOption<TRaw extends boolean | undefined, TRawDefault e
  */
 export function normalizeSchedule(response: ScheduleResponse): NormalizedScheduleResponse {
   const lessons: FlattenedScheduleItem[] = [];
-  const lessonsByDay: FlattenedLessonsByDay = {};
+  const scheduleLessons: FlattenedScheduleItem[] = [];
+  const examLessons: FlattenedScheduleItem[] = [];
+  const lessonsByDay: FlattenedLessonsByDay = {} as FlattenedLessonsByDay;
   const safeSchedules = response.schedules ?? {};
   const safeExams = response.exams ?? [];
+
+  // Build lessons and lessonsByDay in single pass, collecting schedule lessons
   for (const day of WEEKDAYS) {
     const dayItems = safeSchedules[day] ?? [];
     const flattenedDayItems = dayItems.map((item) => {
@@ -77,21 +81,22 @@ export function normalizeSchedule(response: ScheduleResponse): NormalizedSchedul
     });
     lessonsByDay[day] = flattenedDayItems;
     lessons.push(...flattenedDayItems);
+    scheduleLessons.push(...flattenedDayItems);
   }
 
+  // Collect exam lessons
   for (const exam of safeExams) {
     const auditories = lessonAuditories(exam);
-    lessons.push({
+    const flattenedExam: FlattenedScheduleItem = {
       ...exam,
       auditories,
       day: null,
       // Exams are not grouped by weekday in API response.
       source: "exams"
-    });
+    };
+    lessons.push(flattenedExam);
+    examLessons.push(flattenedExam);
   }
-
-  const scheduleLessons = lessons.filter((lesson) => lesson.source === "schedules");
-  const examLessons = lessons.filter((lesson) => lesson.source === "exams");
 
   return {
     ...response,

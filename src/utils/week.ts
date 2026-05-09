@@ -6,6 +6,15 @@ import { assertPositiveInt } from "./guards";
  * API can return plain text (`"1\n"`) or number.
  */
 export function parseCurrentWeek(payload: unknown): number {
+  return parseCurrentWeekInternal(payload, 0);
+}
+
+function parseCurrentWeekInternal(payload: unknown, depth: number): number {
+  // Prevent stack overflow from circular/deeply nested structures
+  if (depth > 10) {
+    throw new BsuirValidationError("'currentWeek' response payload has excessive nesting depth");
+  }
+
   if (typeof payload === "number") {
     assertPositiveInt(payload, "currentWeek");
     return payload;
@@ -25,10 +34,10 @@ export function parseCurrentWeek(payload: unknown): number {
   if (typeof payload === "object" && payload !== null) {
     const record = payload as Record<string, unknown>;
     if ("weekNumber" in record) {
-      return parseCurrentWeek(record.weekNumber);
+      return parseCurrentWeekInternal(record.weekNumber, depth + 1);
     }
     if ("currentWeek" in record) {
-      return parseCurrentWeek(record.currentWeek);
+      return parseCurrentWeekInternal(record.currentWeek, depth + 1);
     }
   }
 
