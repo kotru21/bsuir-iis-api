@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { BsuirConfigurationError, createBsuirClient } from "../../src";
+import { BsuirConfigurationError, BsuirResponseValidationError, createBsuirClient } from "../../src";
 import { createJsonResponse } from "../helpers/fetchMock";
 
 describe("createBsuirClient", () => {
@@ -28,5 +28,71 @@ describe("createBsuirClient", () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+
+  it("throws BsuirConfigurationError for invalid numeric options", () => {
+    expect(() => createBsuirClient({ timeoutMs: 0 })).toThrow(BsuirConfigurationError);
+    expect(() => createBsuirClient({ retries: -1 })).toThrow(BsuirConfigurationError);
+    expect(() => createBsuirClient({ cache: { ttlMs: 0 } })).toThrow(BsuirConfigurationError);
+    expect(() => createBsuirClient({ retryDelayMs: 500, retryMaxDelayMs: 100 })).toThrow(
+      BsuirConfigurationError
+    );
+  });
+
+  it("supports global cancellation signal", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const fetchImpl = (async (_input, init) => {
+      if (init?.signal?.aborted) {
+        throw new DOMException("The operation was aborted", "AbortError");
+      }
+      return createJsonResponse({ body: 2 });
+    }) as typeof fetch;
+    const client = createBsuirClient({ fetch: fetchImpl, signal: controller.signal });
+
+    await expect(client.schedule.getCurrentWeek()).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("invokes lifecycle hooks from client options", async () => {
+    const fetchImpl = vi.fn(async () => createJsonResponse({ body: 2 })) as unknown as typeof fetch;
+    const onRequest = vi.fn();
+    const onResponse = vi.fn();
+    const client = createBsuirClient({
+      fetch: fetchImpl,
+      hooks: { onRequest, onResponse }
+    });
+
+    const week = await client.schedule.getCurrentWeek();
+    expect(week).toBe(2);
+    expect(onRequest).toHaveBeenCalledTimes(1);
+    expect(onResponse).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses raw schedule payload by default when defaultRaw=true", async () => {
+    const fetchImpl = vi.fn(async () =>
+      createJsonResponse({
+        body: {
+          employeeDto: null,
+          studentGroupDto: null,
+          schedules: {},
+          exams: [],
+          startDate: null,
+          endDate: null,
+          startExamsDate: null,
+          endExamsDate: null
+        }
+      })
+    ) as unknown as typeof fetch;
+    const client = createBsuirClient({ fetch: fetchImpl, defaultRaw: true });
+
+    const response = await client.schedule.getGroup("053503");
+    expect("lessons" in response).toBe(false);
+  });
+
+  it("validates response payloads when validateResponses=true", async () => {
+    const fetchImpl = vi.fn(async () => createJsonResponse({ body: { unexpected: true } })) as unknown as typeof fetch;
+    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
+
+    await expect(client.groups.listAll()).rejects.toBeInstanceOf(BsuirResponseValidationError);
   });
 });

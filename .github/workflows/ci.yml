@@ -23,6 +23,8 @@ jobs:
       - run: npm ci
       - run: npm run check:full
       - run: npm run build
+      - run: npm run api:report:check
+        if: matrix.node-version == 24
 
   live-contract:
     if: github.event_name == 'workflow_dispatch'

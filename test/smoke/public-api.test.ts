@@ -3,9 +3,12 @@ import {
   BsuirApiError,
   BsuirConfigurationError,
   BsuirNetworkError,
+  BsuirResponseValidationError,
   BsuirTimeoutError,
   BsuirValidationError,
-  createBsuirClient
+  createBsuirClient,
+  filterLessons,
+  normalizeSchedule
 } from "../../src";
 
 describe("public api", () => {
@@ -18,7 +21,10 @@ describe("public api", () => {
     expect(BsuirApiError).toBeDefined();
     expect(BsuirConfigurationError).toBeDefined();
     expect(BsuirNetworkError).toBeDefined();
+    expect(BsuirResponseValidationError).toBeDefined();
     expect(BsuirTimeoutError).toBeDefined();
     expect(BsuirValidationError).toBeDefined();
+    expect(normalizeSchedule).toBeDefined();
+    expect(filterLessons).toBeDefined();
   });
 });

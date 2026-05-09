@@ -1,5 +1,6 @@
 import { BsuirApiError } from "../client/errors";
 import { requestJson } from "../client/http";
+import { assertArrayResponse } from "../client/responseValidators";
 import type { InternalClientConfig } from "../client/types";
 import type { Announcement } from "../types/announcement";
 import { assertEmployeeUrlId, assertPositiveInt } from "../utils/guards";
@@ -13,7 +14,11 @@ async function requestAnnouncementList(
   options: ReadOptions & { query: Record<string, string | number> }
 ): Promise<Announcement[]> {
   try {
-    return await requestJson<Announcement[]>(config, path, options);
+    const payload = await requestJson<unknown>(config, path, options);
+    if (config.validateResponses) {
+      assertArrayResponse(payload, path);
+    }
+    return payload as Announcement[];
   } catch (error) {
     if (error instanceof BsuirApiError && ANNOUNCEMENT_EMPTY_LIST_STATUSES.has(error.status)) {
       return [];

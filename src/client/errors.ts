@@ -1,3 +1,4 @@
+// Maintains proper prototype chains for custom Error subclasses in transpiled outputs.
 function fixErrorPrototype(instance: Error, prototype: object): void {
   Object.setPrototypeOf(instance, prototype);
 }
@@ -19,14 +20,12 @@ export class BsuirApiError extends Error {
 
 export class BsuirNetworkError extends Error {
   readonly endpoint: string;
-  readonly causeError: unknown;
 
-  constructor(message: string, endpoint: string, causeError: unknown) {
-    super(message, { cause: causeError });
+  constructor(message: string, endpoint: string, cause: unknown) {
+    super(message, { cause });
     fixErrorPrototype(this, BsuirNetworkError.prototype);
     this.name = "BsuirNetworkError";
     this.endpoint = endpoint;
-    this.causeError = causeError;
   }
 }
 
@@ -48,6 +47,17 @@ export class BsuirValidationError extends Error {
     super(message);
     fixErrorPrototype(this, BsuirValidationError.prototype);
     this.name = "BsuirValidationError";
+  }
+}
+
+export class BsuirResponseValidationError extends Error {
+  readonly endpoint: string;
+
+  constructor(message: string, endpoint: string) {
+    super(message);
+    fixErrorPrototype(this, BsuirResponseValidationError.prototype);
+    this.name = "BsuirResponseValidationError";
+    this.endpoint = endpoint;
   }
 }
 

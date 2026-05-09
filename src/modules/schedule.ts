@@ -1,5 +1,6 @@
 import type { InternalClientConfig } from "../client/types";
 import { requestJson } from "../client/http";
+import { assertApiDateResponse, assertScheduleResponse } from "../client/responseValidators";
 import { assertEmployeeUrlId, assertGroupNumber, assertPositiveInt } from "../utils/guards";
 import type {
   FlattenedLessonsByDay,
@@ -28,34 +29,40 @@ function lessonAuditories(item: ScheduleItem): string[] {
   return Array.isArray(auditories) ? auditories : [];
 }
 
-function normalizeSchedule(response: ScheduleResponse): NormalizedScheduleResponse {
+type ScheduleResponseByRawOption<TRaw extends boolean | undefined, TRawDefault extends boolean> =
+  TRaw extends true
+    ? ScheduleResponse
+    : TRaw extends false
+      ? NormalizedScheduleResponse
+      : TRawDefault extends true
+        ? ScheduleResponse
+        : NormalizedScheduleResponse;
+
+export function normalizeSchedule(response: ScheduleResponse): NormalizedScheduleResponse {
   const lessons: FlattenedScheduleItem[] = [];
   const lessonsByDay: FlattenedLessonsByDay = {};
   const safeSchedules = response.schedules ?? {};
   const safeExams = response.exams ?? [];
   for (const day of WEEKDAYS) {
     const dayItems = safeSchedules[day] ?? [];
-    const flattenedDayItems = dayItems.map((item) => ({
-      ...item,
-      auditories: lessonAuditories(item),
-      day,
-      source: "schedules" as const
-    }));
-    lessonsByDay[day] = flattenedDayItems;
-    for (const item of dayItems) {
-      lessons.push({
+    const flattenedDayItems = dayItems.map((item) => {
+      const auditories = lessonAuditories(item);
+      return {
         ...item,
-        auditories: lessonAuditories(item),
+        auditories,
         day,
-        source: "schedules"
-      });
-    }
+        source: "schedules" as const
+      };
+    });
+    lessonsByDay[day] = flattenedDayItems;
+    lessons.push(...flattenedDayItems);
   }
 
   for (const exam of safeExams) {
+    const auditories = lessonAuditories(exam);
     lessons.push({
       ...exam,
-      auditories: lessonAuditories(exam),
+      auditories,
       day: null,
       // Exams are not grouped by weekday in API response.
       source: "exams"
@@ -126,14 +133,16 @@ function matchesFilter(item: FlattenedScheduleItem, filter: ScheduleFilterOption
   return true;
 }
 
-function filterLessons(
+export function filterLessons(
   response: NormalizedScheduleResponse,
   filter: ScheduleFilterOptions
 ): FlattenedScheduleItem[] {
   return response.lessons.filter((item) => matchesFilter(item, filter));
 }
 
-export function createScheduleModule(config: InternalClientConfig) {
+export function createScheduleModule<TRawDefault extends boolean>(
+  config: InternalClientConfig<TRawDefault>
+) {
   /**
    * Returns schedule for a student group.
    * By default returns normalized payload, unless `raw: true` is passed.
@@ -141,14 +150,18 @@ export function createScheduleModule(config: InternalClientConfig) {
   async function getGroup<TRaw extends boolean | undefined = undefined>(
     groupNumber: string,
     options: ReadOptions & { raw?: TRaw } = {}
-  ): Promise<TRaw extends true ? ScheduleResponse : NormalizedScheduleResponse> {
+  ): Promise<ScheduleResponseByRawOption<TRaw, TRawDefault>> {
     assertGroupNumber(groupNumber, "groupNumber");
-    const response = await requestJson<ScheduleResponse>(config, "/schedule", {
+    const payload = await requestJson<unknown>(config, "/schedule", {
       query: { studentGroup: groupNumber },
       signal: options.signal
     });
+    if (config.validateResponses) {
+      assertScheduleResponse(payload, "/schedule");
+    }
+    const response = payload as ScheduleResponse;
     const result = options.raw ?? config.defaultRaw ? response : normalizeSchedule(response);
-    return result as TRaw extends true ? ScheduleResponse : NormalizedScheduleResponse;
+    return result as ScheduleResponseByRawOption<TRaw, TRawDefault>;
   }
 
   /**
@@ -158,17 +171,22 @@ export function createScheduleModule(config: InternalClientConfig) {
   async function getEmployee<TRaw extends boolean | undefined = undefined>(
     urlId: string,
     options: ReadOptions & { raw?: TRaw } = {}
-  ): Promise<TRaw extends true ? ScheduleResponse : NormalizedScheduleResponse> {
+  ): Promise<ScheduleResponseByRawOption<TRaw, TRawDefault>> {
     assertEmployeeUrlId(urlId, "urlId");
-    const response = await requestJson<ScheduleResponse>(
+    const endpoint = `/employees/schedule/${encodeURIComponent(urlId)}`;
+    const payload = await requestJson<unknown>(
       config,
-      `/employees/schedule/${encodeURIComponent(urlId)}`,
+      endpoint,
       {
         signal: options.signal
       }
     );
+    if (config.validateResponses) {
+      assertScheduleResponse(payload, endpoint);
+    }
+    const response = payload as ScheduleResponse;
     const result = options.raw ?? config.defaultRaw ? response : normalizeSchedule(response);
-    return result as TRaw extends true ? ScheduleResponse : NormalizedScheduleResponse;
+    return result as ScheduleResponseByRawOption<TRaw, TRawDefault>;
   }
 
   /**
@@ -252,10 +270,14 @@ export function createScheduleModule(config: InternalClientConfig) {
         assertPositiveInt(params.id, "id");
         query = { id: params.id };
       }
-      return requestJson<ApiDateResponse>(config, "/last-update-date/student-group", {
+      const payload = await requestJson<unknown>(config, "/last-update-date/student-group", {
         query,
         signal: options.signal
       });
+      if (config.validateResponses) {
+        assertApiDateResponse(payload, "/last-update-date/student-group");
+      }
+      return payload as ApiDateResponse;
     },
 
     /**
@@ -274,10 +296,14 @@ export function createScheduleModule(config: InternalClientConfig) {
         assertPositiveInt(params.id, "id");
         query = { id: params.id };
       }
-      return requestJson<ApiDateResponse>(config, "/last-update-date/employee", {
+      const payload = await requestJson<unknown>(config, "/last-update-date/employee", {
         query,
         signal: options.signal
       });
+      if (config.validateResponses) {
+        assertApiDateResponse(payload, "/last-update-date/employee");
+      }
+      return payload as ApiDateResponse;
     }
   };
 }

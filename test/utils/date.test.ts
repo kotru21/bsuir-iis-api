@@ -11,5 +11,6 @@ describe("parseDdMmYyyy", () => {
     expect(parseDdMmYyyy(null)).toBeNull();
     expect(parseDdMmYyyy("2026-03-15")).toBeNull();
     expect(parseDdMmYyyy("15.03")).toBeNull();
+    expect(parseDdMmYyyy("31.02.2026")).toBeNull();
   });
 });

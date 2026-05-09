@@ -8,9 +8,29 @@ This changelog is maintained manually and updated in release commits.
 
 ## [Unreleased]
 
+### Added
+
+- Public exports for schedule utilities: `normalizeSchedule` and `filterLessons`.
+- Global cancellation support via `createBsuirClient({ signal })`.
+- `src/modules/index.ts` barrel for module factory imports.
+- In-memory GET cache via `createBsuirClient({ cache: { ttlMs, maxEntries } })`.
+- In-flight GET request deduplication via `dedupeInFlight`.
+- Opt-in runtime response-shape validation via `validateResponses` and `BsuirResponseValidationError`.
+- Request lifecycle hooks via `createBsuirClient({ hooks })`: `onRequest`, `onRetry`, `onResponse`, `onError`.
+- API Extractor configuration (`api-extractor.json`) and npm scripts for local/update and CI checks.
+
+### Fixed
+
+- `schedule.getGroup/getEmployee` return typing now follows client-level `defaultRaw` when `raw` is omitted.
+- `normalizeSchedule` no longer duplicates day-item flattening work and avoids repeated `auditories` normalization per lesson.
+- Strict date parsing in `parseDdMmYyyy` now rejects non-existent calendar dates (for example `31.02.2026`).
+- `BsuirNetworkError` now relies on standard `Error.cause` instead of duplicate `causeError` field.
+- Client option validation now rejects invalid timeout/retry configuration values early.
+
 ### Changed
 
 - Dev tooling: bumped TypeScript to 6.0.3, ESLint to ^10.2.1, Vitest and `@vitest/coverage-v8` to ^4.1.4, `@types/node` to ^25.6.0, `@typescript-eslint/*` and `typescript-eslint` to ^8.58.2, `@changesets/cli` to ^2.31.0, `@microsoft/api-extractor` to ^7.58.5, Prettier to ^3.8.3, `globals` to ^17.5.0; regenerated `package-lock.json`.
+- CI now validates API report compatibility via `npm run api:report:check` (Node 24 job in matrix).
 
 ## [0.7.0] - 2026-04-19
 

@@ -13,7 +13,7 @@ describe("announcements module", () => {
         body: [{ id: 2, employee: "Нестеренков С. Н.", content: "Консультация", studentGroups: [] }]
       })
     ]);
-    const client = createBsuirClient({ fetch: fetchImpl });
+    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
 
     const employeeAnnouncements = await client.announcements.byEmployee("s-nesterenkov");
     const departmentAnnouncements = await client.announcements.byDepartment(20027);

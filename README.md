@@ -38,11 +38,24 @@ const client = createBsuirClient({
   retryDelayMs: 300,
   retryMaxDelayMs: 3000,
   retryJitter: true,
+  cache: { ttlMs: 60_000, maxEntries: 200 },
+  dedupeInFlight: true,
+  validateResponses: false,
+  hooks: {
+    onRetry: ({ endpoint, delayMs, reason }) => {
+      console.log("retry", endpoint, delayMs, reason);
+    }
+  },
   defaultRaw: false
 });
 ```
 
 - `fetch` can be passed for custom runtime/testing.
+- `signal` in `createBsuirClient({ signal })` acts as a global cancellation signal for all requests made by that client.
+- `cache` stores successful GET responses in-memory for the configured TTL.
+- `dedupeInFlight` reuses the same in-flight GET request for concurrent callers (when no per-request signal is passed).
+- `validateResponses` enables runtime payload-shape checks for key endpoints.
+- `hooks` provides lifecycle callbacks (`onRequest`, `onRetry`, `onResponse`, `onError`) for observability.
 - `AbortSignal` is supported by all read methods.
 
 ## API
@@ -84,7 +97,8 @@ When IIS responds with HTTP `404` or `400` (no list, missing resource, or endpoi
 SDK throws typed errors:
 
 - `BsuirApiError` for HTTP errors (contains `status`, `endpoint`, `body`). **Exception:** `client.announcements.byEmployee` / `byDepartment` resolve to `[]` on IIS HTTP `404` or `400` instead of throwing (see Announcements above).
-- `BsuirNetworkError` for transport errors (contains `endpoint`, `causeError`, and standard `cause`)
+- `BsuirNetworkError` for transport errors (contains `endpoint` and standard `cause`)
+- `BsuirResponseValidationError` for invalid payload shapes when `validateResponses: true`
 - `BsuirTimeoutError` for timeouts (contains `endpoint`, `timeoutMs`)
 - `BsuirValidationError` for invalid input parameters
 - `BsuirConfigurationError` when the runtime has no `fetch` and none was passed to `createBsuirClient({ fetch })`
@@ -151,6 +165,7 @@ npm run lint
 npm run lint:fix
 npm run check
 npm run build
+npm run api:report
 ```
 
 `npm run build` uses [tsup](https://tsup.egoist.dev/) with [`experimentalDts`](https://tsup.egoist.dev/) so `.d.ts` output is produced via `@microsoft/api-extractor` rather than the legacy Rollup declaration path (which is awkward with TypeScript 6’s `baseUrl` deprecation). TypeScript’s handbook notes that [`paths` can be used without `baseUrl`](https://www.typescriptlang.org/docs/handbook/modules/reference.html) when you need path mapping.

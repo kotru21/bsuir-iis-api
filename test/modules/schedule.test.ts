@@ -98,7 +98,7 @@ describe("schedule module", () => {
     const fetchImpl = mockFetchSequence([
       new Response("2\n", { status: 200, headers: { "Content-Type": "text/plain" } })
     ]);
-    const client = createBsuirClient({ fetch: fetchImpl });
+    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
 
     const week = await client.schedule.getCurrentWeek();
     expect(week).toBe(2);
@@ -106,7 +106,7 @@ describe("schedule module", () => {
 
   it("returns normalized schedule by default", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildScheduleResponse() })]);
-    const client = createBsuirClient({ fetch: fetchImpl });
+    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
 
     const response = await client.schedule.getGroup("053503");
 
@@ -124,7 +124,7 @@ describe("schedule module", () => {
 
   it("supports raw mode per request", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildScheduleResponse() })]);
-    const client = createBsuirClient({ fetch: fetchImpl });
+    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
 
     const response = await client.schedule.getGroup("053503", { raw: true });
 
@@ -135,7 +135,7 @@ describe("schedule module", () => {
   it("handles employee schedule where lesson employees can be null", async () => {
     const payload = buildScheduleResponse({ employeeDto: null });
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: payload })]);
-    const client = createBsuirClient({ fetch: fetchImpl });
+    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
 
     const response = await client.schedule.getEmployee("s-nesterenkov");
     expect("lessons" in response && response.lessons.some((item) => item.employees === null)).toBe(true);
@@ -173,7 +173,7 @@ describe("schedule module", () => {
       createJsonResponse({ body: { lastUpdateDate: "23.02.2022" } }),
       createJsonResponse({ body: { lastUpdateDate: "24.02.2022" } })
     ]);
-    const client = createBsuirClient({ fetch: fetchImpl });
+    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
 
     const byGroup = await client.schedule.getLastUpdateByGroup({ groupNumber: "053503" });
     const byEmployee = await client.schedule.getLastUpdateByEmployee({ id: 123 });

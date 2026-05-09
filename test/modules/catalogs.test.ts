@@ -12,7 +12,7 @@ describe("catalog modules", () => {
       createJsonResponse({ body: [{ id: 1, name: "ИиТП", abbrev: "ИиТП", educationForm: [] }] }),
       createJsonResponse({ body: [{ id: 1, name: "104", note: "" }] })
     ]);
-    const client = createBsuirClient({ fetch: fetchImpl });
+    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
 
     const groups = await client.groups.listAll();
     const employees = await client.employees.listAll();

@@ -6,12 +6,20 @@ import { createJsonResponse, mockFetchSequence } from "../helpers/fetchMock";
 
 const BASE_CONFIG: Omit<InternalClientConfig, "fetchImpl"> = {
   baseUrl: "https://iis.bsuir.by/api/v1",
+  signal: undefined,
   timeoutMs: 1_000,
   retries: 0,
   retryDelayMs: 1,
   retryMaxDelayMs: 500,
   retryJitter: false,
   userAgent: "test",
+  cacheTtlMs: undefined,
+  cacheMaxEntries: 200,
+  dedupeInFlight: true,
+  validateResponses: false,
+  hooks: {},
+  responseCache: new Map(),
+  inFlightRequests: new Map(),
   defaultRaw: false
 };
 
@@ -23,6 +31,33 @@ describe("requestJson", () => {
     const response = await requestJson<{ hello: string }>(config, "/faculties");
 
     expect(response.hello).toBe("world");
+  });
+
+  it("emits request/response hooks for successful request", async () => {
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: { ok: true } })]);
+    const onRequest = vi.fn();
+    const onResponse = vi.fn();
+    const config: InternalClientConfig = {
+      ...BASE_CONFIG,
+      fetchImpl,
+      hooks: { onRequest, onResponse }
+    };
+
+    await requestJson<{ ok: boolean }>(config, "/faculties", {
+      query: { lang: "ru" }
+    });
+
+    expect(onRequest).toHaveBeenCalledTimes(1);
+    expect(onResponse).toHaveBeenCalledTimes(1);
+    expect(onResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: "GET",
+        path: "/faculties",
+        attempt: 1,
+        fromCache: false,
+        status: 200
+      })
+    );
   });
 
   it("parses JSON success body even when Content-Type omits application/json", async () => {
@@ -107,6 +142,28 @@ describe("requestJson", () => {
     expect(response.ok).toBe(true);
   });
 
+  it("emits retry hook for retriable responses", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ status: 503, body: { message: "temporary" } }),
+      createJsonResponse({ body: { ok: true } })
+    ]);
+    const onRetry = vi.fn();
+    const config: InternalClientConfig = {
+      ...BASE_CONFIG,
+      fetchImpl,
+      retries: 1,
+      hooks: { onRetry }
+    };
+
+    await requestJson<{ ok: boolean }>(config, "/faculties");
+    expect(onRetry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: "http_status",
+        status: 503
+      })
+    );
+  });
+
   it("does not retry non-retriable status codes", async () => {
     const fetchImpl = mockFetchSequence([
       createJsonResponse({ status: 400, body: { message: "bad request" } })
@@ -188,8 +245,107 @@ describe("requestJson", () => {
     await expect(request).rejects.toBeInstanceOf(BsuirNetworkError);
     await expect(request).rejects.toMatchObject({
       endpoint: "https://iis.bsuir.by/api/v1/faculties",
-      causeError: transportError
+      cause: transportError
     });
+  });
+
+  it("does not retry non-GET methods", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ status: 503, body: { message: "temporary error" } })
+    ]);
+    const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl, retries: 3 };
+
+    await expect(
+      requestJson(config, "/faculties", {
+        method: "POST",
+        body: { value: 1 }
+      })
+    ).rejects.toBeInstanceOf(BsuirApiError);
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("propagates global client signal cancellation", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const fetchImpl = (async (_input, init) => {
+      if (init?.signal?.aborted) {
+        throw new DOMException("The operation was aborted", "AbortError");
+      }
+      return createJsonResponse({ body: { ok: true } });
+    }) as typeof globalThis.fetch;
+    const config: InternalClientConfig = { ...BASE_CONFIG, fetchImpl, signal: controller.signal };
+
+    await expect(requestJson(config, "/faculties")).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("returns cached GET response within ttl window", async () => {
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: { ok: true } })]);
+    const config: InternalClientConfig = {
+      ...BASE_CONFIG,
+      fetchImpl,
+      cacheTtlMs: 60_000,
+      responseCache: new Map(),
+      inFlightRequests: new Map()
+    };
+
+    const first = await requestJson<{ ok: boolean }>(config, "/faculties");
+    const second = await requestJson<{ ok: boolean }>(config, "/faculties");
+
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("deduplicates concurrent in-flight GET requests", async () => {
+    let resolveFetch: ((value: Response) => void) | undefined;
+    const fetchImpl = vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveFetch = resolve;
+        })
+    ) as unknown as typeof globalThis.fetch;
+    const config: InternalClientConfig = {
+      ...BASE_CONFIG,
+      fetchImpl,
+      responseCache: new Map(),
+      inFlightRequests: new Map()
+    };
+
+    const firstPromise = requestJson<{ ok: boolean }>(config, "/faculties");
+    const secondPromise = requestJson<{ ok: boolean }>(config, "/faculties");
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+
+    if (!resolveFetch) {
+      throw new Error("fetch resolver was not initialized");
+    }
+    resolveFetch(createJsonResponse({ body: { ok: true } }));
+
+    const [first, second] = await Promise.all([firstPromise, secondPromise]);
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+  });
+
+  it("does not deduplicate GET requests with caller AbortSignal", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ body: { ok: true } }),
+      createJsonResponse({ body: { ok: true } })
+    ]);
+    const config: InternalClientConfig = {
+      ...BASE_CONFIG,
+      fetchImpl,
+      responseCache: new Map(),
+      inFlightRequests: new Map()
+    };
+    const signalA = new AbortController().signal;
+    const signalB = new AbortController().signal;
+
+    await Promise.all([
+      requestJson<{ ok: boolean }>(config, "/faculties", { signal: signalA }),
+      requestJson<{ ok: boolean }>(config, "/faculties", { signal: signalB })
+    ]);
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
   it("retries network errors and eventually succeeds", async () => {
