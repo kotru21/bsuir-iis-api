@@ -62,10 +62,13 @@ function createInternalConfig<TRawDefault extends boolean>(
   const retryMaxDelayMs =
     assertIntegerOption(options.retryMaxDelayMs, "retryMaxDelayMs", 0) ?? 3_000;
   const cacheTtlMs = assertIntegerOption(options.cache?.ttlMs, "cache.ttlMs", 1);
-  const cacheMaxEntries = assertIntegerOption(options.cache?.maxEntries, "cache.maxEntries", 1) ?? 200;
+  const cacheMaxEntries =
+    assertIntegerOption(options.cache?.maxEntries, "cache.maxEntries", 1) ?? 200;
 
   if (retryDelayMs > retryMaxDelayMs) {
-    throw new BsuirConfigurationError("'retryDelayMs' must be less than or equal to 'retryMaxDelayMs'");
+    throw new BsuirConfigurationError(
+      "'retryDelayMs' must be less than or equal to 'retryMaxDelayMs'"
+    );
   }
 
   return {
@@ -89,11 +92,74 @@ function createInternalConfig<TRawDefault extends boolean>(
   };
 }
 
-function buildClient<TRawDefault extends boolean>(config: Readonly<InternalClientConfig<TRawDefault>>) {
-  const schedule = createScheduleModule(config);
+/**
+ * Fully-typed public shape of the BSUIR API client.
+ * All module types are inlined so API Extractor never needs to reach into private helpers.
+ *
+ * `TRawDefault` controls the default return type of
+ * `schedule.getGroup` / `schedule.getEmployee` when the per-call `raw` option is omitted:
+ * - `false` (default) → returns `NormalizedScheduleResponse`
+ * - `true`            → returns `ScheduleResponse` (raw API payload)
+ *
+ * Per-call `raw` always takes precedence over this default.
+ *
+ * @example
+ * ```ts
+ * // Default (normalized):
+ * const client = createBsuirClient();
+ * const norm = await client.schedule.getGroup("053503"); // NormalizedScheduleResponse
+ *
+ * // Raw by default:
+ * const rawClient = createBsuirClient({ defaultRaw: true });
+ * const raw = await rawClient.schedule.getGroup("053503"); // ScheduleResponse
+ *
+ * // Per-call override (always wins):
+ * const override = await client.schedule.getGroup("053503", { raw: true }); // ScheduleResponse
+ * ```
+ */
+export interface BsuirClientShape<TRawDefault extends boolean> {
+  schedule: ReturnType<typeof createScheduleModule<TRawDefault>>;
+  groups: ReturnType<typeof createGroupsModule>;
+  employees: ReturnType<typeof createEmployeesModule>;
+  faculties: ReturnType<typeof createFacultiesModule>;
+  departments: ReturnType<typeof createDepartmentsModule>;
+  specialities: ReturnType<typeof createSpecialitiesModule>;
+  announcements: ReturnType<typeof createAnnouncementsModule>;
+  auditories: ReturnType<typeof createAuditoriesModule>;
+};
 
+/**
+ * Creates a configured BSUIR IIS API client.
+ *
+ * Pass `{ defaultRaw: true }` to switch the default return shape of
+ * `schedule.getGroup` and `schedule.getEmployee` from `NormalizedScheduleResponse`
+ * to the raw `ScheduleResponse`. Per-call `raw` option always takes precedence.
+ *
+ * @example
+ * ```ts
+ * // Normalized (default):
+ * const client = createBsuirClient();
+ *
+ * // Raw by default:
+ * const rawClient = createBsuirClient({ defaultRaw: true });
+ *
+ * // Custom fetch + timeout:
+ * const client = createBsuirClient({ fetch: myFetch, timeoutMs: 5_000 });
+ * ```
+ */
+export function createBsuirClient(
+  options: BsuirClientOptions & { defaultRaw: true }
+): BsuirClientShape<true>;
+export function createBsuirClient(
+  options?: BsuirClientOptions & { defaultRaw?: false | undefined }
+): BsuirClientShape<false>;
+export function createBsuirClient(
+  options: BsuirClientOptions = {}
+): BsuirClientShape<boolean> {
+  const defaultRaw = options.defaultRaw ?? false;
+  const config = createInternalConfig({ ...options, defaultRaw });
   return {
-    schedule,
+    schedule: createScheduleModule(config),
     groups: createGroupsModule(config),
     employees: createEmployeesModule(config),
     faculties: createFacultiesModule(config),
@@ -105,24 +171,7 @@ function buildClient<TRawDefault extends boolean>(config: Readonly<InternalClien
 }
 
 /**
- * Creates a configured BSUIR IIS API client.
- * Pass `{ defaultRaw: true }` to switch default schedule return shape from normalized to raw.
- */
-export function createBsuirClient(
-  options: BsuirClientOptions & { defaultRaw: true }
-): ReturnType<typeof buildClient<true>>;
-export function createBsuirClient(
-  options?: BsuirClientOptions & { defaultRaw?: false | undefined }
-): ReturnType<typeof buildClient<false>>;
-export function createBsuirClient(
-  options: BsuirClientOptions = {}
-): ReturnType<typeof buildClient<boolean>> {
-  const defaultRaw = options.defaultRaw ?? false;
-  const config = createInternalConfig({ ...options, defaultRaw });
-  return buildClient(config);
-}
-
-/**
  * Public client contract returned by `createBsuirClient`.
+ * Use `BsuirClientShape<true>` or `BsuirClientShape<false>` for typed overloads.
  */
 export type BsuirClient = ReturnType<typeof createBsuirClient>;

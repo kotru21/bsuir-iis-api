@@ -13,7 +13,7 @@ npm run check        # type-check + lint + format check
 
 ## Project Structure
 
-```
+```markdown
 src/
   client/    — HTTP engine, error classes, types, signal merging
   modules/   — per-resource API modules (schedule, groups, employees…)
