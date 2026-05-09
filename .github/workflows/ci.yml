@@ -23,6 +23,8 @@ jobs:
       - run: npm ci
       - run: npm run check:full
       - run: npm run build
+      - run: npm run api:report
+        if: matrix.node-version == 24
       - run: npm run api:report:check
         if: matrix.node-version == 24
 
