@@ -358,7 +358,7 @@ export async function requestJson<T>(
       return (await inFlight) as T;
     }
 
-    const inFlightPromise = performRequest()
+    const inFlightPromise: Promise<T> = performRequest()
       .then((payload) => {
         if (canUseCaching) {
           setCache(config, cacheKey, payload);
@@ -368,7 +368,7 @@ export async function requestJson<T>(
       .finally(() => {
         config.inFlightRequests.delete(cacheKey);
       });
-    config.inFlightRequests.set(cacheKey, inFlightPromise as Promise<unknown>);
+    config.inFlightRequests.set(cacheKey, inFlightPromise);
     return await inFlightPromise;
   }
 

@@ -11,6 +11,7 @@ This changelog is maintained manually and updated in release commits.
 ### Added
 
 - Public exports for schedule utilities: `normalizeSchedule` and `filterLessons`.
+- Public re-export of `ScheduleFilterOptions` type from `src/index.ts`.
 - Global cancellation support via `createBsuirClient({ signal })`.
 - `src/modules/index.ts` barrel for module factory imports.
 - In-memory GET cache via `createBsuirClient({ cache: { ttlMs, maxEntries } })`.
@@ -18,6 +19,7 @@ This changelog is maintained manually and updated in release commits.
 - Opt-in runtime response-shape validation via `validateResponses` and `BsuirResponseValidationError`.
 - Request lifecycle hooks via `createBsuirClient({ hooks })`: `onRequest`, `onRetry`, `onResponse`, `onError`.
 - API Extractor configuration (`api-extractor.json`) and npm scripts for local/update and CI checks.
+- `POST` method support in `requestJson` via `options.method` and `options.body`.
 
 ### Fixed
 
@@ -26,11 +28,17 @@ This changelog is maintained manually and updated in release commits.
 - Strict date parsing in `parseDdMmYyyy` now rejects non-existent calendar dates (for example `31.02.2026`).
 - `BsuirNetworkError` now relies on standard `Error.cause` instead of duplicate `causeError` field.
 - Client option validation now rejects invalid timeout/retry configuration values early.
+- `week.ts`: passing an empty string now throws a clear `BsuirValidationError` ("is an empty string") instead of a misleading "must be a positive integer" message.
+- `filterLessons`: `weekNumber: 0` is now rejected with `assertPositiveInt` instead of silently passing.
+- `http.ts`: cache eviction now uses pseudo-LRU (oldest-inserted Map key, O(1)) instead of an O(n) scan; `inFlightPromise` is typed as `Promise<T>` to eliminate unsafe `as Promise<unknown>` cast.
+- `http.ts`: restored file integrity after shell heredoc substitution corrupted ES module imports; fixed `@typescript-eslint/no-unsafe-call` error on `inFlight` read by shifting the `as T` cast to the Promise type before `await`.
 
 ### Changed
 
+- JSDoc for `defaultRaw` client option now clarifies that a per-call `raw` option takes priority and includes an `@example` for both cases.
 - Dev tooling: bumped TypeScript to 6.0.3, ESLint to ^10.2.1, Vitest and `@vitest/coverage-v8` to ^4.1.4, `@types/node` to ^25.6.0, `@typescript-eslint/*` and `typescript-eslint` to ^8.58.2, `@changesets/cli` to ^2.31.0, `@microsoft/api-extractor` to ^7.58.5, Prettier to ^3.8.3, `globals` to ^17.5.0; regenerated `package-lock.json`.
 - CI now validates API report compatibility via `npm run api:report:check` (Node 24 job in matrix).
+- `vitest.config.ts`: added coverage thresholds (`lines: 80`, `functions: 80`) to enforce minimum test coverage on CI.
 
 ## [0.7.0] - 2026-04-19
 
