@@ -23,7 +23,7 @@ export interface CacheOptions {
    * When the limit is exceeded the least-recently-used (LRU) entries are evicted
    * first. Expired entries are always removed before LRU eviction runs.
    *
-   * @default 200
+   * @defaultValue 200
    */
   maxEntries?: number;
 }
@@ -94,7 +94,7 @@ export interface BsuirClientOptions {
   /**
    * Base URL of the BSUIR IIS API.
    *
-   * @default "https://iis.bsuir.by/api/v1"
+   * @defaultValue "https://iis.bsuir.by/api/v1"
    */
   baseUrl?: string;
   /**
@@ -102,7 +102,7 @@ export interface BsuirClientOptions {
    * `fetch` is unavailable (older Node.js versions) or when you want to wrap
    * requests with a proxy, MSW handler, or test mock.
    *
-   * @default globalThis.fetch
+   * @defaultValue globalThis.fetch
    * @example
    * ```ts
    * import nodeFetch from "node-fetch";
@@ -126,27 +126,27 @@ export interface BsuirClientOptions {
    * aborted and a `BsuirTimeoutError` is thrown (or the request is retried
    * if retries remain).
    *
-   * @default 10_000 (10 seconds)
+   * @defaultValue 10_000 (10 seconds)
    */
   timeoutMs?: number;
   /**
    * Number of additional retry attempts for retriable GET failures (HTTP 429,
    * 500, 502, 503, 504 and network errors). Set to `0` to disable retries.
    *
-   * @default 1
+   * @defaultValue 1
    */
   retries?: number;
   /**
    * Base delay before the first retry, in milliseconds. Subsequent retries use
    * exponential backoff: `retryDelayMs * 2^attempt`, capped by `retryMaxDelayMs`.
    *
-   * @default 300
+   * @defaultValue 300
    */
   retryDelayMs?: number;
   /**
    * Upper bound for the retry delay after backoff, in milliseconds.
    *
-   * @default 3_000 (3 seconds)
+   * @defaultValue 3_000 (3 seconds)
    */
   retryMaxDelayMs?: number;
   /**
@@ -154,7 +154,7 @@ export interface BsuirClientOptions {
    * to avoid synchronized retries from multiple clients hitting the API at the
    * same time.
    *
-   * @default true
+   * @defaultValue true
    */
   retryJitter?: boolean;
   /**
@@ -196,7 +196,7 @@ export interface BsuirClientOptions {
    *
    * Disabled automatically when the request carries an `AbortSignal`.
    *
-   * @default true
+   * @defaultValue true
    */
   dedupeInFlight?: boolean;
   /**
@@ -210,7 +210,7 @@ export interface BsuirClientOptions {
    * **Recommended to enable during development and in test environments.**
    * Can be left `false` in production for a small performance gain.
    *
-   * @default false
+   * @defaultValue false
    *
    * @example
    * ```ts
@@ -252,7 +252,7 @@ export interface BsuirClientOptions {
    *
    * A per-call `raw` option always takes precedence over this default.
    *
-   * @default false
+   * @defaultValue false
    *
    * @example
    * ```ts

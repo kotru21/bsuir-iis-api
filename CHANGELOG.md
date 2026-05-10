@@ -12,6 +12,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 This changelog is maintained manually and updated in release commits.
 
+## [0.9.1] - 2026-05-10
+
+### Fixed
+
+- `http.ts`: cache eviction now performs true LRU — entries are sorted by `accessedAt` timestamp before eviction instead of relying on Map insertion order (which produced FIFO behaviour, not LRU).
+- `http.ts`: `setCache` now removes the key before re-inserting on a cache refresh, ensuring Map insertion order stays consistent with actual last-write time.
+- `http.ts`: `canUseCaching` and `canUseDedup` now check `config.signal?.aborted` in addition to per-request `options.signal`; previously a globally aborted client signal did not suppress cache reads, which could return stale data after cancellation.
+
+### Documentation
+
+- `types.ts`: all `BsuirClientOptions` fields now have full JSDoc — description, `@defaultValue`, `@example`, and side-effect notes where applicable.
+- `types.ts`: `validateResponses` JSDoc explicitly recommends `process.env.NODE_ENV !== "production"` as a sensible default pattern and clarifies the performance trade-off.
+- `types.ts`: `signal` JSDoc clarifies that an aborted global signal suppresses both cache reads and in-flight deduplication.
+
 ## [0.9.0] - 2026-05-10
 
 ### Added
