@@ -44,7 +44,7 @@ function tryReadCache(config: Readonly<InternalClientConfig>, key: string): unkn
     config.responseCache.delete(key);
     return undefined;
   }
-  // Update accessedAt for LRU eviction
+  // Update accessedAt on every read so LRU eviction keeps frequently-used entries alive.
   entry.accessedAt = Date.now();
   return entry.value;
 }
@@ -54,34 +54,41 @@ function setCache(config: Readonly<InternalClientConfig>, key: string, value: un
     return;
   }
   const now = Date.now();
+
+  // Re-insert to refresh insertion order in the Map (used as tie-breaker after accessedAt sort).
+  config.responseCache.delete(key);
   config.responseCache.set(key, {
     value,
     expiresAt: now + config.cacheTtlMs,
     accessedAt: now,
   });
 
-  // Only trigger cleanup when cache is approaching capacity (>90%) to avoid O(n) scan on every set
+  // Only trigger cleanup when cache is approaching capacity (>90%) to avoid O(n) scan on every set.
   const cleanupThreshold = config.cacheMaxEntries * 0.9;
   if (config.responseCache.size <= cleanupThreshold) {
     return;
   }
 
-  // Remove expired entries first
+  // Remove expired entries first — cheapest cleanup, no sorting needed.
   for (const [k, v] of config.responseCache) {
     if (v.expiresAt <= now) {
       config.responseCache.delete(k);
     }
   }
 
-  // Apply pseudo-LRU eviction if still over capacity.
-  // Map preserves insertion order; the first key is the oldest-inserted entry,
-  // which serves as a fast O(1) approximation of LRU without a separate bookkeeping structure.
-  while (config.responseCache.size > config.cacheMaxEntries) {
-    const firstKey = config.responseCache.keys().next().value;
-    if (firstKey === undefined) {
-      break;
+  // True LRU eviction: sort all remaining entries by accessedAt ascending and
+  // drop the least-recently-used ones until we are within capacity.
+  // O(n log n) but only runs when the cache is nearly full, so it is infrequent.
+  if (config.responseCache.size > config.cacheMaxEntries) {
+    const byLeastRecentlyUsed = [...config.responseCache.entries()].sort(
+      (a, b) => a[1].accessedAt - b[1].accessedAt,
+    );
+    for (const [k] of byLeastRecentlyUsed) {
+      if (config.responseCache.size <= config.cacheMaxEntries) {
+        break;
+      }
+      config.responseCache.delete(k);
     }
-    config.responseCache.delete(firstKey);
   }
 }
 
@@ -95,7 +102,7 @@ function combineAbortSignals(
   if (!second) {
     return first;
   }
-  // Delegate to mergeSignals for consistent signal combination logic
+  // Delegate to mergeSignals for consistent signal combination logic.
   return mergeSignals([first, second]);
 }
 
@@ -104,22 +111,22 @@ function parseRetryAfterMs(retryAfter: string | null): number | null {
     return null;
   }
 
-  // Try parsing as seconds (RFC 7231: numeric-value)
+  // Try parsing as seconds (RFC 7231: numeric-value).
   const asSeconds = Number(retryAfter);
   if (Number.isFinite(asSeconds) && asSeconds >= 0) {
-    // Validate it's actually numeric format, not a date string starting with a digit
+    // Validate it's actually numeric format, not a date string starting with a digit.
     if (/^\d+(\.\d+)?$/.test(retryAfter.trim())) {
       return Math.floor(asSeconds * 1000);
     }
   }
 
-  // Try parsing as HTTP date format (RFC 7231: http-date)
+  // Try parsing as HTTP date format (RFC 7231: http-date).
   const dateValue = Date.parse(retryAfter);
   if (Number.isFinite(dateValue)) {
     const delayMs = dateValue - Date.now();
-    // Only accept if date is in the future
+    // Only accept if date is in the future.
     if (delayMs > 0) {
-      return Math.min(delayMs, 86_400_000); // Cap at 24 hours to prevent unreasonably long waits
+      return Math.min(delayMs, 86_400_000); // Cap at 24 hours to prevent unreasonably long waits.
     }
   }
 
@@ -213,8 +220,11 @@ export async function requestJson<T>(
   }
 
   const cacheKey = endpoint;
-  const canUseCaching = config.cacheTtlMs !== undefined && method === "GET" && !options.signal;
-  const canUseDedup = config.dedupeInFlight && method === "GET" && !options.signal;
+  // Caching and dedup are disabled when a per-call signal is provided (caller manages lifecycle)
+  // OR when a global client signal is already aborted — stale data must not be served after abort.
+  const hasActiveSignal = options.signal != null || config.signal?.aborted === true;
+  const canUseCaching = config.cacheTtlMs !== undefined && method === "GET" && !hasActiveSignal;
+  const canUseDedup = config.dedupeInFlight && method === "GET" && !hasActiveSignal;
 
   if (canUseCaching) {
     const cached = tryReadCache(config, cacheKey);
