@@ -1,17 +1,5 @@
 # Changelog
 
-## 0.9.0
-
-### Minor Changes
-
-- 323feb4: New public APIs, cache, hooks, deps versions update, new JSdoc, etc.
-
-All notable changes to this project are documented in this file.
-
-The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-This changelog is maintained manually and updated in release commits.
-
 ## [0.9.1] - 2026-05-10
 
 ### Fixed
