@@ -98,6 +98,22 @@ export interface BsuirClientOptions {
    */
   baseUrl?: string;
   /**
+   * Allows using `http://` for `baseUrl`.
+   *
+   * Keep disabled unless you explicitly need local/non-TLS endpoints in tests.
+   *
+   * @defaultValue false
+   */
+  allowInsecureHttp?: boolean;
+  /**
+   * Allowed hostnames for `baseUrl`.
+   *
+   * Requests are rejected if `baseUrl` hostname is not in this list.
+   *
+   * @defaultValue ["iis.bsuir.by"]
+   */
+  allowedBaseUrlHosts?: string[];
+  /**
    * Custom `fetch` implementation. Useful for environments where the global
    * `fetch` is unavailable (older Node.js versions) or when you want to wrap
    * requests with a proxy, MSW handler, or test mock.
@@ -200,6 +216,14 @@ export interface BsuirClientOptions {
    */
   dedupeInFlight?: boolean;
   /**
+   * Maximum allowed response body size (in bytes) for a single request.
+   *
+   * Helps prevent excessive memory usage on unexpectedly large payloads.
+   *
+   * @defaultValue 5_000_000 (5 MB)
+   */
+  maxResponseBytes?: number;
+  /**
    * Enables runtime shape validation of API responses.
    *
    * When `true`, each response is checked against the expected TypeScript type
@@ -210,7 +234,7 @@ export interface BsuirClientOptions {
    * **Recommended to enable during development and in test environments.**
    * Can be left `false` in production for a small performance gain.
    *
-   * @defaultValue false
+   * @defaultValue true
    *
    * @example
    * ```ts
@@ -284,6 +308,7 @@ export interface InternalClientConfig<TRawDefault extends boolean = boolean> {
   cacheTtlMs: number | undefined;
   cacheMaxEntries: number;
   dedupeInFlight: boolean;
+  maxResponseBytes: number;
   validateResponses: boolean;
   hooks: ClientHooks;
   responseCache: Map<string, { expiresAt: number; value: unknown; accessedAt: number }>;

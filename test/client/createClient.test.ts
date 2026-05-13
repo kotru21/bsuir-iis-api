@@ -34,9 +34,32 @@ describe("createBsuirClient", () => {
     expect(() => createBsuirClient({ timeoutMs: 0 })).toThrow(BsuirConfigurationError);
     expect(() => createBsuirClient({ retries: -1 })).toThrow(BsuirConfigurationError);
     expect(() => createBsuirClient({ cache: { ttlMs: 0 } })).toThrow(BsuirConfigurationError);
+    expect(() => createBsuirClient({ maxResponseBytes: 0 })).toThrow(BsuirConfigurationError);
     expect(() => createBsuirClient({ retryDelayMs: 500, retryMaxDelayMs: 100 })).toThrow(
       BsuirConfigurationError
     );
+  });
+
+  it("rejects HTTP baseUrl by default", () => {
+    expect(() => createBsuirClient({ baseUrl: "http://iis.bsuir.by/api/v1" })).toThrow(
+      BsuirConfigurationError
+    );
+  });
+
+  it("rejects baseUrl host outside allowlist", () => {
+    expect(() => createBsuirClient({ baseUrl: "https://example.com/api/v1" })).toThrow(
+      BsuirConfigurationError
+    );
+  });
+
+  it("allows explicit insecure localhost baseUrl for trusted local testing", () => {
+    expect(() =>
+      createBsuirClient({
+        baseUrl: "http://localhost:8787/api/v1",
+        allowInsecureHttp: true,
+        allowedBaseUrlHosts: ["localhost"]
+      })
+    ).not.toThrow();
   });
 
   it("supports global cancellation signal", async () => {

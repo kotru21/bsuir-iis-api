@@ -12,6 +12,8 @@ import {
 } from "../modules";
 
 const DEFAULT_BASE_URL = "https://iis.bsuir.by/api/v1";
+const DEFAULT_ALLOWED_BASE_URL_HOSTS = ["iis.bsuir.by"];
+const DEFAULT_MAX_RESPONSE_BYTES = 5_000_000;
 
 // Prevents setTimeout() integer overflow (max safe value ~24.8 days).
 // 5 minutes is a generous upper bound for any HTTP request in this context.
@@ -47,6 +49,50 @@ function assertIntegerOption(
   return value;
 }
 
+function normalizeBaseUrl(
+  rawBaseUrl: string,
+  allowInsecureHttp: boolean,
+  allowedHosts: readonly string[]
+): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawBaseUrl);
+  } catch {
+    throw new BsuirConfigurationError("'baseUrl' must be a valid absolute URL");
+  }
+
+  if (parsed.username || parsed.password) {
+    throw new BsuirConfigurationError("'baseUrl' must not include credentials");
+  }
+
+  if (parsed.search || parsed.hash) {
+    throw new BsuirConfigurationError("'baseUrl' must not include query string or hash");
+  }
+
+  if (parsed.protocol !== "https:" && !(allowInsecureHttp && parsed.protocol === "http:")) {
+    throw new BsuirConfigurationError(
+      "'baseUrl' must use HTTPS. Set 'allowInsecureHttp: true' only for trusted local/test endpoints."
+    );
+  }
+
+  const normalizedAllowedHosts = new Set(
+    allowedHosts.map((host) => host.trim().toLowerCase()).filter((host) => host.length > 0)
+  );
+  if (normalizedAllowedHosts.size === 0) {
+    throw new BsuirConfigurationError("'allowedBaseUrlHosts' must contain at least one hostname");
+  }
+
+  const host = parsed.hostname.toLowerCase();
+  if (!normalizedAllowedHosts.has(host)) {
+    throw new BsuirConfigurationError(
+      `'baseUrl' host '${host}' is not allowed. Allowed hosts: ${[...normalizedAllowedHosts].join(", ")}`
+    );
+  }
+
+  const normalizedPath = parsed.pathname.replace(/\/+$/, "");
+  return `${parsed.origin}${normalizedPath}`;
+}
+
 function createInternalConfig<TRawDefault extends boolean>(
   options: BsuirClientOptions & { defaultRaw: TRawDefault }
 ): InternalClientConfig<TRawDefault> {
@@ -64,6 +110,11 @@ function createInternalConfig<TRawDefault extends boolean>(
   const cacheTtlMs = assertIntegerOption(options.cache?.ttlMs, "cache.ttlMs", 1);
   const cacheMaxEntries =
     assertIntegerOption(options.cache?.maxEntries, "cache.maxEntries", 1) ?? 200;
+  const maxResponseBytes =
+    assertIntegerOption(options.maxResponseBytes, "maxResponseBytes", 1) ??
+    DEFAULT_MAX_RESPONSE_BYTES;
+  const allowInsecureHttp = options.allowInsecureHttp ?? false;
+  const allowedBaseUrlHosts = options.allowedBaseUrlHosts ?? DEFAULT_ALLOWED_BASE_URL_HOSTS;
 
   if (retryDelayMs > retryMaxDelayMs) {
     throw new BsuirConfigurationError(
@@ -72,7 +123,7 @@ function createInternalConfig<TRawDefault extends boolean>(
   }
 
   return {
-    baseUrl: options.baseUrl ?? DEFAULT_BASE_URL,
+    baseUrl: normalizeBaseUrl(options.baseUrl ?? DEFAULT_BASE_URL, allowInsecureHttp, allowedBaseUrlHosts),
     fetchImpl: resolveFetch(options.fetch),
     signal: options.signal,
     timeoutMs,
@@ -84,7 +135,8 @@ function createInternalConfig<TRawDefault extends boolean>(
     cacheTtlMs,
     cacheMaxEntries,
     dedupeInFlight: options.dedupeInFlight ?? true,
-    validateResponses: options.validateResponses ?? false,
+    maxResponseBytes,
+    validateResponses: options.validateResponses ?? true,
     hooks: options.hooks ?? {},
     responseCache: new Map(),
     inFlightRequests: new Map(),

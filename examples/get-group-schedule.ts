@@ -9,4 +9,7 @@ async function main(): Promise<void> {
   console.log(`Lessons count for ${groupNumber}:`, schedule.lessons.length);
 }
 
-void main();
+void main().catch((error: unknown) => {
+  console.error("Failed to fetch group schedule:", error);
+  process.exitCode = 1;
+});

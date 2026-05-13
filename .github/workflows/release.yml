@@ -15,8 +15,8 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 24
           cache: npm
@@ -24,6 +24,7 @@ jobs:
 
       - run: npm ci
       - run: npm run build
+      - run: npx --yes @cyclonedx/cyclonedx-npm --output-file sbom.cdx.json
 
       - name: Check if version is already published
         id: publish_check
@@ -46,7 +47,7 @@ jobs:
       - name: Create Release PR or Publish
         id: changesets
         if: steps.publish_check.outputs.should_publish == 'true'
-        uses: changesets/action@v1.7.0
+        uses: changesets/action@e87c8ed249971350e47fab7515075f44eb134e5b # v1.7.0
         with:
           publish: npm publish --provenance --access public
           version: npx changeset version

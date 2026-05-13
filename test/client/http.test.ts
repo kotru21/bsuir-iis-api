@@ -16,6 +16,7 @@ const BASE_CONFIG: Omit<InternalClientConfig, "fetchImpl"> = {
   cacheTtlMs: undefined,
   cacheMaxEntries: 200,
   dedupeInFlight: true,
+  maxResponseBytes: 5_000_000,
   validateResponses: false,
   hooks: {},
   responseCache: new Map(),
@@ -122,6 +123,25 @@ describe("requestJson", () => {
       message: "Invalid JSON response payload",
       status: 200,
       body: null
+    });
+  });
+
+  it("throws BsuirApiError when response body exceeds configured maxResponseBytes", async () => {
+    const fetchImpl = mockFetchSequence([
+      new Response("payload-that-is-way-too-large", {
+        status: 200,
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Content-Length": "29"
+        }
+      })
+    ]);
+    const config = createConfig(fetchImpl, { retries: 0, maxResponseBytes: 10 });
+
+    const error = await requestJson(config, "/faculties").catch((err: unknown) => err);
+    expect(error).toBeInstanceOf(BsuirApiError);
+    expect(error).toMatchObject({
+      message: "Response body exceeds maxResponseBytes limit (10 bytes)"
     });
   });
 

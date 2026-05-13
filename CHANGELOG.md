@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.10.0] - 2026-05-13
+
+### Added
+
+- `createBsuirClient` options: `allowedBaseUrlHosts`, `allowInsecureHttp`, and `maxResponseBytes`.
+- HTTP internals split into focused modules under `src/client/http/*` (`requestJson`, `response`, `cache`, `retry`, `url`).
+- Schedule internals split into `scheduleApi`, `scheduleFilter`, and `scheduleNormalize`.
+- Shared `createListModule` used by catalog modules to remove duplicated list/read logic.
+- CI/release workflows now generate CycloneDX SBOM (`sbom.cdx.json`) on Node 24.
+
+### Changed
+
+- `createBsuirClient` now validates and normalizes `baseUrl` strictly (absolute URL, no credentials/query/hash, host allowlist, HTTPS by default).
+- `validateResponses` is now enabled by default.
+- Example scripts now fail with non-zero exit code on unhandled errors.
+- GitHub Actions in CI/release workflows are pinned to commit SHAs.
+- Dev dependencies in `package.json` are now pinned to exact versions.
+
+### Fixed
+
+- Response parser now enforces `maxResponseBytes` for both `Content-Length` pre-checks and streamed body reads.
+- `BsuirTimeoutError` now preserves upstream abort timeout cause.
+- Public API report updates for schedule typings (`FlattenedLessonsByDay` and `lessonTypeAbbrev`) and utility export documentation.
+
 ## [0.9.1] - 2026-05-10
 
 ### Fixed

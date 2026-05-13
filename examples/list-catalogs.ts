@@ -14,4 +14,7 @@ async function main(): Promise<void> {
   console.log("Faculties:", faculties.length);
 }
 
-void main();
+void main().catch((error: unknown) => {
+  console.error("Failed to list catalogs:", error);
+  process.exitCode = 1;
+});

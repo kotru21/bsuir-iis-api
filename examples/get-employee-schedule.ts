@@ -9,4 +9,7 @@ async function main(): Promise<void> {
   console.log(`Lessons count for ${urlId}:`, schedule.lessons.length);
 }
 
-void main();
+void main().catch((error: unknown) => {
+  console.error("Failed to fetch employee schedule:", error);
+  process.exitCode = 1;
+});

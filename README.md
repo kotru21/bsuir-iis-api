@@ -33,6 +33,8 @@ console.log(schedule.lessons.length);
 ```ts
 const client = createBsuirClient({
   baseUrl: "https://iis.bsuir.by/api/v1",
+  allowedBaseUrlHosts: ["iis.bsuir.by"],
+  allowInsecureHttp: false,
   timeoutMs: 10000,
   retries: 2,
   retryDelayMs: 300,
@@ -40,7 +42,8 @@ const client = createBsuirClient({
   retryJitter: true,
   cache: { ttlMs: 60_000, maxEntries: 200 },
   dedupeInFlight: true,
-  validateResponses: false,
+  maxResponseBytes: 5_000_000,
+  validateResponses: true,
   hooks: {
     onRetry: ({ endpoint, delayMs, reason }) => {
       console.log("retry", endpoint, delayMs, reason);
@@ -51,10 +54,14 @@ const client = createBsuirClient({
 ```
 
 - `fetch` can be passed for custom runtime/testing.
+- `baseUrl` is normalized and validated (absolute URL, no credentials/query/hash, host allowlist).
+- `allowedBaseUrlHosts` controls which hosts are allowed for `baseUrl` (defaults to `["iis.bsuir.by"]`).
+- `allowInsecureHttp` enables `http://` only for trusted local/test endpoints.
 - `signal` in `createBsuirClient({ signal })` acts as a global cancellation signal for all requests made by that client.
 - `cache` stores successful GET responses in-memory for the configured TTL.
 - `dedupeInFlight` reuses the same in-flight GET request for concurrent callers (when no per-request signal is passed).
-- `validateResponses` enables runtime payload-shape checks for key endpoints.
+- `maxResponseBytes` limits body size per response to protect against memory spikes.
+- `validateResponses` enables runtime payload-shape checks for key endpoints (enabled by default).
 - `hooks` provides lifecycle callbacks (`onRequest`, `onRetry`, `onResponse`, `onError`) for observability.
 - `AbortSignal` is supported by all read methods.
 

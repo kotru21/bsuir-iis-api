@@ -82,14 +82,15 @@ export type BsuirClient = ReturnType<typeof createBsuirClient>;
 
 // @public
 export interface BsuirClientOptions {
-    // (undocumented)
+    allowedBaseUrlHosts?: string[];
+    allowInsecureHttp?: boolean;
     baseUrl?: string;
     cache?: CacheOptions;
     dedupeInFlight?: boolean;
     defaultRaw?: boolean;
-    // (undocumented)
     fetch?: typeof globalThis.fetch;
     hooks?: ClientHooks;
+    maxResponseBytes?: number;
     retries?: number;
     retryDelayMs?: number;
     retryJitter?: boolean;
@@ -121,7 +122,7 @@ export class BsuirResponseValidationError extends Error {
 
 // @public (undocumented)
 export class BsuirTimeoutError extends Error {
-    constructor(message: string, endpoint: string, timeoutMs: number);
+    constructor(message: string, endpoint: string, timeoutMs: number, cause?: unknown);
     // (undocumented)
     readonly endpoint: string;
     // (undocumented)
@@ -159,17 +160,17 @@ export interface ClientHooks {
     onRetry?: (context: RetryHookContext) => void;
 }
 
-// Warning: (ae-forgotten-export) The symbol "buildClient" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "BsuirClientShape" needs to be exported by the entry point index.d.ts
 //
 // @public
 export function createBsuirClient(options: BsuirClientOptions & {
     defaultRaw: true;
-}): ReturnType<typeof buildClient<true>>;
+}): BsuirClientShape<true>;
 
 // @public (undocumented)
 export function createBsuirClient(options?: BsuirClientOptions & {
     defaultRaw?: false | undefined;
-}): ReturnType<typeof buildClient<false>>;
+}): BsuirClientShape<false>;
 
 // @public (undocumented)
 export interface Department {
@@ -261,11 +262,11 @@ export interface Faculty {
     name: string;
 }
 
-// @public (undocumented)
+// @public
 export function filterLessons(response: NormalizedScheduleResponse, filter: ScheduleFilterOptions): FlattenedScheduleItem[];
 
 // @public (undocumented)
-export type FlattenedLessonsByDay = Partial<Record<Weekday, FlattenedScheduleItem[]>>;
+export type FlattenedLessonsByDay = Record<Weekday, FlattenedScheduleItem[]>;
 
 // @public (undocumented)
 export interface FlattenedScheduleItem extends ScheduleItem {
@@ -308,7 +309,7 @@ export interface NormalizedScheduleResponse extends Omit<ScheduleResponse, "sche
     schedules: WeekScheduleMap;
 }
 
-// @public (undocumented)
+// @public
 export function normalizeSchedule(response: ScheduleResponse): NormalizedScheduleResponse;
 
 // @public
@@ -401,7 +402,7 @@ export interface ScheduleItem {
     // (undocumented)
     endLessonTime: string;
     // (undocumented)
-    lessonTypeAbbrev: string | null;
+    lessonTypeAbbrev: Maybe<string>;
     // (undocumented)
     note: Maybe<string>;
     // (undocumented)
