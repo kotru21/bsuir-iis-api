@@ -31,6 +31,8 @@ console.log(schedule.lessons.length);
 ## Client options
 
 ```ts
+import { createBsuirClient } from "bsuir-iis-api";
+
 const client = createBsuirClient({
   baseUrl: "https://iis.bsuir.by/api/v1",
   allowedBaseUrlHosts: ["iis.bsuir.by"],
@@ -99,11 +101,20 @@ const client = createBsuirClient({
 
 When IIS responds with HTTP `404` or `400` (no list, missing resource, or endpoint quirks), these methods resolve to an empty array `[]` instead of throwing `BsuirApiError`. Client-side validation still runs first (`urlId`, department `id`). If IIS later returns a meaningful `400` for bad parameters, it will also map to `[]`; other HTTP errors are unchanged.
 
+### Public exports (runtime utilities and types)
+
+- Core runtime API: `createBsuirClient`, `BsuirClient`
+- Client/runtime option types: `BsuirClientOptions`, `CacheOptions`, `ClientHooks`, `RequestOptions`, `ReadOptions`, `RequestHookContext`, `RetryHookContext`, `ResponseHookContext`, `ErrorHookContext`
+- Schedule utilities: `normalizeSchedule`, `filterLessons`, `ScheduleFilterOptions`
+- Error classes: `BsuirApiError`, `BsuirNetworkError`, `BsuirTimeoutError`, `BsuirValidationError`, `BsuirResponseValidationError`, `BsuirConfigurationError`
+- Domain types: `Announcement`, `ApiDateResponse`, `Auditory`, `AuditoryDepartment`, `AuditoryType`, `BuildingNumber`, `Department`, `EducationForm`, `Employee`, `EmployeeCatalogItem`, `Faculty`, `FlattenedLessonsByDay`, `FlattenedScheduleItem`, `LessonStudentGroup`, `Maybe`, `NormalizedScheduleResponse`, `ScheduleItem`, `ScheduleResponse`, `Speciality`, `StudentGroupCatalogItem`, `StudentGroupShort`, `Weekday`, `WeekScheduleMap`
+
 ## Errors
 
 SDK throws typed errors:
 
 - `BsuirApiError` for HTTP errors (contains `status`, `endpoint`, `body`). **Exception:** `client.announcements.byEmployee` / `byDepartment` resolve to `[]` on IIS HTTP `404` or `400` instead of throwing (see Announcements above).
+- `BsuirApiError` is also used when response body size exceeds configured `maxResponseBytes`.
 - `BsuirNetworkError` for transport errors (contains `endpoint` and standard `cause`)
 - `BsuirResponseValidationError` for invalid payload shapes when `validateResponses: true`
 - `BsuirTimeoutError` for timeouts (contains `endpoint`, `timeoutMs`)
@@ -117,7 +128,7 @@ Validation rules:
 - `id` and `subgroup` parameters must be positive integers
 Retry and abort behavior:
 
-- Retries are applied to `429`, `500`, `502`, `503`, `504`
+- Retries are applied to GET requests for transport/network errors and HTTP `429`, `500`, `502`, `503`, `504`
 - `Retry-After` is respected for retriable responses
 - Caller-provided aborted `AbortSignal` is re-thrown as native `AbortError`
 - Internal timeout is mapped to `BsuirTimeoutError`
@@ -131,17 +142,21 @@ For **2xx** responses the client reads the body as text, then applies `JSON.pars
 - Valid JSON is returned even when `Content-Type` does **not** include `application/json` (mislabeled responses still parse).
 - If `Content-Type` indicates **`application/json`** but the body is empty or not valid JSON, the client throws `BsuirApiError` (`Invalid JSON response payload`), same as for a truncated `{` payload.
 - If the body is **empty** and the content type does **not** indicate JSON, the result is an empty string `""` (analogous to reading plain text). Typical IIS catalog JSON endpoints return a non-empty body.
+- If response body size exceeds `maxResponseBytes`, the client throws `BsuirApiError`.
 
 ## Raw vs normalized schedule response
 
 By default, schedule methods return a **normalized** `NormalizedScheduleResponse`: `lessons` is all flattened items (weekly + exams), each tagged with `source: "schedules" | "exams"`; `scheduleLessons` / `examLessons` are the same rows split by source; `lessonsByDay` groups by weekday.
 
 ```ts
+import { createBsuirClient } from "bsuir-iis-api";
+
+const client = createBsuirClient();
 const raw = await client.schedule.getGroup("053503", { raw: true });
 ```
 
 Use `defaultRaw: true` in `createBsuirClient` to change global behavior.
-When `raw` is omitted, `getGroup()` and `getEmployee()` return normalized payload.
+When `raw` is omitted, `getGroup()` and `getEmployee()` follow client `defaultRaw` (`false` by default, so normalized unless explicitly changed to `true`).
 In raw mode API may return `schedules: null`; normalized mode always converts it to `{}`.
 In raw mode some lesson fields may also be nullable (`weekNumber`, `lessonTypeAbbrev`), so keep null checks if you consume raw payload directly.
 README examples match the installed package version; if types and docs ever diverge, rely on `NormalizedScheduleResponse` / `ScheduleResponse` from the same release.
@@ -154,6 +169,9 @@ The SDK normalizes `current-week` payloads, including plain-text responses like 
 Filtering example:
 
 ```ts
+import { createBsuirClient } from "bsuir-iis-api";
+
+const client = createBsuirClient();
 const exams = await client.schedule.getGroupFiltered("053503", {
   source: "exams",
   lessonTypeAbbrev: ["Консультация", "Экзамен"]
@@ -161,6 +179,9 @@ const exams = await client.schedule.getGroupFiltered("053503", {
 ```
 
 ```ts
+import { createBsuirClient } from "bsuir-iis-api";
+
+const client = createBsuirClient();
 const subgroupLessons = await client.schedule.getEmployeeBySubgroup("s-nesterenkov", 1);
 ```
 

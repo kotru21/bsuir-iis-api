@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.10.1] - 2026-05-13
+
+### Documentation
+
+- README: clarified `defaultRaw` behavior for `schedule.getGroup()` / `schedule.getEmployee()` when per-call `raw` is omitted.
+- README: clarified retry semantics (GET retries cover retriable HTTP statuses and network/transport errors).
+- README: documented `maxResponseBytes` failure behavior (`BsuirApiError` on oversized payloads).
+- README: made usage snippets standalone by adding required imports/client initialization.
+- README: added explicit public export reference for runtime helpers, error classes, and exported domain/types surface.
+
+### Changed
+
+- Changelog restored explicit `0.8.0` section and separated `0.9.0` release-management metadata.
+- Changelog now marks `0.10.0` behavior shifts with potentially breaking downstream impact notes.
+
 ## [0.10.0] - 2026-05-13
 
 ### Added
@@ -17,6 +32,12 @@
 - Example scripts now fail with non-zero exit code on unhandled errors.
 - GitHub Actions in CI/release workflows are pinned to commit SHAs.
 - Dev dependencies in `package.json` are now pinned to exact versions.
+
+### Potentially Breaking
+
+- `baseUrl` validation is now strict; previously accepted non-normalized/less-safe values can now throw `BsuirConfigurationError`.
+- `validateResponses` defaults to `true`; integrations that relied on unchecked payloads may now see `BsuirResponseValidationError`.
+- Response body size is now actively enforced via `maxResponseBytes`; oversized responses now fail fast with `BsuirApiError`.
 
 ### Fixed
 
@@ -39,6 +60,12 @@
 - `types.ts`: `signal` JSDoc clarifies that an aborted global signal suppresses both cache reads and in-flight deduplication.
 
 ## [0.9.0] - 2026-05-10
+
+### Changed
+
+- Release-management update from Changesets (`version: 0.9.0` + release metadata). Runtime API/content remained aligned with the `0.8.0` code snapshot.
+
+## [0.8.0] - 2026-05-10
 
 ### Added
 
