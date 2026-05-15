@@ -1,6 +1,9 @@
 import { BsuirApiError } from "../errors";
 
-async function readBodyTextWithLimit(response: Response, maxResponseBytes: number): Promise<string> {
+async function readBodyTextWithLimit(
+  response: Response,
+  maxResponseBytes: number
+): Promise<string> {
   const contentLengthHeader = response.headers.get("content-length");
   if (contentLengthHeader) {
     const parsedLength = Number(contentLengthHeader);

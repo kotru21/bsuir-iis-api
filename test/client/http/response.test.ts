@@ -7,8 +7,8 @@ function makeResponse(
   {
     contentType = "application/json",
     contentLength,
-    useStream = true,
-  }: { contentType?: string; contentLength?: number; useStream?: boolean } = {},
+    useStream = true
+  }: { contentType?: string; contentLength?: number; useStream?: boolean } = {}
 ): Response {
   const headers = new Headers({ "content-type": contentType });
   if (contentLength !== undefined) {

@@ -4,17 +4,10 @@ import type {
   FlattenedScheduleItem,
   NormalizedScheduleResponse,
   ScheduleItem,
-  ScheduleResponse,
+  ScheduleResponse
 } from "../types/schedule";
 
-const WEEKDAYS: Weekday[] = [
-  "Понедельник",
-  "Вторник",
-  "Среда",
-  "Четверг",
-  "Пятница",
-  "Суббота",
-];
+const WEEKDAYS: Weekday[] = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"];
 
 function lessonAuditories(item: ScheduleItem): string[] {
   const { auditories } = item;
@@ -29,7 +22,7 @@ export function normalizeSchedule(response: ScheduleResponse): NormalizedSchedul
   const scheduleLessons: FlattenedScheduleItem[] = [];
   const examLessons: FlattenedScheduleItem[] = [];
   const lessonsByDay = Object.fromEntries(
-    WEEKDAYS.map((day) => [day, [] as FlattenedScheduleItem[]]),
+    WEEKDAYS.map((day) => [day, [] as FlattenedScheduleItem[]])
   ) as FlattenedLessonsByDay;
   const safeSchedules = response.schedules ?? {};
   const safeExams = response.exams ?? [];
@@ -42,7 +35,7 @@ export function normalizeSchedule(response: ScheduleResponse): NormalizedSchedul
         ...item,
         auditories,
         day,
-        source: "schedules" as const,
+        source: "schedules" as const
       };
     });
     lessonsByDay[day] = flattenedDayItems;
@@ -56,7 +49,7 @@ export function normalizeSchedule(response: ScheduleResponse): NormalizedSchedul
       ...exam,
       auditories,
       day: null,
-      source: "exams",
+      source: "exams"
     };
     lessons.push(flattenedExam);
     examLessons.push(flattenedExam);
@@ -69,6 +62,6 @@ export function normalizeSchedule(response: ScheduleResponse): NormalizedSchedul
     lessons,
     lessonsByDay,
     scheduleLessons,
-    examLessons,
+    examLessons
   };
 }

@@ -123,7 +123,11 @@ function createInternalConfig<TRawDefault extends boolean>(
   }
 
   return {
-    baseUrl: normalizeBaseUrl(options.baseUrl ?? DEFAULT_BASE_URL, allowInsecureHttp, allowedBaseUrlHosts),
+    baseUrl: normalizeBaseUrl(
+      options.baseUrl ?? DEFAULT_BASE_URL,
+      allowInsecureHttp,
+      allowedBaseUrlHosts
+    ),
     fetchImpl: resolveFetch(options.fetch),
     signal: options.signal,
     timeoutMs,
@@ -178,7 +182,7 @@ export interface BsuirClientShape<TRawDefault extends boolean> {
   specialities: ReturnType<typeof createSpecialitiesModule>;
   announcements: ReturnType<typeof createAnnouncementsModule>;
   auditories: ReturnType<typeof createAuditoriesModule>;
-};
+}
 
 /**
  * Creates a configured BSUIR IIS API client.
@@ -205,9 +209,7 @@ export function createBsuirClient(
 export function createBsuirClient(
   options?: BsuirClientOptions & { defaultRaw?: false | undefined }
 ): BsuirClientShape<false>;
-export function createBsuirClient(
-  options: BsuirClientOptions = {}
-): BsuirClientShape<boolean> {
+export function createBsuirClient(options: BsuirClientOptions = {}): BsuirClientShape<boolean> {
   const defaultRaw = options.defaultRaw ?? false;
   const config = createInternalConfig({ ...options, defaultRaw });
   return {

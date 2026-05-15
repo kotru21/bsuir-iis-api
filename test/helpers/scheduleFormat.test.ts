@@ -6,13 +6,13 @@ import {
   formatLessonSubgroup,
   formatLessonTimeRange,
   formatLessonType,
-  formatLessonWeekNumbers,
+  formatLessonWeekNumbers
 } from "../../src/helpers/scheduleFormat";
 import type { Employee } from "../../src/types/employee";
 import type { FlattenedScheduleItem } from "../../src/types/schedule";
 
 function makeLesson(
-  overrides: Partial<FlattenedScheduleItem> = {},
+  overrides: Partial<FlattenedScheduleItem> = {}
 ): Pick<
   FlattenedScheduleItem,
   | "startLessonTime"
@@ -31,7 +31,7 @@ function makeLesson(
     weekNumber: [1],
     auditories: [],
     employees: null,
-    ...overrides,
+    ...overrides
   };
 }
 
@@ -49,7 +49,7 @@ function makeEmployee(overrides: Partial<Employee> = {}): Employee {
     rank: null,
     photoLink: "",
     jobPositions: null,
-    ...overrides,
+    ...overrides
   };
 }
 
@@ -67,14 +67,12 @@ describe("formatLessonTimeRange", () => {
   });
 
   it("returns empty string when both times are empty", () => {
-    expect(
-      formatLessonTimeRange(makeLesson({ startLessonTime: "", endLessonTime: "" })),
-    ).toBe("");
+    expect(formatLessonTimeRange(makeLesson({ startLessonTime: "", endLessonTime: "" }))).toBe("");
   });
 
   it("trims surrounding whitespace", () => {
     expect(
-      formatLessonTimeRange(makeLesson({ startLessonTime: " 09:00 ", endLessonTime: " 10:20 " })),
+      formatLessonTimeRange(makeLesson({ startLessonTime: " 09:00 ", endLessonTime: " 10:20 " }))
     ).toBe("09:00–10:20");
   });
 });
@@ -135,9 +133,9 @@ describe("formatLessonAuditories", () => {
   });
 
   it("joins multiple auditories with comma", () => {
-    expect(
-      formatLessonAuditories(makeLesson({ auditories: ["101-2", "102-3"] })),
-    ).toBe("101-2, 102-3");
+    expect(formatLessonAuditories(makeLesson({ auditories: ["101-2", "102-3"] }))).toBe(
+      "101-2, 102-3"
+    );
   });
 });
 
@@ -151,16 +149,14 @@ describe("formatEmployeeShortName", () => {
   });
 
   it("omits both initials when firstName and middleName are empty", () => {
-    expect(
-      formatEmployeeShortName(makeEmployee({ firstName: "", middleName: "" })),
-    ).toBe("Иванов");
+    expect(formatEmployeeShortName(makeEmployee({ firstName: "", middleName: "" }))).toBe("Иванов");
   });
 
   it("trims whitespace in name parts", () => {
     expect(
       formatEmployeeShortName(
-        makeEmployee({ lastName: " Петров ", firstName: " Пётр ", middleName: " Петрович " }),
-      ),
+        makeEmployee({ lastName: " Петров ", firstName: " Пётр ", middleName: " Петрович " })
+      )
     ).toBe("Петров П.П.");
   });
 });
@@ -175,9 +171,7 @@ describe("formatLessonEmployees", () => {
   });
 
   it("formats a single employee", () => {
-    expect(
-      formatLessonEmployees(makeLesson({ employees: [makeEmployee()] })),
-    ).toBe("Иванов И.И.");
+    expect(formatLessonEmployees(makeLesson({ employees: [makeEmployee()] }))).toBe("Иванов И.И.");
   });
 
   it("joins multiple employees with comma", () => {
@@ -185,10 +179,10 @@ describe("formatLessonEmployees", () => {
       id: 2,
       lastName: "Петров",
       firstName: "Пётр",
-      middleName: "Петрович",
+      middleName: "Петрович"
     });
-    expect(
-      formatLessonEmployees(makeLesson({ employees: [makeEmployee(), emp2] })),
-    ).toBe("Иванов И.И., Петров П.П.");
+    expect(formatLessonEmployees(makeLesson({ employees: [makeEmployee(), emp2] }))).toBe(
+      "Иванов И.И., Петров П.П."
+    );
   });
 });

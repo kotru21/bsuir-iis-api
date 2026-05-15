@@ -8,7 +8,7 @@ import type {
   RequestMethod,
   RequestOptions,
   ResponseHookContext,
-  RetryHookContext,
+  RetryHookContext
 } from "../types";
 import { isAbortError } from "../../utils/guards";
 import { setCache, tryReadCache } from "./cache";
@@ -18,7 +18,7 @@ import { buildUrl } from "./url";
 
 function combineAbortSignals(
   first: AbortSignal | undefined,
-  second: AbortSignal | undefined,
+  second: AbortSignal | undefined
 ): AbortSignal | undefined {
   if (!first) {
     return second;
@@ -36,7 +36,7 @@ function baseHookContext(
   endpoint: string,
   attempt: number,
   maxAttempts: number,
-  query: QueryParams | undefined,
+  query: QueryParams | undefined
 ): RequestHookContext {
   return {
     method,
@@ -44,7 +44,7 @@ function baseHookContext(
     endpoint,
     attempt,
     maxAttempts,
-    query,
+    query
   };
 }
 
@@ -54,7 +54,7 @@ function baseHookContext(
 export async function requestJson<T>(
   config: Readonly<InternalClientConfig>,
   path: string,
-  options: RequestOptions = {},
+  options: RequestOptions = {}
 ): Promise<T> {
   const endpoint = buildUrl(config.baseUrl, path, options.query);
   const method = options.method ?? "GET";
@@ -62,7 +62,7 @@ export async function requestJson<T>(
   const maxRetries = requestCanRetry ? config.retries : 0;
   const maxAttempts = maxRetries + 1;
   const headers = new Headers({
-    Accept: "application/json",
+    Accept: "application/json"
   });
 
   if (config.userAgent) {
@@ -93,7 +93,7 @@ export async function requestJson<T>(
         ...baseHookContext(method, path, endpoint, 1, maxAttempts, options.query),
         status: 200,
         durationMs: 0,
-        fromCache: true,
+        fromCache: true
       };
       config.hooks.onResponse?.(cacheHitCtx);
       return cached as T;
@@ -104,7 +104,14 @@ export async function requestJson<T>(
     for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
       const attemptNumber = attempt + 1;
       const startedAt = Date.now();
-      const hookCtx = baseHookContext(method, path, endpoint, attemptNumber, maxAttempts, options.query);
+      const hookCtx = baseHookContext(
+        method,
+        path,
+        endpoint,
+        attemptNumber,
+        maxAttempts,
+        options.query
+      );
 
       config.hooks.onRequest?.(hookCtx);
 
@@ -115,7 +122,7 @@ export async function requestJson<T>(
         const requestInit: RequestInit = {
           method,
           headers,
-          signal: requestSignal,
+          signal: requestSignal
         };
         if (body !== undefined) {
           requestInit.body = body;
@@ -131,7 +138,7 @@ export async function requestJson<T>(
               ...hookCtx,
               delayMs,
               reason: "http_status",
-              status: response.status,
+              status: response.status
             };
             config.hooks.onRetry?.(retryCtx);
             await sleep(delayMs);
@@ -141,12 +148,12 @@ export async function requestJson<T>(
             `BSUIR API returned HTTP ${String(response.status)} for ${method} ${path}`,
             response.status,
             endpoint,
-            errorBody,
+            errorBody
           );
           const errorCtx: ErrorHookContext = {
             ...hookCtx,
             durationMs: Date.now() - startedAt,
-            error: apiError,
+            error: apiError
           };
           config.hooks.onError?.(errorCtx);
           throw apiError;
@@ -157,7 +164,7 @@ export async function requestJson<T>(
           ...hookCtx,
           status: response.status,
           durationMs: Date.now() - startedAt,
-          fromCache: false,
+          fromCache: false
         };
         config.hooks.onResponse?.(responseCtx);
         return parsed;
@@ -171,7 +178,7 @@ export async function requestJson<T>(
             const abortCtx: ErrorHookContext = {
               ...hookCtx,
               durationMs: Date.now() - startedAt,
-              error,
+              error
             };
             config.hooks.onError?.(abortCtx);
             throw error;
@@ -180,12 +187,12 @@ export async function requestJson<T>(
             `Request timed out after ${String(config.timeoutMs)}ms: ${path}`,
             endpoint,
             config.timeoutMs,
-            error,
+            error
           );
           const timeoutCtx: ErrorHookContext = {
             ...hookCtx,
             durationMs: Date.now() - startedAt,
-            error: timeoutError,
+            error: timeoutError
           };
           config.hooks.onError?.(timeoutCtx);
           throw timeoutError;
@@ -197,7 +204,7 @@ export async function requestJson<T>(
             ...hookCtx,
             delayMs,
             reason: "network_error",
-            status: undefined,
+            status: undefined
           };
           config.hooks.onRetry?.(retryCtx);
           await sleep(delayMs);
@@ -207,12 +214,12 @@ export async function requestJson<T>(
         const networkError = new BsuirNetworkError(
           `Network error while requesting ${path}`,
           endpoint,
-          error,
+          error
         );
         const networkErrorCtx: ErrorHookContext = {
           ...hookCtx,
           durationMs: Date.now() - startedAt,
-          error: networkError,
+          error: networkError
         };
         config.hooks.onError?.(networkErrorCtx);
         throw networkError;

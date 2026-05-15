@@ -3,7 +3,7 @@ import type {
   FlattenedScheduleItem,
   NormalizedScheduleResponse,
   ScheduleFilterOptions,
-  ScheduleItem,
+  ScheduleItem
 } from "../types/schedule";
 
 function lessonAuditories(item: ScheduleItem): string[] {
@@ -20,9 +20,12 @@ function matchesFilter(item: FlattenedScheduleItem, filter: ScheduleFilterOption
     return false;
   }
 
-  if (typeof filter.weekNumber === "number" && (!Array.isArray(item.weekNumber) || !item.weekNumber.includes(filter.weekNumber))) {
-      return false;
-    }
+  if (
+    typeof filter.weekNumber === "number" &&
+    (!Array.isArray(item.weekNumber) || !item.weekNumber.includes(filter.weekNumber))
+  ) {
+    return false;
+  }
 
   if (typeof filter.subgroup === "number" && item.numSubgroup !== filter.subgroup) {
     return false;
@@ -46,7 +49,9 @@ function matchesFilter(item: FlattenedScheduleItem, filter: ScheduleFilterOption
   }
 
   if (filter.employeeUrlId) {
-    const employeeMatch = item.employees?.some((employee) => employee.urlId === filter.employeeUrlId);
+    const employeeMatch = item.employees?.some(
+      (employee) => employee.urlId === filter.employeeUrlId
+    );
     if (!employeeMatch) {
       return false;
     }
@@ -64,7 +69,7 @@ function matchesFilter(item: FlattenedScheduleItem, filter: ScheduleFilterOption
  */
 export function filterLessons(
   response: NormalizedScheduleResponse,
-  filter: ScheduleFilterOptions,
+  filter: ScheduleFilterOptions
 ): FlattenedScheduleItem[] {
   if (typeof filter.weekNumber === "number") {
     assertPositiveInt(filter.weekNumber, "filter.weekNumber");

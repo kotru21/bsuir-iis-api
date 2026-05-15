@@ -15,7 +15,7 @@ describe("requestJson — additional branches", () => {
     const clientWithHook = createBsuirClient({
       fetch: fetchImpl,
       validateResponses: false,
-      hooks: { onRequest },
+      hooks: { onRequest }
     });
     await clientWithHook.schedule.getGroup("053503");
     expect(onRequest).toHaveBeenCalledOnce();
@@ -31,7 +31,7 @@ describe("requestJson — additional branches", () => {
     const client = createBsuirClient({
       fetch: fetchImpl,
       signal: globalCtrl.signal,
-      validateResponses: false,
+      validateResponses: false
     });
 
     const result = await client.groups.listAll({ signal: perCallCtrl.signal });
@@ -52,7 +52,7 @@ describe("requestJson — additional branches", () => {
       fetch: fetchImpl,
       signal: globalCtrl.signal,
       validateResponses: false,
-      retries: 0,
+      retries: 0
     });
 
     await expect(client.groups.listAll()).rejects.toBeInstanceOf(DOMException);

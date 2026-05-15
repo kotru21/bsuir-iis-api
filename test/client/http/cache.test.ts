@@ -2,9 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setCache, tryReadCache } from "../../../src/client/http/cache";
 import type { InternalClientConfig } from "../../../src/client/types";
 
-function makeConfig(
-  overrides: Partial<InternalClientConfig> = {},
-): InternalClientConfig {
+function makeConfig(overrides: Partial<InternalClientConfig> = {}): InternalClientConfig {
   return {
     baseUrl: "https://iis.bsuir.by/api/v1",
     fetchImpl: fetch,
@@ -24,7 +22,7 @@ function makeConfig(
     responseCache: new Map(),
     inFlightRequests: new Map(),
     defaultRaw: false,
-    ...overrides,
+    ...overrides
   };
 }
 

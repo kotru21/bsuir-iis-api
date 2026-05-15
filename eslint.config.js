@@ -62,7 +62,7 @@ export default defineConfig(
 
       // --- General ---
       "no-console": "warn",
-      "eqeqeq": ["error", "always", { null: "ignore" }],
+      eqeqeq: ["error", "always", { null: "ignore" }],
 
       // --- Unicorn (опinionated правила отключены для библиотеки) ---
       "unicorn/prevent-abbreviations": "off",
@@ -86,6 +86,12 @@ export default defineConfig(
       ],
       "jsdoc/check-param-names": "error",
       "jsdoc/check-types": "off" // TypeScript сам следит за типами
+    }
+  },
+  {
+    files: ["examples/**/*.ts"],
+    rules: {
+      "no-console": "off"
     }
   },
   {

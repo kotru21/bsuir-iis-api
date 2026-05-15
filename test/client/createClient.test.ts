@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { BsuirConfigurationError, BsuirResponseValidationError, createBsuirClient } from "../../src";
+import {
+  BsuirConfigurationError,
+  BsuirResponseValidationError,
+  createBsuirClient
+} from "../../src";
 import { createJsonResponse } from "../helpers/fetchMock";
 
 describe("createBsuirClient", () => {
@@ -113,7 +117,9 @@ describe("createBsuirClient", () => {
   });
 
   it("validates response payloads when validateResponses=true", async () => {
-    const fetchImpl = vi.fn(async () => createJsonResponse({ body: { unexpected: true } })) as unknown as typeof fetch;
+    const fetchImpl = vi.fn(async () =>
+      createJsonResponse({ body: { unexpected: true } })
+    ) as unknown as typeof fetch;
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
 
     await expect(client.groups.listAll()).rejects.toBeInstanceOf(BsuirResponseValidationError);

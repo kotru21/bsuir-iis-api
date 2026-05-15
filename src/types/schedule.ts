@@ -70,8 +70,7 @@ export interface ScheduleFilterOptions {
   auditory?: string;
 }
 
-export interface NormalizedScheduleResponse
-  extends Omit<ScheduleResponse, "schedules" | "exams"> {
+export interface NormalizedScheduleResponse extends Omit<ScheduleResponse, "schedules" | "exams"> {
   schedules: WeekScheduleMap;
   exams: ScheduleItem[];
   lessons: FlattenedScheduleItem[];
@@ -84,10 +83,7 @@ export interface NormalizedScheduleResponse
  * Minimal time fields required for lesson-time helpers.
  * Used as a constraint for generic helpers like {@link sortLessonsByTime}.
  */
-export type LessonWithTime = Pick<
-  FlattenedScheduleItem,
-  "startLessonTime" | "endLessonTime"
->;
+export type LessonWithTime = Pick<FlattenedScheduleItem, "startLessonTime" | "endLessonTime">;
 
 /**
  * Options for {@link buildScheduleDays}.

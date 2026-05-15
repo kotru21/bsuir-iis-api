@@ -126,7 +126,7 @@ Validation rules:
 - `groupNumber` must contain digits only
 - `urlId` must be a slug with letters/digits/hyphens (for example `s-nesterenkov`)
 - `id` and `subgroup` parameters must be positive integers
-Retry and abort behavior:
+  Retry and abort behavior:
 
 - Retries are applied to GET requests for transport/network errors and HTTP `429`, `500`, `502`, `503`, `504`
 - `Retry-After` is respected for retriable responses

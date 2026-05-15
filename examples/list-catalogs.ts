@@ -2,7 +2,7 @@ import { createBsuirClient } from "../src";
 
 const client = createBsuirClient();
 
-async function main(): Promise<void> {
+try {
   const [groups, employees, faculties] = await Promise.all([
     client.groups.listAll(),
     client.employees.listAll(),
@@ -12,9 +12,7 @@ async function main(): Promise<void> {
   console.log("Groups:", groups.length);
   console.log("Employees:", employees.length);
   console.log("Faculties:", faculties.length);
-}
-
-void main().catch((error: unknown) => {
+} catch (error: unknown) {
   console.error("Failed to list catalogs:", error);
   process.exitCode = 1;
-});
+}

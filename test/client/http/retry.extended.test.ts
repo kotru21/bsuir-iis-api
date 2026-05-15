@@ -22,7 +22,7 @@ function makeConfig(overrides: Partial<InternalClientConfig> = {}): InternalClie
     responseCache: new Map(),
     inFlightRequests: new Map(),
     defaultRaw: false,
-    ...overrides,
+    ...overrides
   };
 }
 

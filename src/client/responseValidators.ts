@@ -9,7 +9,11 @@ function asRecord(payload: unknown): Record<string, unknown> | null {
   return payload as Record<string, unknown>;
 }
 
-function ensureRecord(payload: unknown, endpoint: string, expected: string): Record<string, unknown> {
+function ensureRecord(
+  payload: unknown,
+  endpoint: string,
+  expected: string
+): Record<string, unknown> {
   const record = asRecord(payload);
   if (!record) {
     throw new BsuirResponseValidationError(
@@ -21,13 +25,18 @@ function ensureRecord(payload: unknown, endpoint: string, expected: string): Rec
 }
 
 function isNullableObject(value: unknown): boolean {
-  return value === null || value === undefined || (typeof value === "object" && !Array.isArray(value));
+  return (
+    value === null || value === undefined || (typeof value === "object" && !Array.isArray(value))
+  );
 }
 
 /**
  *
  */
-export function assertArrayResponse(payload: unknown, endpoint: string): asserts payload is unknown[] {
+export function assertArrayResponse(
+  payload: unknown,
+  endpoint: string
+): asserts payload is unknown[] {
   if (!Array.isArray(payload)) {
     throw new BsuirResponseValidationError(
       `Invalid response payload for ${endpoint}: expected array, got ${typeof payload}`,
@@ -66,21 +75,25 @@ export function assertScheduleResponse(
   const studentGroupDto = record.studentGroupDto;
 
   // undefined treated as absent field — API may omit schedules/exams for exam-only or schedule-only entries
-  if (schedules !== null && schedules !== undefined && (typeof schedules !== "object" || Array.isArray(schedules))) {
-      throw new BsuirResponseValidationError(
-        `Invalid response payload for ${endpoint}: 'schedules' must be object or null, got ${
-          Array.isArray(schedules) ? "array" : typeof schedules
-        }`,
-        endpoint
-      );
-    }
+  if (
+    schedules !== null &&
+    schedules !== undefined &&
+    (typeof schedules !== "object" || Array.isArray(schedules))
+  ) {
+    throw new BsuirResponseValidationError(
+      `Invalid response payload for ${endpoint}: 'schedules' must be object or null, got ${
+        Array.isArray(schedules) ? "array" : typeof schedules
+      }`,
+      endpoint
+    );
+  }
 
   if (exams !== null && exams !== undefined && !Array.isArray(exams)) {
-      throw new BsuirResponseValidationError(
-        `Invalid response payload for ${endpoint}: 'exams' must be array or null, got ${typeof exams}`,
-        endpoint
-      );
-    }
+    throw new BsuirResponseValidationError(
+      `Invalid response payload for ${endpoint}: 'exams' must be array or null, got ${typeof exams}`,
+      endpoint
+    );
+  }
 
   if (!isNullableObject(employeeDto)) {
     throw new BsuirResponseValidationError(

@@ -21,7 +21,7 @@ function makeItem(overrides: Partial<ScheduleItem> = {}): ScheduleItem {
     announcement: false,
     split: false,
     employees: null,
-    ...overrides,
+    ...overrides
   };
 }
 
@@ -35,7 +35,7 @@ function makeSchedule(overrides: Partial<ScheduleResponse> = {}) {
     endDate: null,
     startExamsDate: null,
     endExamsDate: null,
-    ...overrides,
+    ...overrides
   });
 }
 
@@ -91,26 +91,28 @@ describe("scheduleFilter", () => {
   // line 11 — lessonAuditories: auditories is null → returns []
   it("treats null auditories as empty when filtering by auditory (line 11)", () => {
     const schedule = makeSchedule({
-      schedules: { Понедельник: [makeItem({ auditories: null as unknown as string[] })] },
+      schedules: { Понедельник: [makeItem({ auditories: null as unknown as string[] })] }
     });
     expect(filterLessons(schedule, { auditory: "101-1" })).toHaveLength(0);
   });
 
   it("filters by employeeUrlId", () => {
     const itemWithEmployee = makeItem({
-      employees: [{
-        id: 1,
-        urlId: "v-petrov",
-        firstName: "В",
-        lastName: "П",
-        middleName: "",
-        degree: "",
-        email: null,
-        rank: null,
-        photoLink: "",
-        calendarId: "",
-        jobPositions: null,
-      }],
+      employees: [
+        {
+          id: 1,
+          urlId: "v-petrov",
+          firstName: "В",
+          lastName: "П",
+          middleName: "",
+          degree: "",
+          email: null,
+          rank: null,
+          photoLink: "",
+          calendarId: "",
+          jobPositions: null
+        }
+      ]
     });
     const schedule = makeSchedule({ schedules: { Понедельник: [itemWithEmployee] } });
     expect(filterLessons(schedule, { employeeUrlId: "v-petrov" })).toHaveLength(1);

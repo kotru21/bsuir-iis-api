@@ -5,7 +5,7 @@ import { BsuirApiError } from "../../../src/client/errors";
 function makeResponse(body: string, contentType: string, status = 200): Response {
   return new Response(body, {
     status,
-    headers: { "Content-Type": contentType },
+    headers: { "Content-Type": contentType }
   });
 }
 
@@ -28,9 +28,9 @@ describe("parseBody", () => {
   });
 
   it("throws BsuirApiError for empty JSON body (declaredJson, empty text)", async () => {
-    await expect(
-      parseBody(makeResponse("", "application/json"), 1_000_000)
-    ).rejects.toBeInstanceOf(BsuirApiError);
+    await expect(parseBody(makeResponse("", "application/json"), 1_000_000)).rejects.toBeInstanceOf(
+      BsuirApiError
+    );
   });
 
   it("throws BsuirApiError for malformed JSON with JSON content-type", async () => {
@@ -47,7 +47,7 @@ describe("parseBody", () => {
   it("throws when content-length exceeds maxResponseBytes", async () => {
     const response = new Response("x".repeat(100), {
       status: 200,
-      headers: { "Content-Type": "text/plain", "Content-Length": "100" },
+      headers: { "Content-Type": "text/plain", "Content-Length": "100" }
     });
     await expect(parseBody(response, 50)).rejects.toBeInstanceOf(BsuirApiError);
   });

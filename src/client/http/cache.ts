@@ -20,7 +20,11 @@ export function tryReadCache(config: Readonly<InternalClientConfig>, key: string
 /**
  * Writes response value to cache and performs eviction when size approaches capacity.
  */
-export function setCache(config: Readonly<InternalClientConfig>, key: string, value: unknown): void {
+export function setCache(
+  config: Readonly<InternalClientConfig>,
+  key: string,
+  value: unknown
+): void {
   if (config.cacheTtlMs === undefined) {
     return;
   }
@@ -31,7 +35,7 @@ export function setCache(config: Readonly<InternalClientConfig>, key: string, va
   config.responseCache.set(key, {
     value,
     expiresAt: now + config.cacheTtlMs,
-    accessedAt: now,
+    accessedAt: now
   });
 
   // Only trigger cleanup when cache is approaching capacity (>90%) to avoid O(n) scan on every set.
@@ -51,8 +55,8 @@ export function setCache(config: Readonly<InternalClientConfig>, key: string, va
   // drop the least-recently-used ones until we are within capacity.
   // O(n log n) but only runs when the cache is nearly full, so it is infrequent.
   if (config.responseCache.size > config.cacheMaxEntries) {
-    const byLeastRecentlyUsed = [...config.responseCache.entries()].sort(
-      (a, b) => a[1].accessedAt - b[1].accessedAt,
+    const byLeastRecentlyUsed = [...config.responseCache.entries()].toSorted(
+      (a, b) => a[1].accessedAt - b[1].accessedAt
     );
     for (const [k] of byLeastRecentlyUsed) {
       if (config.responseCache.size <= config.cacheMaxEntries) {

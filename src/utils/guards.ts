@@ -26,7 +26,10 @@ export function assertPositiveInt(value: unknown, fieldName: string): asserts va
 /**
  *
  */
-export function assertGroupNumber(value: unknown, fieldName = "groupNumber"): asserts value is string {
+export function assertGroupNumber(
+  value: unknown,
+  fieldName = "groupNumber"
+): asserts value is string {
   assertNonEmptyString(value, fieldName);
   if (!GROUP_NUMBER_PATTERN.test(value)) {
     throw new BsuirValidationError(`'${fieldName}' must contain only digits`);
@@ -39,9 +42,7 @@ export function assertGroupNumber(value: unknown, fieldName = "groupNumber"): as
 export function assertEmployeeUrlId(value: unknown, fieldName = "urlId"): asserts value is string {
   assertNonEmptyString(value, fieldName);
   if (!EMPLOYEE_URL_ID_PATTERN.test(value)) {
-    throw new BsuirValidationError(
-      `'${fieldName}' must be a valid slug (letters, digits, hyphen)`
-    );
+    throw new BsuirValidationError(`'${fieldName}' must be a valid slug (letters, digits, hyphen)`);
   }
 }
 

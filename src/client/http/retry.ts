@@ -15,10 +15,13 @@ function parseRetryAfterMs(retryAfter: string | null): number | null {
 
   // Try parsing as seconds (RFC 7231: numeric-value).
   const asSeconds = Number(retryAfter);
-  if (Number.isFinite(asSeconds) && asSeconds >= 0 && // Validate it's actually numeric format, not a date string starting with a digit.
-    /^\d+(\.\d+)?$/.test(retryAfter.trim())) {
-      return Math.floor(asSeconds * 1000);
-    }
+  if (
+    Number.isFinite(asSeconds) &&
+    asSeconds >= 0 && // Validate it's actually numeric format, not a date string starting with a digit.
+    /^\d+(\.\d+)?$/.test(retryAfter.trim())
+  ) {
+    return Math.floor(asSeconds * 1000);
+  }
 
   // Try parsing as HTTP date format (RFC 7231: http-date).
   const dateValue = Date.parse(retryAfter);
@@ -39,7 +42,7 @@ function parseRetryAfterMs(retryAfter: string | null): number | null {
 export function getRetryDelayMs(
   config: Readonly<InternalClientConfig>,
   attempt: number,
-  retryAfterHeader?: string | null,
+  retryAfterHeader?: string | null
 ): number {
   const retryAfterDelay = parseRetryAfterMs(retryAfterHeader ?? null);
   if (retryAfterDelay !== null) {

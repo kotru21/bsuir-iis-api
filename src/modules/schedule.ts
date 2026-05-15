@@ -10,7 +10,7 @@ export {
   getTodayLessons,
   getTomorrowLessons,
   groupLessonsByDay,
-  sortLessonsByTime,
+  sortLessonsByTime
 } from "../helpers/schedule";
 export {
   formatEmployeeShortName,
@@ -19,5 +19,5 @@ export {
   formatLessonSubgroup,
   formatLessonTimeRange,
   formatLessonType,
-  formatLessonWeekNumbers,
+  formatLessonWeekNumbers
 } from "../helpers/scheduleFormat";

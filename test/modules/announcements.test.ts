@@ -22,18 +22,14 @@ describe("announcements module", () => {
   });
 
   it("returns empty array when API returns 400", async () => {
-    const fetchImpl = mockFetchSequence([
-      createJsonResponse({ status: 400, body: {} })
-    ]);
+    const fetchImpl = mockFetchSequence([createJsonResponse({ status: 400, body: {} })]);
     const client = createBsuirClient({ fetch: fetchImpl });
     const result = await client.announcements.byDepartment(1);
     expect(result).toEqual([]);
   });
 
   it("rethrows non-404/400 errors", async () => {
-    const fetchImpl = mockFetchSequence([
-      createJsonResponse({ status: 500, body: {} })
-    ]);
+    const fetchImpl = mockFetchSequence([createJsonResponse({ status: 500, body: {} })]);
     const client = createBsuirClient({ fetch: fetchImpl, retries: 0 });
     await expect(client.announcements.byEmployee("v-petrov")).rejects.toBeInstanceOf(BsuirApiError);
   });

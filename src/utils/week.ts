@@ -25,9 +25,7 @@ function parseCurrentWeekInternal(payload: unknown, depth: number): number {
   if (typeof payload === "string") {
     const normalized = payload.trim();
     if (normalized.length === 0) {
-      throw new BsuirValidationError(
-        "'currentWeek' response payload is an empty string"
-      );
+      throw new BsuirValidationError("'currentWeek' response payload is an empty string");
     }
     const parsed = Number(normalized);
     // assertPositiveInt validates both isInteger and > 0 — no need to pre-check isInteger

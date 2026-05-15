@@ -25,22 +25,26 @@ function buildRawPayload(): ScheduleResponse {
           endLessonDate: null,
           announcement: false,
           split: false,
-          employees: null,
-        },
-      ],
+          employees: null
+        }
+      ]
     },
     exams: [],
     startDate: "12.05.2025",
     endDate: "30.06.2025",
     startExamsDate: null,
-    endExamsDate: null,
+    endExamsDate: null
   };
 }
 
 describe("scheduleApi — defaultRaw: true (lines 92–93, 123)", () => {
   it("getGroup returns raw ScheduleResponse when defaultRaw: true (lines 92–93)", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildRawPayload() })]);
-    const client = createBsuirClient({ fetch: fetchImpl, defaultRaw: true, validateResponses: false });
+    const client = createBsuirClient({
+      fetch: fetchImpl,
+      defaultRaw: true,
+      validateResponses: false
+    });
 
     const response = await client.schedule.getGroup("053503");
     expect("schedules" in response).toBe(true);
@@ -50,7 +54,11 @@ describe("scheduleApi — defaultRaw: true (lines 92–93, 123)", () => {
 
   it("getEmployee returns raw ScheduleResponse when defaultRaw: true (line 123)", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildRawPayload() })]);
-    const client = createBsuirClient({ fetch: fetchImpl, defaultRaw: true, validateResponses: false });
+    const client = createBsuirClient({
+      fetch: fetchImpl,
+      defaultRaw: true,
+      validateResponses: false
+    });
 
     const response = await client.schedule.getEmployee("s-nesterenkov");
     expect("schedules" in response).toBe(true);
@@ -60,7 +68,11 @@ describe("scheduleApi — defaultRaw: true (lines 92–93, 123)", () => {
   // lines 92–93: validateResponses: true triggers assertScheduleResponse in raw mode
   it("getGroup with defaultRaw: true and validateResponses: true calls assertScheduleResponse (lines 92–93)", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildRawPayload() })]);
-    const client = createBsuirClient({ fetch: fetchImpl, defaultRaw: true, validateResponses: true });
+    const client = createBsuirClient({
+      fetch: fetchImpl,
+      defaultRaw: true,
+      validateResponses: true
+    });
     const response = await client.schedule.getGroup("053503");
     expect("schedules" in response).toBe(true);
   });
@@ -68,14 +80,22 @@ describe("scheduleApi — defaultRaw: true (lines 92–93, 123)", () => {
   // line 123: same for getEmployee
   it("getEmployee with defaultRaw: true and validateResponses: true (line 123)", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildRawPayload() })]);
-    const client = createBsuirClient({ fetch: fetchImpl, defaultRaw: true, validateResponses: true });
+    const client = createBsuirClient({
+      fetch: fetchImpl,
+      defaultRaw: true,
+      validateResponses: true
+    });
     const response = await client.schedule.getEmployee("s-nesterenkov");
     expect("schedules" in response).toBe(true);
   });
 
   it("per-call raw: false overrides defaultRaw: true", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildRawPayload() })]);
-    const client = createBsuirClient({ fetch: fetchImpl, defaultRaw: true, validateResponses: false });
+    const client = createBsuirClient({
+      fetch: fetchImpl,
+      defaultRaw: true,
+      validateResponses: false
+    });
     const response = await client.schedule.getGroup("053503", { raw: false });
     expect("lessons" in response).toBe(true);
   });

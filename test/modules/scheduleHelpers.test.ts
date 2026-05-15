@@ -9,9 +9,13 @@ import {
   getTomorrowLessons,
   groupLessonsByDay,
   normalizeSchedule,
-  sortLessonsByTime,
+  sortLessonsByTime
 } from "../../src";
-import type { ScheduleItem, ScheduleResponse } from "../../src/types/schedule";
+import type {
+  FlattenedScheduleItem,
+  ScheduleItem,
+  ScheduleResponse
+} from "../../src/types/schedule";
 
 function makeLesson(overrides: Partial<ScheduleItem> = {}): ScheduleItem {
   return {
@@ -31,7 +35,7 @@ function makeLesson(overrides: Partial<ScheduleItem> = {}): ScheduleItem {
     announcement: false,
     split: false,
     employees: null,
-    ...overrides,
+    ...overrides
   };
 }
 
@@ -47,7 +51,7 @@ function buildNormalizedSchedule() {
           endLessonTime: "12:20",
           weekNumber: [1],
           startLessonDate: "12.05.2025",
-          endLessonDate: "30.06.2025",
+          endLessonDate: "30.06.2025"
         }),
         makeLesson({
           subject: "Пара 1",
@@ -55,7 +59,7 @@ function buildNormalizedSchedule() {
           endLessonTime: "10:20",
           weekNumber: [1],
           startLessonDate: "12.05.2025",
-          endLessonDate: "30.06.2025",
+          endLessonDate: "30.06.2025"
         }),
         makeLesson({
           subject: "Пара недели 2",
@@ -63,8 +67,8 @@ function buildNormalizedSchedule() {
           endLessonTime: "14:20",
           weekNumber: [2],
           startLessonDate: "12.05.2025",
-          endLessonDate: "30.06.2025",
-        }),
+          endLessonDate: "30.06.2025"
+        })
       ],
       Вторник: [
         makeLesson({
@@ -73,9 +77,9 @@ function buildNormalizedSchedule() {
           endLessonTime: "09:50",
           weekNumber: [1, 2],
           startLessonDate: "12.05.2025",
-          endLessonDate: "30.06.2025",
-        }),
-      ],
+          endLessonDate: "30.06.2025"
+        })
+      ]
     },
     exams: [
       makeLesson({
@@ -83,13 +87,13 @@ function buildNormalizedSchedule() {
         startLessonTime: "15:00",
         endLessonTime: "16:00",
         weekNumber: [1],
-        dateLesson: "13.05.2025",
-      }),
+        dateLesson: "13.05.2025"
+      })
     ],
     startDate: "12.05.2025",
     endDate: "30.06.2025",
     startExamsDate: "13.05.2025",
-    endExamsDate: "20.06.2025",
+    endExamsDate: "20.06.2025"
   };
 
   return normalizeSchedule(payload);
@@ -123,18 +127,26 @@ describe("schedule helpers", () => {
 
   it("sorts and groups lessons by day", () => {
     const schedule = buildNormalizedSchedule();
-    const mixed = [schedule.lessons[0], schedule.lessons[3], schedule.lessons[1], schedule.lessons[4]].filter(
-      Boolean,
-    );
+    const mixed = [
+      schedule.lessons[0],
+      schedule.lessons[3],
+      schedule.lessons[1],
+      schedule.lessons[4]
+    ].filter((item): item is FlattenedScheduleItem => item !== undefined);
 
     const sorted = sortLessonsByTime(mixed);
-    expect(sorted.map((item) => item.subject)).toEqual(["Пара вторника", "Пара 1", "Пара 2", "Экзамен"]);
+    expect(sorted.map((item) => item.subject)).toEqual([
+      "Пара вторника",
+      "Пара 1",
+      "Пара 2",
+      "Экзамен"
+    ]);
 
     const grouped = groupLessonsByDay(schedule.lessons);
     expect(grouped.Понедельник.map((item) => item.subject)).toEqual([
       "Пара 1",
       "Пара 2",
-      "Пара недели 2",
+      "Пара недели 2"
     ]);
     expect(grouped.Вторник.map((item) => item.subject)).toEqual(["Пара вторника"]);
   });
@@ -142,7 +154,7 @@ describe("schedule helpers", () => {
   it("detects current and next lessons", () => {
     const lessons = [
       makeLesson({ subject: "Пара 2", startLessonTime: "11:00", endLessonTime: "12:20" }),
-      makeLesson({ subject: "Пара 1", startLessonTime: "09:00", endLessonTime: "10:20" }),
+      makeLesson({ subject: "Пара 1", startLessonTime: "09:00", endLessonTime: "10:20" })
     ];
 
     const current = getCurrentLesson(lessons, new Date(2025, 4, 12, 9, 30));
@@ -159,7 +171,7 @@ describe("schedule helpers", () => {
     const days = buildScheduleDays(schedule, {
       now,
       startDate: new Date(2025, 4, 12),
-      days: 3,
+      days: 3
     });
 
     expect(days).toHaveLength(3);
@@ -172,7 +184,7 @@ describe("schedule helpers", () => {
     const nonEmptyDays = buildScheduleDays(schedule, {
       startDate: new Date(2025, 4, 12),
       days: 3,
-      includeEmptyDays: false,
+      includeEmptyDays: false
     });
     expect(nonEmptyDays).toHaveLength(2);
   });
@@ -186,7 +198,7 @@ describe("schedule helpers", () => {
       startDate: null,
       endDate: null,
       startExamsDate: null,
-      endExamsDate: null,
+      endExamsDate: null
     });
 
     expect(getLessonsForDate(empty, new Date(2025, 4, 11))).toEqual([]);

@@ -12,7 +12,7 @@ export type {
   RequestMethod,
   RequestOptions,
   ResponseHookContext,
-  RetryHookContext,
+  RetryHookContext
 } from "./client/types";
 export type { ReadOptions } from "./modules/types";
 export {
@@ -33,13 +33,13 @@ export {
   getTomorrowLessons,
   groupLessonsByDay,
   normalizeSchedule,
-  sortLessonsByTime,
+  sortLessonsByTime
 } from "./modules/schedule";
 export type {
   BuildScheduleDaysOptions,
   LessonWithTime,
   ScheduleDay,
-  ScheduleFilterOptions,
+  ScheduleFilterOptions
 } from "./types/schedule";
 export {
   BsuirApiError,
@@ -47,7 +47,7 @@ export {
   BsuirNetworkError,
   BsuirResponseValidationError,
   BsuirTimeoutError,
-  BsuirValidationError,
+  BsuirValidationError
 } from "./client/errors";
 
 export * from "./types";

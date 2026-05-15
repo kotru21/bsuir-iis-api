@@ -24,7 +24,10 @@ const BASE_CONFIG: Omit<InternalClientConfig, "fetchImpl"> = {
   defaultRaw: false
 };
 
-function createConfig(fetchImpl: typeof globalThis.fetch, overrides: Partial<InternalClientConfig> = {}): InternalClientConfig {
+function createConfig(
+  fetchImpl: typeof globalThis.fetch,
+  overrides: Partial<InternalClientConfig> = {}
+): InternalClientConfig {
   return {
     ...BASE_CONFIG,
     // Always create fresh cache maps for each test to avoid cross-test contamination
@@ -72,10 +75,13 @@ describe("requestJson", () => {
 
   it("parses JSON success body even when Content-Type omits application/json", async () => {
     const fetchImpl = mockFetchSequence([
-      Response.json({ ok: true }, {
-        status: 200,
-        headers: { "Content-Type": "text/plain; charset=utf-8" }
-      })
+      Response.json(
+        { ok: true },
+        {
+          status: 200,
+          headers: { "Content-Type": "text/plain; charset=utf-8" }
+        }
+      )
     ]);
     const config = createConfig(fetchImpl, { retries: 0 });
 
@@ -413,8 +419,8 @@ describe("requestJson", () => {
     }) as typeof globalThis.fetch;
     const config = createConfig(fetchImpl, { timeoutMs: 5000 });
 
-    await expect(requestJson(config, "/faculties", { signal: controller.signal })).rejects.toMatchObject(
-      { name: "AbortError" }
-    );
+    await expect(
+      requestJson(config, "/faculties", { signal: controller.signal })
+    ).rejects.toMatchObject({ name: "AbortError" });
   });
 });

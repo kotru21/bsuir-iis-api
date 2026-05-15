@@ -138,7 +138,9 @@ describe("schedule module", () => {
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
 
     const response = await client.schedule.getEmployee("s-nesterenkov");
-    expect("lessons" in response && response.lessons.some((item) => item.employees === null)).toBe(true);
+    expect("lessons" in response && response.lessons.some((item) => item.employees === null)).toBe(
+      true
+    );
   });
 
   it("throws on invalid group number", async () => {

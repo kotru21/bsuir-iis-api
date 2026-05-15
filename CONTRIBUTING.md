@@ -15,10 +15,10 @@ npm run check        # type-check + lint + format check
 
 ```markdown
 src/
-  client/    — HTTP engine, error classes, types, signal merging
-  modules/   — per-resource API modules (schedule, groups, employees…)
-  types/     — public TypeScript types (schedule, common, etc.)
-  utils/     — shared guards, date helpers, week parser
+client/ — HTTP engine, error classes, types, signal merging
+modules/ — per-resource API modules (schedule, groups, employees…)
+types/ — public TypeScript types (schedule, common, etc.)
+utils/ — shared guards, date helpers, week parser
 ```
 
 ## Making Changes

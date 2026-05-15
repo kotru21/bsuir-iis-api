@@ -24,7 +24,9 @@ describe("meta modules", () => {
 
     const week = await client.schedule.getCurrentWeek();
     const groupUpdate = await client.schedule.getLastUpdateByGroup({ id: 123 });
-    const employeeUpdate = await client.schedule.getLastUpdateByEmployee({ urlId: "s-nesterenkov" });
+    const employeeUpdate = await client.schedule.getLastUpdateByEmployee({
+      urlId: "s-nesterenkov"
+    });
 
     expect(week).toBe(2);
     expect(groupUpdate.lastUpdateDate).toBe("23.02.2022");
@@ -37,14 +39,14 @@ describe("meta modules", () => {
     await expect(client.schedule.getLastUpdateByGroup({ id: 0 })).rejects.toBeInstanceOf(
       BsuirValidationError
     );
-    await expect(client.schedule.getLastUpdateByGroup({ groupNumber: "05350A" })).rejects.toBeInstanceOf(
-      BsuirValidationError
-    );
+    await expect(
+      client.schedule.getLastUpdateByGroup({ groupNumber: "05350A" })
+    ).rejects.toBeInstanceOf(BsuirValidationError);
     await expect(client.schedule.getLastUpdateByEmployee({ urlId: "" })).rejects.toBeInstanceOf(
       BsuirValidationError
     );
-    await expect(client.schedule.getLastUpdateByEmployee({ urlId: "s/nesterenkov" })).rejects.toBeInstanceOf(
-      BsuirValidationError
-    );
+    await expect(
+      client.schedule.getLastUpdateByEmployee({ urlId: "s/nesterenkov" })
+    ).rejects.toBeInstanceOf(BsuirValidationError);
   });
 });

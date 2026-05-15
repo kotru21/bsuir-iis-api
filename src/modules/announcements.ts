@@ -40,7 +40,10 @@ async function requestAnnouncementList(
 /**
  *
  */
-export function createAnnouncementsModule(config: Readonly<InternalClientConfig>) {
+export function createAnnouncementsModule(config: Readonly<InternalClientConfig>): {
+  byEmployee(urlId: string, options?: ReadOptions): Promise<Announcement[]>;
+  byDepartment(id: number, options?: ReadOptions): Promise<Announcement[]>;
+} {
   return {
     /**
      * Lists announcements for an employee. IIS may return HTTP `404` or `400` (no list / endpoint quirks); the SDK maps those to `[]`.

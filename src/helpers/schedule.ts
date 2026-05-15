@@ -6,18 +6,11 @@ import type {
   FlattenedScheduleItem,
   LessonWithTime,
   NormalizedScheduleResponse,
-  ScheduleDay,
+  ScheduleDay
 } from "../types/schedule";
 import { assertPositiveInt } from "../utils/guards";
 
-const WEEKDAYS: Weekday[] = [
-  "Понедельник",
-  "Вторник",
-  "Среда",
-  "Четверг",
-  "Пятница",
-  "Суббота",
-];
+const WEEKDAYS: Weekday[] = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"];
 
 const SUNDAY_LABEL = "Воскресенье";
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -30,7 +23,7 @@ interface DdMmYyyyParts {
 
 function createEmptyLessonsByDay(): FlattenedLessonsByDay {
   return Object.fromEntries(
-    WEEKDAYS.map((day) => [day, [] as FlattenedScheduleItem[]]),
+    WEEKDAYS.map((day) => [day, [] as FlattenedScheduleItem[]])
   ) as FlattenedLessonsByDay;
 }
 
@@ -46,11 +39,7 @@ function parseDdMmYyyyParts(value: string | null): DdMmYyyyParts | null {
   const day = Number(dayPart);
   const month = Number(monthPart);
   const year = Number(yearPart);
-  if (
-    !Number.isInteger(day) ||
-    !Number.isInteger(month) ||
-    !Number.isInteger(year)
-  ) {
+  if (!Number.isInteger(day) || !Number.isInteger(month) || !Number.isInteger(year)) {
     return null;
   }
   const utcDate = new Date(Date.UTC(year, month - 1, day));
@@ -69,9 +58,7 @@ function toDayOrdinal(parts: DdMmYyyyParts): number {
 }
 
 function toDateDayOrdinal(date: Date): number {
-  return Math.floor(
-    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / MS_PER_DAY,
-  );
+  return Math.floor(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / MS_PER_DAY);
 }
 
 function toDateKey(date: Date): string {
@@ -142,7 +129,7 @@ function parseTimeToMinutes(value: string): number | null {
 function isWithinLessonDateRange(
   targetOrdinal: number,
   startDate: string | null,
-  endDate: string | null,
+  endDate: string | null
 ): boolean {
   const startOrdinal = toLessonDayOrdinal(startDate);
   const endOrdinal = toLessonDayOrdinal(endDate);
@@ -165,10 +152,7 @@ function usesFourWeekCycle(response: NormalizedScheduleResponse): boolean {
   return values.every((value) => value >= 1 && value <= 4);
 }
 
-function inferWeekNumberForDate(
-  response: NormalizedScheduleResponse,
-  date: Date,
-): number | null {
+function inferWeekNumberForDate(response: NormalizedScheduleResponse, date: Date): number | null {
   const startDateParts = parseDdMmYyyyParts(response.startDate);
   if (!startDateParts) {
     return null;
@@ -206,7 +190,7 @@ function inferWeekNumberForDate(
  */
 export function getLessonsForDate(
   normalizedSchedule: NormalizedScheduleResponse,
-  date: Date,
+  date: Date
 ): FlattenedScheduleItem[] {
   const targetDate = toDateOrThrow(date, "date");
   const targetDateKey = toDateKey(targetDate);
@@ -225,11 +209,7 @@ export function getLessonsForDate(
         if (!lesson.startLessonDate && !lesson.endLessonDate) {
           return false;
         }
-        return isWithinLessonDateRange(
-          targetOrdinal,
-          lesson.startLessonDate,
-          lesson.endLessonDate,
-        );
+        return isWithinLessonDateRange(targetOrdinal, lesson.startLessonDate, lesson.endLessonDate);
       }
 
       if (lesson.day !== targetWeekday) {
@@ -245,12 +225,8 @@ export function getLessonsForDate(
         return false;
       }
 
-      return isWithinLessonDateRange(
-        targetOrdinal,
-        lesson.startLessonDate,
-        lesson.endLessonDate,
-      );
-    }),
+      return isWithinLessonDateRange(targetOrdinal, lesson.startLessonDate, lesson.endLessonDate);
+    })
   );
 }
 
@@ -268,7 +244,7 @@ export function getLessonsForDate(
  */
 export function getTodayLessons(
   normalizedSchedule: NormalizedScheduleResponse,
-  now: Date = new Date(),
+  now: Date = new Date()
 ): FlattenedScheduleItem[] {
   const current = toDateOrThrow(now, "now");
   return getLessonsForDate(normalizedSchedule, current);
@@ -288,7 +264,7 @@ export function getTodayLessons(
  */
 export function getTomorrowLessons(
   normalizedSchedule: NormalizedScheduleResponse,
-  now: Date = new Date(),
+  now: Date = new Date()
 ): FlattenedScheduleItem[] {
   const current = toDateOrThrow(now, "now");
   const tomorrow = new Date(current);
@@ -310,14 +286,14 @@ export function getTomorrowLessons(
  */
 export function getLessonsForWeek(
   normalizedSchedule: NormalizedScheduleResponse,
-  weekNumber: number,
+  weekNumber: number
 ): FlattenedScheduleItem[] {
   assertPositiveInt(weekNumber, "weekNumber");
   return sortLessonsByTime(
     filterLessons(normalizedSchedule, {
       source: "schedules",
-      weekNumber,
-    }),
+      weekNumber
+    })
   );
 }
 
@@ -339,18 +315,15 @@ export function sortLessonsByTime<T extends LessonWithTime>(lessons: readonly T[
       lesson,
       index,
       start: parseTimeToMinutes(lesson.startLessonTime),
-      end: parseTimeToMinutes(lesson.endLessonTime),
+      end: parseTimeToMinutes(lesson.endLessonTime)
     }))
-    .sort((a, b) => {
+    .toSorted((a, b) => {
       const startDiff =
-        (a.start ?? Number.POSITIVE_INFINITY) -
-        (b.start ?? Number.POSITIVE_INFINITY);
+        (a.start ?? Number.POSITIVE_INFINITY) - (b.start ?? Number.POSITIVE_INFINITY);
       if (startDiff !== 0) {
         return startDiff;
       }
-      const endDiff =
-        (a.end ?? Number.POSITIVE_INFINITY) -
-        (b.end ?? Number.POSITIVE_INFINITY);
+      const endDiff = (a.end ?? Number.POSITIVE_INFINITY) - (b.end ?? Number.POSITIVE_INFINITY);
       if (endDiff !== 0) {
         return endDiff;
       }
@@ -373,7 +346,7 @@ export function sortLessonsByTime<T extends LessonWithTime>(lessons: readonly T[
  * ```
  */
 export function groupLessonsByDay(
-  lessons: readonly FlattenedScheduleItem[],
+  lessons: readonly FlattenedScheduleItem[]
 ): FlattenedLessonsByDay {
   const grouped = createEmptyLessonsByDay();
   for (const lesson of lessons) {
@@ -405,7 +378,7 @@ export function groupLessonsByDay(
  */
 export function getCurrentLesson<T extends LessonWithTime>(
   lessons: readonly T[],
-  now: Date = new Date(),
+  now: Date = new Date()
 ): T | null {
   const current = toDateOrThrow(now, "now");
   const nowMinutes = current.getHours() * 60 + current.getMinutes();
@@ -439,7 +412,7 @@ export function getCurrentLesson<T extends LessonWithTime>(
  */
 export function getNextLesson<T extends LessonWithTime>(
   lessons: readonly T[],
-  now: Date = new Date(),
+  now: Date = new Date()
 ): T | null {
   const current = toDateOrThrow(now, "now");
   const nowMinutes = current.getHours() * 60 + current.getMinutes();
@@ -475,25 +448,17 @@ export function getNextLesson<T extends LessonWithTime>(
  */
 export function buildScheduleDays(
   normalizedSchedule: NormalizedScheduleResponse,
-  options: BuildScheduleDaysOptions = {},
+  options: BuildScheduleDaysOptions = {}
 ): ScheduleDay[] {
   const now = toDateOrThrow(options.now ?? new Date(), "options.now");
-  const startDate = toDateOrThrow(
-    options.startDate ?? now,
-    "options.startDate",
-  );
+  const startDate = toDateOrThrow(options.startDate ?? now, "options.startDate");
   const days = options.days ?? 7;
   assertPositiveInt(days, "options.days");
 
   const includeEmptyDays = options.includeEmptyDays ?? true;
-  const includeCurrentAndNextLessons =
-    options.includeCurrentAndNextLessons ?? true;
+  const includeCurrentAndNextLessons = options.includeCurrentAndNextLessons ?? true;
   const todayKey = toDateKey(now);
-  const rangeStart = new Date(
-    startDate.getFullYear(),
-    startDate.getMonth(),
-    startDate.getDate(),
-  );
+  const rangeStart = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
 
   const scheduleDays: ScheduleDay[] = [];
   for (let index = 0; index < days; index += 1) {
@@ -519,13 +484,8 @@ export function buildScheduleDays(
       isToday,
       hasLessons,
       currentLesson:
-        includeCurrentAndNextLessons && isToday
-          ? getCurrentLesson(lessons, now)
-          : null,
-      nextLesson:
-        includeCurrentAndNextLessons && isToday
-          ? getNextLesson(lessons, now)
-          : null,
+        includeCurrentAndNextLessons && isToday ? getCurrentLesson(lessons, now) : null,
+      nextLesson: includeCurrentAndNextLessons && isToday ? getNextLesson(lessons, now) : null
     });
   }
 

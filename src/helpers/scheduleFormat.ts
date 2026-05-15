@@ -12,7 +12,7 @@ import type { FlattenedScheduleItem } from "../types/schedule";
  * ```
  */
 export function formatLessonTimeRange(
-  lesson: Pick<FlattenedScheduleItem, "startLessonTime" | "endLessonTime">,
+  lesson: Pick<FlattenedScheduleItem, "startLessonTime" | "endLessonTime">
 ): string {
   const start = lesson.startLessonTime.trim();
   const end = lesson.endLessonTime.trim();
@@ -33,9 +33,7 @@ export function formatLessonTimeRange(
  * formatLessonType(lesson); // "ЛК"
  * ```
  */
-export function formatLessonType(
-  lesson: Pick<FlattenedScheduleItem, "lessonTypeAbbrev">,
-): string {
+export function formatLessonType(lesson: Pick<FlattenedScheduleItem, "lessonTypeAbbrev">): string {
   return lesson.lessonTypeAbbrev?.trim() ?? "";
 }
 
@@ -49,9 +47,7 @@ export function formatLessonType(
  * formatLessonSubgroup(lesson); // "1 подгруппа"
  * ```
  */
-export function formatLessonSubgroup(
-  lesson: Pick<FlattenedScheduleItem, "numSubgroup">,
-): string {
+export function formatLessonSubgroup(lesson: Pick<FlattenedScheduleItem, "numSubgroup">): string {
   if (!lesson.numSubgroup) return "";
   return `${String(lesson.numSubgroup)} \u043F\u043E\u0434\u0433\u0440\u0443\u043F\u043F\u0430`;
 }
@@ -68,9 +64,7 @@ export function formatLessonSubgroup(
  * formatLessonWeekNumbers({ weekNumber: null });    // "кажд. нед."
  * ```
  */
-export function formatLessonWeekNumbers(
-  lesson: Pick<FlattenedScheduleItem, "weekNumber">,
-): string {
+export function formatLessonWeekNumbers(lesson: Pick<FlattenedScheduleItem, "weekNumber">): string {
   if (!lesson.weekNumber || lesson.weekNumber.length === 0) {
     return "\u043A\u0430\u0436\u0434. \u043D\u0435\u0434.";
   }
@@ -87,9 +81,7 @@ export function formatLessonWeekNumbers(
  * formatLessonAuditories(lesson); // "101-2, 102-3"
  * ```
  */
-export function formatLessonAuditories(
-  lesson: Pick<FlattenedScheduleItem, "auditories">,
-): string {
+export function formatLessonAuditories(lesson: Pick<FlattenedScheduleItem, "auditories">): string {
   return lesson.auditories.join(", ");
 }
 
@@ -104,7 +96,7 @@ export function formatLessonAuditories(
  * ```
  */
 export function formatEmployeeShortName(
-  employee: Pick<Employee, "lastName" | "firstName" | "middleName">,
+  employee: Pick<Employee, "lastName" | "firstName" | "middleName">
 ): string {
   const lastName = employee.lastName.trim();
   const first = employee.firstName.trim();
@@ -127,9 +119,7 @@ export function formatEmployeeShortName(
  * formatLessonEmployees(lesson); // "Иванов И.И."
  * ```
  */
-export function formatLessonEmployees(
-  lesson: Pick<FlattenedScheduleItem, "employees">,
-): string {
+export function formatLessonEmployees(lesson: Pick<FlattenedScheduleItem, "employees">): string {
   if (!lesson.employees || lesson.employees.length === 0) return "";
-  return lesson.employees.map(formatEmployeeShortName).join(", ");
+  return lesson.employees.map((employee) => formatEmployeeShortName(employee)).join(", ");
 }
