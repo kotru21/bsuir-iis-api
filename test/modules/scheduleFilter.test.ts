@@ -99,9 +99,18 @@ describe("scheduleFilter", () => {
   it("filters by employeeUrlId", () => {
     const itemWithEmployee = makeItem({
       employees: [{
-        id: 1, urlId: "v-petrov", firstName: "В", lastName: "П", middleName: null,
-        degree: null, degreeAbbrev: null, email: null, rank: null,
-        photoLink: null, calendarId: null, jobPositions: null,
+        id: 1,
+        urlId: "v-petrov",
+        firstName: "В",
+        lastName: "П",
+        middleName: "",
+        degree: "",
+        degreeAbbrev: undefined,
+        email: null,
+        rank: null,
+        photoLink: "",
+        calendarId: "",
+        jobPositions: null,
       }],
     });
     const schedule = makeSchedule({ schedules: { Понедельник: [itemWithEmployee] } });
