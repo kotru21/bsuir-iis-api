@@ -1,48 +1,53 @@
 import type { InternalClientConfig } from "../types";
 
+export interface CacheEntry {
+  value: unknown;
+  expiresAt: number;
+  accessedAt: number;
+}
+
 /**
- * Reads a cached response value by key, applying TTL validation and LRU touch update.
+ * Reads a cached value for the given key.
+ * Returns `undefined` on miss or when the entry has expired (and removes it).
  */
 export function tryReadCache(config: Readonly<InternalClientConfig>, key: string): unknown {
   const entry = config.responseCache.get(key);
-  if (!entry) {
-    return undefined;
-  }
-  if (entry.expiresAt <= Date.now()) {
+  if (!entry) return undefined;
+
+  const now = Date.now();
+  if (now >= entry.expiresAt) {
     config.responseCache.delete(key);
     return undefined;
   }
-  // Update accessedAt on every read so LRU eviction keeps frequently-used entries alive.
-  entry.accessedAt = Date.now();
+
+  entry.accessedAt = now;
   return entry.value;
 }
 
 /**
- * Writes response value to cache and performs eviction when size approaches capacity.
+ * Writes a value to the cache under the given key.
+ * Does nothing when `cacheTtlMs` is not configured.
+ * Evicts expired entries first; if still over capacity, evicts least-recently-used entries.
  */
 export function setCache(config: Readonly<InternalClientConfig>, key: string, value: unknown): void {
-  if (config.cacheTtlMs === undefined) {
-    return;
-  }
+  if (config.cacheTtlMs === undefined) return;
+
   const now = Date.now();
 
-  // Re-insert to refresh insertion order in the Map (used as tie-breaker after accessedAt sort).
+  // Re-insert to update insertion order (Map preserves insertion order).
   config.responseCache.delete(key);
   config.responseCache.set(key, {
     value,
     expiresAt: now + config.cacheTtlMs,
-    accessedAt: now,
+    accessedAt: now
   });
 
-  // Only trigger cleanup when cache is approaching capacity (>90%) to avoid O(n) scan on every set.
-  const cleanupThreshold = config.cacheMaxEntries * 0.9;
-  if (config.responseCache.size <= cleanupThreshold) {
-    return;
-  }
+  const threshold = Math.floor(config.cacheMaxEntries * 0.9);
+  if (config.responseCache.size <= threshold) return;
 
-  // Remove expired entries first — cheapest cleanup, no sorting needed.
-  for (const [k, v] of config.responseCache) {
-    if (v.expiresAt <= now) {
+  // First pass: evict all expired entries (cheap O(n) sweep).
+  for (const [k, entry] of config.responseCache) {
+    if (now >= entry.expiresAt) {
       config.responseCache.delete(k);
     }
   }
@@ -51,7 +56,7 @@ export function setCache(config: Readonly<InternalClientConfig>, key: string, va
   // drop the least-recently-used ones until we are within capacity.
   // O(n log n) but only runs when the cache is nearly full, so it is infrequent.
   if (config.responseCache.size > config.cacheMaxEntries) {
-    const byLeastRecentlyUsed = [...config.responseCache.entries()].sort(
+    const byLeastRecentlyUsed = [...config.responseCache.entries()].toSorted(
       (a, b) => a[1].accessedAt - b[1].accessedAt,
     );
     for (const [k] of byLeastRecentlyUsed) {

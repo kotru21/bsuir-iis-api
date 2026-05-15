@@ -24,6 +24,7 @@ function isNullableObject(value: unknown): boolean {
   return value === null || value === undefined || (typeof value === "object" && !Array.isArray(value));
 }
 
+/** @public */
 export function assertArrayResponse(payload: unknown, endpoint: string): asserts payload is unknown[] {
   if (!Array.isArray(payload)) {
     throw new BsuirResponseValidationError(
@@ -33,6 +34,7 @@ export function assertArrayResponse(payload: unknown, endpoint: string): asserts
   }
 }
 
+/** @public */
 export function assertApiDateResponse(
   payload: unknown,
   endpoint: string
@@ -46,6 +48,7 @@ export function assertApiDateResponse(
   }
 }
 
+/** @public */
 export function assertScheduleResponse(
   payload: unknown,
   endpoint: string

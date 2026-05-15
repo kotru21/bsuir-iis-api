@@ -28,7 +28,7 @@ function parseRetryAfterMs(retryAfter: string | null): number | null {
     const delayMs = dateValue - Date.now();
     // Only accept if date is in the future.
     if (delayMs > 0) {
-      return Math.min(delayMs, 86_400_000); // Cap at 24 hours to prevent unreasonably long waits.
+      return Math.min(delayMs, 86_400_000); // Cap at 24 hours to prevent unreasonably long wait
     }
   }
 
@@ -36,22 +36,25 @@ function parseRetryAfterMs(retryAfter: string | null): number | null {
 }
 
 /**
- * Calculates retry delay using `Retry-After` when present, otherwise exponential backoff.
+ * Computes the retry delay in milliseconds for the given attempt number.
+ * Applies exponential backoff capped at `retryMaxDelayMs`, with optional jitter.
+ * If a valid `Retry-After` header value is provided, it takes precedence.
  */
 export function getRetryDelayMs(
   config: Readonly<InternalClientConfig>,
   attempt: number,
-  retryAfterHeader?: string | null,
+  retryAfter?: string | null,
 ): number {
-  const retryAfterDelay = parseRetryAfterMs(retryAfterHeader ?? null);
-  if (retryAfterDelay !== null) {
-    return Math.min(retryAfterDelay, config.retryMaxDelayMs);
+  const retryAfterMs = retryAfter !== undefined ? parseRetryAfterMs(retryAfter) : null;
+  if (retryAfterMs !== null) {
+    return Math.min(retryAfterMs, config.retryMaxDelayMs);
   }
 
-  const exponent = Math.max(0, attempt);
-  const baseDelay = Math.min(config.retryDelayMs * 2 ** exponent, config.retryMaxDelayMs);
+  const backoff = config.retryDelayMs * Math.pow(2, attempt);
+  const baseDelay = Math.min(backoff, config.retryMaxDelayMs);
+
   if (!config.retryJitter) {
-    return baseDelay;
+    return Math.floor(baseDelay);
   }
 
   const jitterFactor = 0.75 + Math.random() * 0.5;

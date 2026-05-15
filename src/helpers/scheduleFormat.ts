@@ -4,11 +4,11 @@ import type { FlattenedScheduleItem } from "../types/schedule";
 /**
  * Formats lesson start and end time as a range string.
  *
- * @returns `"HH:MM–HH:MM"`, or an empty string when both times are missing.
+ * @returns `"HH:MM\u2013HH:MM"`, or an empty string when both times are missing.
  *
  * @example
  * ```ts
- * formatLessonTimeRange(lesson); // "10:00–11:30"
+ * formatLessonTimeRange(lesson); // "10:00\u201311:30"
  * ```
  */
 export function formatLessonTimeRange(
@@ -25,12 +25,12 @@ export function formatLessonTimeRange(
 /**
  * Returns the lesson type abbreviation.
  *
- * @returns The abbreviation string (e.g. `"ЛК"`, `"ПЗ"`, `"ЛР"`),
+ * @returns The abbreviation string (e.g. `"\u041B\u041A"`, `"\u041F\u0417"`, `"\u041B\u0420"`),
  * or an empty string when the field is absent.
  *
  * @example
  * ```ts
- * formatLessonType(lesson); // "ЛК"
+ * formatLessonType(lesson); // "\u041B\u041A"
  * ```
  */
 export function formatLessonType(
@@ -42,39 +42,39 @@ export function formatLessonType(
 /**
  * Returns a human-readable subgroup label.
  *
- * @returns `"1 подгруппа"` / `"2 подгруппа"` etc., or `""` when `numSubgroup` is 0.
+ * @returns `"1 \u043F\u043E\u0434\u0433\u0440\u0443\u043F\u043F\u0430"` etc., or `""` when `numSubgroup` is 0.
  *
  * @example
  * ```ts
- * formatLessonSubgroup(lesson); // "1 подгруппа"
+ * formatLessonSubgroup(lesson); // "1 \u043F\u043E\u0434\u0433\u0440\u0443\u043F\u043F\u0430"
  * ```
  */
 export function formatLessonSubgroup(
   lesson: Pick<FlattenedScheduleItem, "numSubgroup">,
 ): string {
   if (!lesson.numSubgroup) return "";
-  return `${String(lesson.numSubgroup)} \u043f\u043e\u0434\u0433\u0440\u0443\u043f\u043f\u0430`;
+  return `${String(lesson.numSubgroup)} \u043F\u043E\u0434\u0433\u0440\u0443\u043F\u043F\u0430`;
 }
 
 /**
  * Formats the week numbers list as a compact string.
  *
- * Returns `"кажд. нед."` when `weekNumber` is `null` or empty.
- * Returns `"1, 3 нед."` for a specific set of weeks.
+ * Returns `"\u043A\u0430\u0436\u0434. \u043D\u0435\u0434."` when `weekNumber` is `null` or empty.
+ * Returns `"1, 3 \u043D\u0435\u0434."` for a specific set of weeks.
  *
  * @example
  * ```ts
- * formatLessonWeekNumbers({ weekNumber: [1, 3] }); // "1, 3 нед."
- * formatLessonWeekNumbers({ weekNumber: null });    // "кажд. нед."
+ * formatLessonWeekNumbers({ weekNumber: [1, 3] }); // "1, 3 \u043D\u0435\u0434."
+ * formatLessonWeekNumbers({ weekNumber: null });    // "\u043A\u0430\u0436\u0434. \u043D\u0435\u0434."
  * ```
  */
 export function formatLessonWeekNumbers(
   lesson: Pick<FlattenedScheduleItem, "weekNumber">,
 ): string {
   if (!lesson.weekNumber || lesson.weekNumber.length === 0) {
-    return "\u043a\u0430\u0436\u0434. \u043d\u0435\u0434.";
+    return "\u043A\u0430\u0436\u0434. \u043D\u0435\u0434.";
   }
-  return `${lesson.weekNumber.join(", ")} \u043d\u0435\u0434.`;
+  return `${lesson.weekNumber.join(", ")} \u043D\u0435\u0434.`;
 }
 
 /**
@@ -94,13 +94,13 @@ export function formatLessonAuditories(
 }
 
 /**
- * Formats an employee name as `"Фамилия И.О."`.
+ * Formats an employee name as `"\u0424\u0430\u043C\u0438\u043B\u0438\u044F \u0418.\u041E."`.
  *
  * Falls back gracefully when first or middle name is missing.
  *
  * @example
  * ```ts
- * formatEmployeeShortName(employee); // "Иванов И.И."
+ * formatEmployeeShortName(employee); // "\u0418\u0432\u0430\u043D\u043E\u0432 \u0418.\u0418."
  * ```
  */
 export function formatEmployeeShortName(
@@ -120,16 +120,16 @@ export function formatEmployeeShortName(
 /**
  * Formats all lesson employees as short names joined by `", "`.
  *
- * @returns `"Иванов И.И., Петров П.П."` or `""` when employees list is absent.
+ * @returns `"\u0418\u0432\u0430\u043D\u043E\u0432 \u0418.\u0418., \u041F\u0435\u0442\u0440\u043E\u0432 \u041F.\u041F."` or `""` when employees list is absent.
  *
  * @example
  * ```ts
- * formatLessonEmployees(lesson); // "Иванов И.И."
+ * formatLessonEmployees(lesson); // "\u0418\u0432\u0430\u043D\u043E\u0432 \u0418.\u0418."
  * ```
  */
 export function formatLessonEmployees(
   lesson: Pick<FlattenedScheduleItem, "employees">,
 ): string {
   if (!lesson.employees || lesson.employees.length === 0) return "";
-  return lesson.employees.map(formatEmployeeShortName).join(", ");
+  return lesson.employees.map((e) => formatEmployeeShortName(e)).join(", ");
 }

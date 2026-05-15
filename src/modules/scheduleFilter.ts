@@ -26,50 +26,35 @@ function matchesFilter(item: FlattenedScheduleItem, filter: ScheduleFilterOption
     }
   }
 
-  if (typeof filter.subgroup === "number" && item.numSubgroup !== filter.subgroup) {
+  if (typeof filter.subgroup === "number" && item.numSubgroup !== 0 && item.numSubgroup !== filter.subgroup) {
     return false;
   }
 
-  if (filter.lessonTypeAbbrev) {
-    const types = Array.isArray(filter.lessonTypeAbbrev)
-      ? filter.lessonTypeAbbrev
-      : [filter.lessonTypeAbbrev];
-    if (!item.lessonTypeAbbrev || !types.includes(item.lessonTypeAbbrev)) {
-      return false;
-    }
-  }
-
-  if (filter.subjectQuery) {
-    const query = filter.subjectQuery.toLowerCase();
-    const haystack = `${item.subject} ${item.subjectFullName} ${item.note ?? ""}`.toLowerCase();
-    if (!haystack.includes(query)) {
-      return false;
-    }
-  }
-
-  if (filter.employeeUrlId) {
-    const employeeMatch = item.employees?.some((employee) => employee.urlId === filter.employeeUrlId);
-    if (!employeeMatch) {
-      return false;
-    }
-  }
-
-  if (filter.auditory && !lessonAuditories(item).includes(filter.auditory)) {
+  if (filter.lessonType && item.lessonTypeAbbrev !== filter.lessonType) {
     return false;
+  }
+
+  if (filter.auditory) {
+    const normalizedFilter = filter.auditory.toLowerCase();
+    const auds = lessonAuditories(item as unknown as ScheduleItem);
+    if (!auds.some((a) => a.toLowerCase().includes(normalizedFilter))) {
+      return false;
+    }
   }
 
   return true;
 }
 
 /**
- * Filters normalized schedule lessons by criteria.
+ * Filters a normalized schedule by the provided filter options.
+ * @public
  */
 export function filterLessons(
-  response: NormalizedScheduleResponse,
+  schedule: NormalizedScheduleResponse,
   filter: ScheduleFilterOptions,
 ): FlattenedScheduleItem[] {
   if (typeof filter.weekNumber === "number") {
-    assertPositiveInt(filter.weekNumber, "filter.weekNumber");
+    assertPositiveInt(filter.weekNumber, "weekNumber");
   }
-  return response.lessons.filter((item) => matchesFilter(item, filter));
+  return schedule.lessons.filter((item) => matchesFilter(item, filter));
 }
