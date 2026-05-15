@@ -16,7 +16,7 @@ export function formatLessonTimeRange(
 ): string {
   const start = lesson.startLessonTime.trim();
   const end = lesson.endLessonTime.trim();
-  if (start && end) return `${start}–${end}`;
+  if (start && end) return `${start}\u2013${end}`;
   if (start) return start;
   if (end) return end;
   return "";
@@ -53,7 +53,7 @@ export function formatLessonSubgroup(
   lesson: Pick<FlattenedScheduleItem, "numSubgroup">,
 ): string {
   if (!lesson.numSubgroup) return "";
-  return `${String(lesson.numSubgroup)} подгруппа`;
+  return `${String(lesson.numSubgroup)} \u043f\u043e\u0434\u0433\u0440\u0443\u043f\u043f\u0430`;
 }
 
 /**
@@ -64,7 +64,7 @@ export function formatLessonSubgroup(
  *
  * @example
  * ```ts
- * formatLessonWeekNumbers({ weekNumber:  }); // "1, 3 нед."
+ * formatLessonWeekNumbers({ weekNumber: [1, 3] }); // "1, 3 нед."
  * formatLessonWeekNumbers({ weekNumber: null });    // "кажд. нед."
  * ```
  */
@@ -72,9 +72,9 @@ export function formatLessonWeekNumbers(
   lesson: Pick<FlattenedScheduleItem, "weekNumber">,
 ): string {
   if (!lesson.weekNumber || lesson.weekNumber.length === 0) {
-    return "кажд. нед.";
+    return "\u043a\u0430\u0436\u0434. \u043d\u0435\u0434.";
   }
-  return `${lesson.weekNumber.join(", ")} нед.`;
+  return `${lesson.weekNumber.join(", ")} \u043d\u0435\u0434.`;
 }
 
 /**
@@ -106,12 +106,15 @@ export function formatLessonAuditories(
 export function formatEmployeeShortName(
   employee: Pick<Employee, "lastName" | "firstName" | "middleName">,
 ): string {
-  const parts: string[] = [employee.lastName.trim()];
+  const lastName = employee.lastName.trim();
   const first = employee.firstName.trim();
   const middle = employee.middleName.trim();
-  if (first.length > 0) parts.push(`${first.charAt(0)}.`);
-  if (middle.length > 0) parts.push(`${middle.charAt(0)}.`);
-  return parts.join(" ");
+
+  let initials = "";
+  if (first.length > 0) initials += `${first.charAt(0)}.`;
+  if (middle.length > 0) initials += `${middle.charAt(0)}.`;
+
+  return initials.length > 0 ? `${lastName} ${initials}` : lastName;
 }
 
 /**
