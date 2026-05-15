@@ -15,10 +15,11 @@ describe("parseBody", () => {
     expect(result).toEqual({ ok: true });
   });
 
-  it("returns plain text for non-JSON content-type", async () => {
-    // line 60 — text.length > 0 && !declaredJson → return text (not JSON)
-    const result = await parseBody(makeResponse("2\n", "text/plain"), 1_000_000);
-    expect(result).toBe("2\n");
+  it("returns plain text for non-JSON content-type (line 60)", async () => {
+    // line 60 — text.length > 0 && !declaredJson → return text as-is
+    // Body must NOT be valid JSON so the fallback JSON.parse branch is not taken
+    const result = await parseBody(makeResponse("hello world", "text/plain"), 1_000_000);
+    expect(result).toBe("hello world");
   });
 
   it("returns empty string for empty body with non-JSON content type", async () => {
