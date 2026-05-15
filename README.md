@@ -105,7 +105,7 @@ When IIS responds with HTTP `404` or `400` (no list, missing resource, or endpoi
 
 - Core runtime API: `createBsuirClient`, `BsuirClient`
 - Client/runtime option types: `BsuirClientOptions`, `CacheOptions`, `ClientHooks`, `RequestOptions`, `ReadOptions`, `RequestHookContext`, `RetryHookContext`, `ResponseHookContext`, `ErrorHookContext`
-- Schedule utilities: `normalizeSchedule`, `filterLessons`, `ScheduleFilterOptions`
+- Schedule utilities: `normalizeSchedule`, `filterLessons`, `getLessonsForDate`, `getTodayLessons`, `getTomorrowLessons`, `getLessonsForWeek`, `sortLessonsByTime`, `groupLessonsByDay`, `getCurrentLesson`, `getNextLesson`, `buildScheduleDays`, `ScheduleFilterOptions`
 - Error classes: `BsuirApiError`, `BsuirNetworkError`, `BsuirTimeoutError`, `BsuirValidationError`, `BsuirResponseValidationError`, `BsuirConfigurationError`
 - Domain types: `Announcement`, `ApiDateResponse`, `Auditory`, `AuditoryDepartment`, `AuditoryType`, `BuildingNumber`, `Department`, `EducationForm`, `Employee`, `EmployeeCatalogItem`, `Faculty`, `FlattenedLessonsByDay`, `FlattenedScheduleItem`, `LessonStudentGroup`, `Maybe`, `NormalizedScheduleResponse`, `ScheduleItem`, `ScheduleResponse`, `Speciality`, `StudentGroupCatalogItem`, `StudentGroupShort`, `Weekday`, `WeekScheduleMap`
 
@@ -184,6 +184,17 @@ import { createBsuirClient } from "bsuir-iis-api";
 const client = createBsuirClient();
 const subgroupLessons = await client.schedule.getEmployeeBySubgroup("s-nesterenkov", 1);
 ```
+
+## Schedule helpers for UI
+
+```ts
+import { buildScheduleDays, getTodayLessons } from "bsuir-iis-api";
+
+const todayLessons = getTodayLessons(schedule, new Date());
+const days = buildScheduleDays(schedule, { days: 7, includeEmptyDays: false });
+```
+
+Use `getCurrentLesson(days[0].lessons)` / `getNextLesson(days[0].lessons)` for in-day progress indicators.
 
 ## Development
 

@@ -15,11 +15,17 @@ export interface EducationForm {
   name: string;
 }
 
+/**
+ * The live IIS API returns `educationForm` as either a single object or an array
+ * depending on the endpoint and context. Use `Array.isArray(educationForm)` to distinguish.
+ */
+export type SpecialityEducationForm = EducationForm | EducationForm[];
+
 export interface Speciality {
   id: number;
   name: string;
   abbrev: string;
-  educationForm: EducationForm[];
+  educationForm: SpecialityEducationForm;
   facultyId: number;
   code: string;
 }

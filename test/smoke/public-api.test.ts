@@ -6,8 +6,10 @@ import {
   BsuirResponseValidationError,
   BsuirTimeoutError,
   BsuirValidationError,
+  buildScheduleDays,
   createBsuirClient,
   filterLessons,
+  getTodayLessons,
   normalizeSchedule
 } from "../../src";
 
@@ -26,5 +28,7 @@ describe("public api", () => {
     expect(BsuirValidationError).toBeDefined();
     expect(normalizeSchedule).toBeDefined();
     expect(filterLessons).toBeDefined();
+    expect(getTodayLessons).toBeDefined();
+    expect(buildScheduleDays).toBeDefined();
   });
 });
