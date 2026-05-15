@@ -43,8 +43,6 @@ describe("scheduleApi — defaultRaw: true (lines 92–93, 123)", () => {
     const client = createBsuirClient({ fetch: fetchImpl, defaultRaw: true, validateResponses: false });
 
     const response = await client.schedule.getGroup("053503");
-
-    // raw response has schedules/exams, not flattened lessons
     expect("schedules" in response).toBe(true);
     expect("lessons" in response).toBe(false);
     expect(response.exams).toEqual([]);
@@ -55,17 +53,30 @@ describe("scheduleApi — defaultRaw: true (lines 92–93, 123)", () => {
     const client = createBsuirClient({ fetch: fetchImpl, defaultRaw: true, validateResponses: false });
 
     const response = await client.schedule.getEmployee("s-nesterenkov");
-
     expect("schedules" in response).toBe(true);
     expect("lessons" in response).toBe(false);
+  });
+
+  // lines 92–93: validateResponses: true triggers assertScheduleResponse in raw mode
+  it("getGroup with defaultRaw: true and validateResponses: true calls assertScheduleResponse (lines 92–93)", async () => {
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildRawPayload() })]);
+    const client = createBsuirClient({ fetch: fetchImpl, defaultRaw: true, validateResponses: true });
+    const response = await client.schedule.getGroup("053503");
+    expect("schedules" in response).toBe(true);
+  });
+
+  // line 123: same for getEmployee
+  it("getEmployee with defaultRaw: true and validateResponses: true (line 123)", async () => {
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildRawPayload() })]);
+    const client = createBsuirClient({ fetch: fetchImpl, defaultRaw: true, validateResponses: true });
+    const response = await client.schedule.getEmployee("s-nesterenkov");
+    expect("schedules" in response).toBe(true);
   });
 
   it("per-call raw: false overrides defaultRaw: true", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildRawPayload() })]);
     const client = createBsuirClient({ fetch: fetchImpl, defaultRaw: true, validateResponses: false });
-
     const response = await client.schedule.getGroup("053503", { raw: false });
-
     expect("lessons" in response).toBe(true);
   });
 });

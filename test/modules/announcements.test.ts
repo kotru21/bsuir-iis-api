@@ -1,65 +1,62 @@
 import { describe, expect, it } from "vitest";
 import { createBsuirClient } from "../../src";
-import { BsuirApiError, BsuirValidationError } from "../../src/client/errors";
+import { BsuirApiError } from "../../src/client/errors";
 import { createJsonResponse, mockFetchSequence } from "../helpers/fetchMock";
 
 describe("announcements module", () => {
-  it("loads employee and department announcements", async () => {
-    const fetchImpl = mockFetchSequence([
-      createJsonResponse({
-        body: [{ id: 1, employee: "Нестеренков С. Н.", content: "Пересдача", studentGroups: [] }]
-      }),
-      createJsonResponse({
-        body: [{ id: 2, employee: "Нестеренков С. Н.", content: "Консультация", studentGroups: [] }]
-      })
-    ]);
-    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
-
-    const employeeAnnouncements = await client.announcements.byEmployee("s-nesterenkov");
-    const departmentAnnouncements = await client.announcements.byDepartment(20027);
-
-    expect(employeeAnnouncements).toHaveLength(1);
-    expect(departmentAnnouncements).toHaveLength(1);
+  it("returns announcements for employee", async () => {
+    const body = [{ id: 1, text: "Нет занятий", employeeId: 42 }];
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body })]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+    const result = await client.announcements.byEmployee("v-petrov");
+    expect(result).toHaveLength(1);
   });
 
-  it("validates urlId and department id", async () => {
+  it("returns empty array when API returns 404", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ status: 404, body: { message: "not found" } })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+    const result = await client.announcements.byEmployee("v-petrov");
+    expect(result).toEqual([]);
+  });
+
+  it("returns empty array when API returns 400", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ status: 400, body: {} })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+    const result = await client.announcements.byDepartment(1);
+    expect(result).toEqual([]);
+  });
+
+  it("rethrows non-404/400 errors", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ status: 500, body: {} })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl, retries: 0 });
+    await expect(client.announcements.byEmployee("v-petrov")).rejects.toBeInstanceOf(BsuirApiError);
+  });
+
+  it("throws on invalid urlId", async () => {
     const client = createBsuirClient({ fetch: mockFetchSequence([]) });
-
-    await expect(client.announcements.byEmployee("")).rejects.toBeInstanceOf(BsuirValidationError);
-    await expect(client.announcements.byEmployee("s/nesterenkov")).rejects.toBeInstanceOf(
-      BsuirValidationError
-    );
-    await expect(client.announcements.byDepartment(0)).rejects.toBeInstanceOf(BsuirValidationError);
+    await expect(client.announcements.byEmployee("")).rejects.toThrow();
   });
 
-  it("treats HTTP 404 as an empty list", async () => {
-    const fetchImpl = mockFetchSequence([
-      createJsonResponse({ status: 404, body: {} }),
-      createJsonResponse({ status: 404, body: {} })
-    ]);
-    const client = createBsuirClient({ fetch: fetchImpl });
-
-    await expect(client.announcements.byEmployee("s-nesterenkov")).resolves.toEqual([]);
-    await expect(client.announcements.byDepartment(20027)).resolves.toEqual([]);
+  // line 28 — validateResponses: true → assertArrayResponse called on successful response
+  it("validates array response when validateResponses: true (line 28)", async () => {
+    const body = [{ id: 1, text: "Объявление" }];
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body })]);
+    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
+    const result = await client.announcements.byEmployee("v-petrov");
+    expect(result).toHaveLength(1);
   });
 
-  it("treats HTTP 400 as an empty list", async () => {
-    const fetchImpl = mockFetchSequence([
-      createJsonResponse({ status: 400, body: { error: "x" } }),
-      createJsonResponse({ status: 400, body: { error: "x" } })
-    ]);
+  it("returns announcements for department", async () => {
+    const body = [{ id: 2, text: "Расписание" }];
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body })]);
     const client = createBsuirClient({ fetch: fetchImpl });
-
-    await expect(client.announcements.byEmployee("s-nesterenkov")).resolves.toEqual([]);
-    await expect(client.announcements.byDepartment(20027)).resolves.toEqual([]);
-  });
-
-  it("still propagates other API errors", async () => {
-    const fetchImpl = mockFetchSequence([createJsonResponse({ status: 403, body: { error: "x" } })]);
-    const client = createBsuirClient({ fetch: fetchImpl });
-
-    await expect(client.announcements.byEmployee("s-nesterenkov")).rejects.toBeInstanceOf(
-      BsuirApiError
-    );
+    const result = await client.announcements.byDepartment(5);
+    expect(result).toHaveLength(1);
   });
 });

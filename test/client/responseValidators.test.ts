@@ -15,6 +15,13 @@ describe("response validators", () => {
     expect(() => assertArrayResponse({}, "/x")).toThrow(BsuirResponseValidationError);
   });
 
+  // line 7 — assertArrayResponse: non-array but object (not null/primitive)
+  it("rejects null payload in assertArrayResponse", () => {
+    expect(() => assertArrayResponse(null, "/x")).toThrow(BsuirResponseValidationError);
+    expect(() => assertArrayResponse("string", "/x")).toThrow(BsuirResponseValidationError);
+    expect(() => assertArrayResponse(42, "/x")).toThrow(BsuirResponseValidationError);
+  });
+
   it("accepts valid api date payload", () => {
     expect(() => assertApiDateResponse({ lastUpdateDate: "23.02.2022" }, "/date")).not.toThrow();
   });
@@ -23,6 +30,13 @@ describe("response validators", () => {
     expect(() => assertApiDateResponse({ lastUpdateDate: 123 }, "/date")).toThrow(
       BsuirResponseValidationError
     );
+  });
+
+  // line 15 — ensureRecord: payload is array → asRecord returns null → throws
+  it("rejects array payload in assertScheduleResponse (ensureRecord, line 15)", () => {
+    expect(() => assertScheduleResponse([], "/schedule")).toThrow(BsuirResponseValidationError);
+    expect(() => assertScheduleResponse(null, "/schedule")).toThrow(BsuirResponseValidationError);
+    expect(() => assertScheduleResponse("text", "/schedule")).toThrow(BsuirResponseValidationError);
   });
 
   it("accepts valid schedule response shape", () => {
@@ -46,12 +60,7 @@ describe("response validators", () => {
   it("rejects invalid schedules shape", () => {
     expect(() =>
       assertScheduleResponse(
-        {
-          employeeDto: null,
-          studentGroupDto: null,
-          schedules: [],
-          exams: []
-        },
+        { employeeDto: null, studentGroupDto: null, schedules: [], exams: [] },
         "/schedule"
       )
     ).toThrow(BsuirResponseValidationError);
@@ -60,12 +69,7 @@ describe("response validators", () => {
   it("rejects invalid exams shape", () => {
     expect(() =>
       assertScheduleResponse(
-        {
-          employeeDto: null,
-          studentGroupDto: null,
-          schedules: {},
-          exams: {}
-        },
+        { employeeDto: null, studentGroupDto: null, schedules: {}, exams: {} },
         "/schedule"
       )
     ).toThrow(BsuirResponseValidationError);
@@ -74,12 +78,17 @@ describe("response validators", () => {
   it("rejects invalid nullable dto fields", () => {
     expect(() =>
       assertScheduleResponse(
-        {
-          employeeDto: 5,
-          studentGroupDto: null,
-          schedules: {},
-          exams: []
-        },
+        { employeeDto: 5, studentGroupDto: null, schedules: {}, exams: [] },
+        "/schedule"
+      )
+    ).toThrow(BsuirResponseValidationError);
+  });
+
+  // line 88 — isNullableObject: studentGroupDto is array → false → throws
+  it("rejects array studentGroupDto (isNullableObject, line 88)", () => {
+    expect(() =>
+      assertScheduleResponse(
+        { employeeDto: null, studentGroupDto: [], schedules: {}, exams: [] },
         "/schedule"
       )
     ).toThrow(BsuirResponseValidationError);

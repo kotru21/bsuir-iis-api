@@ -37,4 +37,16 @@ describe("guards", () => {
     expect(isAbortError({ name: "AbortError" })).toBe(true);
     expect(isAbortError(new Error("aborted"))).toBe(false);
   });
+
+  // line 48 — Node.js abort style: error object with code === "ABORT_ERR"
+  it("detects abort error via code ABORT_ERR (line 48)", () => {
+    expect(isAbortError({ code: "ABORT_ERR" })).toBe(true);
+  });
+
+  it("returns false for null and primitives", () => {
+    expect(isAbortError(null)).toBe(false);
+    expect(isAbortError(undefined)).toBe(false);
+    expect(isAbortError("AbortError")).toBe(false);
+    expect(isAbortError(42)).toBe(false);
+  });
 });
