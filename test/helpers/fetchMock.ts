@@ -7,11 +7,11 @@ export interface MockResponseInit {
 }
 
 export function createJsonResponse({ status = 200, headers, body }: MockResponseInit): Response {
-  return new Response(JSON.stringify(body), {
+  return Response.json(body, {
     status,
     headers: {
       "Content-Type": "application/json",
-      ...(headers !== undefined ? Object.fromEntries(new Headers(headers)) : {})
+      ...(headers === undefined ? {} : Object.fromEntries(new Headers(headers)))
     }
   });
 }

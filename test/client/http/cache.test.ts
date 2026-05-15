@@ -12,7 +12,7 @@ function makeConfig(
     timeoutMs: 10_000,
     retries: 1,
     retryDelayMs: 300,
-    retryMaxDelayMs: 3_000,
+    retryMaxDelayMs: 3000,
     retryJitter: true,
     userAgent: undefined,
     cacheTtlMs: 60_000,
@@ -38,23 +38,23 @@ describe("tryReadCache", () => {
   });
 
   it("returns value and updates accessedAt on hit", () => {
-    vi.setSystemTime(1_000);
+    vi.setSystemTime(1000);
     const config = makeConfig();
-    config.responseCache.set("key", { value: { ok: true }, expiresAt: 2_000, accessedAt: 1_000 });
+    config.responseCache.set("key", { value: { ok: true }, expiresAt: 2000, accessedAt: 1000 });
 
-    vi.setSystemTime(1_500);
+    vi.setSystemTime(1500);
     expect(tryReadCache(config, "key")).toEqual({ ok: true });
 
     const entry = config.responseCache.get("key");
-    expect(entry?.accessedAt).toBe(1_500);
+    expect(entry?.accessedAt).toBe(1500);
   });
 
   it("returns undefined and deletes the entry when expired", () => {
-    vi.setSystemTime(1_000);
+    vi.setSystemTime(1000);
     const config = makeConfig();
-    config.responseCache.set("key", { value: "stale", expiresAt: 1_000, accessedAt: 500 });
+    config.responseCache.set("key", { value: "stale", expiresAt: 1000, accessedAt: 500 });
 
-    vi.setSystemTime(1_001);
+    vi.setSystemTime(1001);
     expect(tryReadCache(config, "key")).toBeUndefined();
     expect(config.responseCache.has("key")).toBe(false);
   });
@@ -71,20 +71,20 @@ describe("setCache", () => {
   });
 
   it("writes an entry with correct expiresAt", () => {
-    vi.setSystemTime(1_000);
+    vi.setSystemTime(1000);
     const config = makeConfig({ cacheTtlMs: 500 });
     setCache(config, "key", 42);
 
     const entry = config.responseCache.get("key");
     expect(entry?.value).toBe(42);
-    expect(entry?.expiresAt).toBe(1_500);
+    expect(entry?.expiresAt).toBe(1500);
   });
 
   it("re-inserts existing key to refresh order", () => {
-    vi.setSystemTime(1_000);
-    const config = makeConfig({ cacheTtlMs: 1_000 });
+    vi.setSystemTime(1000);
+    const config = makeConfig({ cacheTtlMs: 1000 });
     setCache(config, "key", "v1");
-    vi.setSystemTime(1_100);
+    vi.setSystemTime(1100);
     setCache(config, "key", "v2");
 
     expect(config.responseCache.get("key")?.value).toBe("v2");
@@ -92,7 +92,7 @@ describe("setCache", () => {
   });
 
   it("does not evict when size is within 90% threshold", () => {
-    vi.setSystemTime(1_000);
+    vi.setSystemTime(1000);
     // cacheMaxEntries=10, threshold = 9; adding 9 entries → size === threshold, no eviction
     const config = makeConfig({ cacheTtlMs: 60_000, cacheMaxEntries: 10 });
     for (let i = 0; i < 9; i++) {
@@ -102,7 +102,7 @@ describe("setCache", () => {
   });
 
   it("evicts expired entries when cache exceeds 90% capacity", () => {
-    vi.setSystemTime(1_000);
+    vi.setSystemTime(1000);
     const config = makeConfig({ cacheTtlMs: 60_000, cacheMaxEntries: 10 });
 
     // Fill 9 entries (fresh)
@@ -115,7 +115,7 @@ describe("setCache", () => {
     expect(config.responseCache.size).toBe(10);
 
     // This set pushes size > threshold (10 > 9), triggers cleanup
-    vi.setSystemTime(2_000);
+    vi.setSystemTime(2000);
     setCache(config, "new", "new");
 
     expect(config.responseCache.has("expired")).toBe(false);
@@ -123,7 +123,7 @@ describe("setCache", () => {
   });
 
   it("evicts LRU entries when expired eviction alone is insufficient", () => {
-    vi.setSystemTime(1_000);
+    vi.setSystemTime(1000);
     const config = makeConfig({ cacheTtlMs: 60_000, cacheMaxEntries: 3 });
 
     // Add 3 fresh entries with different accessedAt

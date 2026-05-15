@@ -20,11 +20,9 @@ function matchesFilter(item: FlattenedScheduleItem, filter: ScheduleFilterOption
     return false;
   }
 
-  if (typeof filter.weekNumber === "number") {
-    if (!Array.isArray(item.weekNumber) || !item.weekNumber.includes(filter.weekNumber)) {
+  if (typeof filter.weekNumber === "number" && (!Array.isArray(item.weekNumber) || !item.weekNumber.includes(filter.weekNumber))) {
       return false;
     }
-  }
 
   if (typeof filter.subgroup === "number" && item.numSubgroup !== filter.subgroup) {
     return false;

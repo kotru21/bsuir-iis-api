@@ -45,7 +45,7 @@ describe("guards", () => {
 
   it("returns false for null and primitives", () => {
     expect(isAbortError(null)).toBe(false);
-    expect(isAbortError(undefined)).toBe(false);
+    expect(isAbortError()).toBe(false);
     expect(isAbortError("AbortError")).toBe(false);
     expect(isAbortError(42)).toBe(false);
   });

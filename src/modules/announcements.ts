@@ -37,6 +37,9 @@ async function requestAnnouncementList(
   }
 }
 
+/**
+ *
+ */
 export function createAnnouncementsModule(config: Readonly<InternalClientConfig>) {
   return {
     /**

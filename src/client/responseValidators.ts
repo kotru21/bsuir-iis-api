@@ -24,6 +24,9 @@ function isNullableObject(value: unknown): boolean {
   return value === null || value === undefined || (typeof value === "object" && !Array.isArray(value));
 }
 
+/**
+ *
+ */
 export function assertArrayResponse(payload: unknown, endpoint: string): asserts payload is unknown[] {
   if (!Array.isArray(payload)) {
     throw new BsuirResponseValidationError(
@@ -33,6 +36,9 @@ export function assertArrayResponse(payload: unknown, endpoint: string): asserts
   }
 }
 
+/**
+ *
+ */
 export function assertApiDateResponse(
   payload: unknown,
   endpoint: string
@@ -46,6 +52,9 @@ export function assertApiDateResponse(
   }
 }
 
+/**
+ *
+ */
 export function assertScheduleResponse(
   payload: unknown,
   endpoint: string
@@ -57,8 +66,7 @@ export function assertScheduleResponse(
   const studentGroupDto = record.studentGroupDto;
 
   // undefined treated as absent field — API may omit schedules/exams for exam-only or schedule-only entries
-  if (schedules !== null && schedules !== undefined) {
-    if (typeof schedules !== "object" || Array.isArray(schedules)) {
+  if (schedules !== null && schedules !== undefined && (typeof schedules !== "object" || Array.isArray(schedules))) {
       throw new BsuirResponseValidationError(
         `Invalid response payload for ${endpoint}: 'schedules' must be object or null, got ${
           Array.isArray(schedules) ? "array" : typeof schedules
@@ -66,16 +74,13 @@ export function assertScheduleResponse(
         endpoint
       );
     }
-  }
 
-  if (exams !== null && exams !== undefined) {
-    if (!Array.isArray(exams)) {
+  if (exams !== null && exams !== undefined && !Array.isArray(exams)) {
       throw new BsuirResponseValidationError(
         `Invalid response payload for ${endpoint}: 'exams' must be array or null, got ${typeof exams}`,
         endpoint
       );
     }
-  }
 
   if (!isNullableObject(employeeDto)) {
     throw new BsuirResponseValidationError(

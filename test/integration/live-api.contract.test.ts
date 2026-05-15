@@ -48,7 +48,7 @@ describeLive("live API contract", () => {
     timeoutMs: 15_000,
     retries: 2,
     retryDelayMs: 400,
-    retryMaxDelayMs: 2_000,
+    retryMaxDelayMs: 2000,
     retryJitter: true
   });
 
@@ -121,7 +121,7 @@ describeLive("live API contract", () => {
       const employeeAnnouncements = await client.announcements.byEmployee("s-nesterenkov");
       let departmentAnnouncements: unknown;
       try {
-        departmentAnnouncements = await client.announcements.byDepartment(20027);
+        departmentAnnouncements = await client.announcements.byDepartment(20_027);
       } catch (error) {
         if (error instanceof BsuirApiError && [400, 422].includes(error.status)) {
           departmentAnnouncements = [];

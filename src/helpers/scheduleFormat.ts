@@ -53,7 +53,7 @@ export function formatLessonSubgroup(
   lesson: Pick<FlattenedScheduleItem, "numSubgroup">,
 ): string {
   if (!lesson.numSubgroup) return "";
-  return `${String(lesson.numSubgroup)} \u043f\u043e\u0434\u0433\u0440\u0443\u043f\u043f\u0430`;
+  return `${String(lesson.numSubgroup)} \u043F\u043E\u0434\u0433\u0440\u0443\u043F\u043F\u0430`;
 }
 
 /**
@@ -72,9 +72,9 @@ export function formatLessonWeekNumbers(
   lesson: Pick<FlattenedScheduleItem, "weekNumber">,
 ): string {
   if (!lesson.weekNumber || lesson.weekNumber.length === 0) {
-    return "\u043a\u0430\u0436\u0434. \u043d\u0435\u0434.";
+    return "\u043A\u0430\u0436\u0434. \u043D\u0435\u0434.";
   }
-  return `${lesson.weekNumber.join(", ")} \u043d\u0435\u0434.`;
+  return `${lesson.weekNumber.join(", ")} \u043D\u0435\u0434.`;
 }
 
 /**

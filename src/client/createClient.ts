@@ -106,7 +106,7 @@ function createInternalConfig<TRawDefault extends boolean>(
   const retries = assertIntegerOption(options.retries, "retries", 0) ?? 1;
   const retryDelayMs = assertIntegerOption(options.retryDelayMs, "retryDelayMs", 0) ?? 300;
   const retryMaxDelayMs =
-    assertIntegerOption(options.retryMaxDelayMs, "retryMaxDelayMs", 0) ?? 3_000;
+    assertIntegerOption(options.retryMaxDelayMs, "retryMaxDelayMs", 0) ?? 3000;
   const cacheTtlMs = assertIntegerOption(options.cache?.ttlMs, "cache.ttlMs", 1);
   const cacheMaxEntries =
     assertIntegerOption(options.cache?.maxEntries, "cache.maxEntries", 1) ?? 200;
