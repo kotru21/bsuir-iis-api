@@ -1,5 +1,5 @@
 export { createBsuirClient } from "./client/createClient";
-export type { BsuirClient } from "./client/createClient";
+export type { BsuirClient, BsuirClientShape } from "./client/createClient";
 
 export type {
   BsuirClientOptions,
