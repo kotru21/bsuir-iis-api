@@ -11,7 +11,7 @@ export function createJsonResponse({ status = 200, headers, body }: MockResponse
     status,
     headers: {
       "Content-Type": "application/json",
-      ...(headers ?? {})
+      ...(headers !== undefined ? Object.fromEntries(new Headers(headers)) : {})
     }
   });
 }
