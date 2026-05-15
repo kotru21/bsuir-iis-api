@@ -105,7 +105,6 @@ describe("scheduleFilter", () => {
         lastName: "П",
         middleName: "",
         degree: "",
-        degreeAbbrev: undefined,
         email: null,
         rank: null,
         photoLink: "",
