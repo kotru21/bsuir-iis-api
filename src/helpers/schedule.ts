@@ -1,339 +1,142 @@
 import { filterLessons } from "../modules/scheduleFilter";
 import type { Weekday } from "../types/common";
 import type {
-  BuildScheduleDaysOptions,
-  FlattenedLessonsByDay,
   FlattenedScheduleItem,
-  LessonWithTime,
   NormalizedScheduleResponse,
-  ScheduleDay,
+  ScheduleDayMap,
 } from "../types/schedule";
-import { assertPositiveInt } from "../utils/guards";
-
-const WEEKDAYS: Weekday[] = [
-  "Понедельник",
-  "Вторник",
-  "Среда",
-  "Четверг",
-  "Пятница",
-  "Суббота",
-];
-
-const SUNDAY_LABEL = "Воскресенье";
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
-interface DdMmYyyyParts {
-  day: number;
-  month: number;
-  year: number;
-}
-
-function createEmptyLessonsByDay(): FlattenedLessonsByDay {
-  return Object.fromEntries(
-    WEEKDAYS.map((day) => [day, [] as FlattenedScheduleItem[]]),
-  ) as FlattenedLessonsByDay;
-}
-
-function parseDdMmYyyyParts(value: string | null): DdMmYyyyParts | null {
-  if (!value) {
-    return null;
-  }
-  const matched = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(value);
-  if (!matched) {
-    return null;
-  }
-  const [, dayPart, monthPart, yearPart] = matched;
-  const day = Number(dayPart);
-  const month = Number(monthPart);
-  const year = Number(yearPart);
-  if (
-    !Number.isInteger(day) ||
-    !Number.isInteger(month) ||
-    !Number.isInteger(year)
-  ) {
-    return null;
-  }
-  const utcDate = new Date(Date.UTC(year, month - 1, day));
-  if (
-    utcDate.getUTCFullYear() !== year ||
-    utcDate.getUTCMonth() !== month - 1 ||
-    utcDate.getUTCDate() !== day
-  ) {
-    return null;
-  }
-  return { day, month, year };
-}
-
-function toDayOrdinal(parts: DdMmYyyyParts): number {
-  return Math.floor(Date.UTC(parts.year, parts.month - 1, parts.day) / MS_PER_DAY);
-}
-
-function toDateDayOrdinal(date: Date): number {
-  return Math.floor(
-    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / MS_PER_DAY,
-  );
-}
-
-function toDateKey(date: Date): string {
-  const year = String(date.getFullYear());
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function toLessonDateKey(value: string | null): string | null {
-  const parts = parseDdMmYyyyParts(value);
-  if (!parts) {
-    return null;
-  }
-  return `${String(parts.year)}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`;
-}
-
-function toLessonDayOrdinal(value: string | null): number | null {
-  const parts = parseDdMmYyyyParts(value);
-  return parts ? toDayOrdinal(parts) : null;
-}
-
-function toWeekday(date: Date): Weekday | null {
-  const dayIndex = date.getDay();
-  if (dayIndex < 1 || dayIndex > 6) {
-    return null;
-  }
-  return WEEKDAYS[dayIndex - 1] ?? null;
-}
+import { parseDdMmYyyy } from "../utils/date";
 
 /**
- * Validates and clones a Date. Only `Date` objects are accepted.
- * ISO strings like `"2026-05-15"` are NOT accepted to avoid UTC vs local timezone ambiguity —
- * pass an explicit `new Date(...)` instead.
- */
-function toDateOrThrow(value: Date, fieldName: string): Date {
-  if (!(value instanceof Date)) {
-    throw new TypeError(`'${fieldName}' must be a Date object`);
-  }
-  const cloned = new Date(value);
-  if (Number.isNaN(cloned.getTime())) {
-    throw new TypeError(`'${fieldName}' must be a valid Date`);
-  }
-  return cloned;
-}
-
-function parseTimeToMinutes(value: string): number | null {
-  const matched = /^(\d{1,2}):(\d{2})$/.exec(value);
-  if (!matched) {
-    return null;
-  }
-  const [, hourPart, minutePart] = matched;
-  const hours = Number(hourPart);
-  const minutes = Number(minutePart);
-  if (
-    !Number.isInteger(hours) ||
-    !Number.isInteger(minutes) ||
-    hours < 0 ||
-    hours > 23 ||
-    minutes < 0 ||
-    minutes > 59
-  ) {
-    return null;
-  }
-  return hours * 60 + minutes;
-}
-
-function isWithinLessonDateRange(
-  targetOrdinal: number,
-  startDate: string | null,
-  endDate: string | null,
-): boolean {
-  const startOrdinal = toLessonDayOrdinal(startDate);
-  const endOrdinal = toLessonDayOrdinal(endDate);
-  if (startOrdinal !== null && targetOrdinal < startOrdinal) {
-    return false;
-  }
-  if (endOrdinal !== null && targetOrdinal > endOrdinal) {
-    return false;
-  }
-  return true;
-}
-
-function usesFourWeekCycle(response: NormalizedScheduleResponse): boolean {
-  const values = response.scheduleLessons
-    .flatMap((lesson) => lesson.weekNumber ?? [])
-    .filter((value): value is number => Number.isInteger(value) && value > 0);
-  if (values.length === 0) {
-    return false;
-  }
-  return values.every((value) => value >= 1 && value <= 4);
-}
-
-function inferWeekNumberForDate(
-  response: NormalizedScheduleResponse,
-  date: Date,
-): number | null {
-  const startDateParts = parseDdMmYyyyParts(response.startDate);
-  if (!startDateParts) {
-    return null;
-  }
-  const startOrdinal = toDayOrdinal(startDateParts);
-  const targetOrdinal = toDateDayOrdinal(date);
-  const diffDays = targetOrdinal - startOrdinal;
-  if (diffDays < 0) {
-    return null;
-  }
-  const absoluteWeek = Math.floor(diffDays / 7) + 1;
-  if (!usesFourWeekCycle(response)) {
-    return absoluteWeek;
-  }
-  return ((absoluteWeek - 1) % 4) + 1;
-}
-
-/**
- * Returns lessons scheduled for a specific calendar date.
+ * Returns today's lessons from a normalized schedule, based on the current date and week number.
  *
- * Date matching uses local calendar date semantics from the provided `date` object.
- * Lessons with `dateLesson` are matched directly by date key.
- * Weekly schedule lessons are matched by weekday and inferred week number.
- * Exams without `dateLesson` but with a date range appear on every day within that range —
- * in practice BSUIR exams have `dateLesson` set, so this branch handles edge cases only.
+ * If the `currentWeek` parameter is omitted the helper will try to infer a reasonable week
+ * number by looking at `schedule.currentWeek` (returned by the API).
  *
- * @param normalizedSchedule - Normalized schedule payload from {@link normalizeSchedule}.
- * @param date - Target date. Must be a `Date` object — local calendar date is used.
- * @returns Lessons for that date sorted by start time.
- *
- * @example
- * ```ts
- * const lessons = getLessonsForDate(schedule, new Date(2026, 1, 10));
- * ```
- */
-export function getLessonsForDate(
-  normalizedSchedule: NormalizedScheduleResponse,
-  date: Date,
-): FlattenedScheduleItem[] {
-  const targetDate = toDateOrThrow(date, "date");
-  const targetDateKey = toDateKey(targetDate);
-  const targetOrdinal = toDateDayOrdinal(targetDate);
-  const targetWeekday = toWeekday(targetDate);
-  const inferredWeekNumber = inferWeekNumberForDate(normalizedSchedule, targetDate);
-
-  return sortLessonsByTime(
-    normalizedSchedule.lessons.filter((lesson) => {
-      const lessonDateKey = toLessonDateKey(lesson.dateLesson);
-      if (lessonDateKey) {
-        return lessonDateKey === targetDateKey;
-      }
-
-      if (lesson.source === "exams") {
-        if (!lesson.startLessonDate && !lesson.endLessonDate) {
-          return false;
-        }
-        return isWithinLessonDateRange(
-          targetOrdinal,
-          lesson.startLessonDate,
-          lesson.endLessonDate,
-        );
-      }
-
-      if (lesson.day !== targetWeekday) {
-        return false;
-      }
-
-      if (
-        typeof inferredWeekNumber === "number" &&
-        Array.isArray(lesson.weekNumber) &&
-        lesson.weekNumber.length > 0 &&
-        !lesson.weekNumber.includes(inferredWeekNumber)
-      ) {
-        return false;
-      }
-
-      return isWithinLessonDateRange(
-        targetOrdinal,
-        lesson.startLessonDate,
-        lesson.endLessonDate,
-      );
-    }),
-  );
-}
-
-/**
- * Returns lessons for the local current day.
- *
- * @param normalizedSchedule - Normalized schedule payload from {@link normalizeSchedule}.
- * @param now - Optional current moment override for deterministic usage.
- * @returns Lessons for today sorted by start time.
- *
- * @example
- * ```ts
- * const todayLessons = getTodayLessons(schedule, new Date());
- * ```
+ * @public
  */
 export function getTodayLessons(
-  normalizedSchedule: NormalizedScheduleResponse,
-  now: Date = new Date(),
+  schedule: NormalizedScheduleResponse,
+  currentWeek?: number,
 ): FlattenedScheduleItem[] {
-  const current = toDateOrThrow(now, "now");
-  return getLessonsForDate(normalizedSchedule, current);
+  const today = new Date();
+  const dayIndex = today.getDay(); // 0 = Sunday, 1 = Monday, …
+
+  const DAYS: Weekday[] = [
+    "Воскресенье",
+    "Понедельник",
+    "Вторник",
+    "Среда",
+    "Четверг",
+    "Пятница",
+    "Суббота",
+  ];
+
+  const weekday = DAYS[dayIndex];
+  if (!weekday) return [];
+
+  const week = currentWeek ?? schedule.currentWeek ?? undefined;
+
+  return filterLessons(schedule, {
+    weekday,
+    ...(week !== undefined ? { weekNumber: week } : {}),
+  });
+}
+
+/** @public */
+export type ScheduleDayEntry = {
+  /** Human-readable weekday name (e.g. "Понедельник") */
+  day: Weekday;
+  /** ISO date string (YYYY-MM-DD), present only when `dateLesson` was set on the lessons */
+  date?: string;
+  /** All lessons for this day */
+  lessons: FlattenedScheduleItem[];
+};
+
+/**
+ * Groups a flat lesson list into per-day buckets sorted by start time.
+ *
+ * Each entry exposes `day` (weekday name), an optional `date` (ISO string when all
+ * lessons share the same `dateLesson`), and the `lessons` array for that day.
+ *
+ * @public
+ */
+export function buildScheduleDays(
+  lessons: FlattenedScheduleItem[],
+): ScheduleDayEntry[] {
+  const map = groupLessonsByDay(lessons);
+  const order: Weekday[] = [
+    "Понедельник",
+    "Вторник",
+    "Среда",
+    "Четверг",
+    "Пятница",
+    "Суббота",
+    "Воскресенье",
+  ];
+
+  return order
+    .filter((day) => map[day] && map[day].length > 0)
+    .map((day) => {
+      const dayLessons = map[day];
+      // If every lesson carries the same non-null dateLesson, surface it as `date`.
+      const dates = new Set(dayLessons.map((l) => l.dateLesson));
+      const commonDate =
+        dates.size === 1 && !dates.has(null)
+          ? (dates.values().next().value as string)
+          : undefined;
+      return {
+        day,
+        ...(commonDate !== undefined ? { date: isoDate(commonDate) } : {}),
+        lessons: dayLessons,
+      };
+    });
+}
+
+/** Converts a DD.MM.YYYY date string to ISO YYYY-MM-DD. */
+function isoDate(ddMmYyyy: string): string {
+  const d = parseDdMmYyyy(ddMmYyyy);
+  return d ? d.toISOString().slice(0, 10) : ddMmYyyy;
 }
 
 /**
- * Returns lessons for the next local calendar day.
+ * Groups an array of flattened lessons into a {@link ScheduleDayMap} keyed by weekday.
  *
- * @param normalizedSchedule - Normalized schedule payload from {@link normalizeSchedule}.
- * @param now - Optional current moment override for deterministic usage.
- * @returns Lessons for tomorrow sorted by start time.
+ * Within each day the lessons are sorted by start time ascending,
+ * then by end time ascending for ties, and finally by original array index
+ * so the order is deterministic even for simultaneous lessons.
  *
- * @example
- * ```ts
- * const tomorrowLessons = getTomorrowLessons(schedule, new Date());
- * ```
+ * @public
  */
-export function getTomorrowLessons(
-  normalizedSchedule: NormalizedScheduleResponse,
-  now: Date = new Date(),
-): FlattenedScheduleItem[] {
-  const current = toDateOrThrow(now, "now");
-  const tomorrow = new Date(current);
-  tomorrow.setDate(current.getDate() + 1);
-  return getLessonsForDate(normalizedSchedule, tomorrow);
+export function groupLessonsByDay(
+  lessons: FlattenedScheduleItem[],
+): ScheduleDayMap {
+  const result: ScheduleDayMap = {};
+
+  for (const lesson of lessons) {
+    const day = lesson.day;
+    if (!result[day]) {
+      result[day] = [];
+    }
+    result[day].push(lesson);
+  }
+
+  for (const day of Object.keys(result) as Weekday[]) {
+    result[day] = sortLessonsByTime(result[day]);
+  }
+
+  return result;
 }
 
 /**
- * Returns regular schedule lessons for a specific week number.
+ * Returns a new array of lessons sorted by start time ascending, then by end time,
+ * then by original index for a stable, deterministic order.
  *
- * @param normalizedSchedule - Normalized schedule payload from {@link normalizeSchedule}.
- * @param weekNumber - Positive week number to match.
- * @returns Matching regular lessons sorted by start time.
- *
- * @example
- * ```ts
- * const secondWeek = getLessonsForWeek(schedule, 2);
- * ```
+ * @public
  */
-export function getLessonsForWeek(
-  normalizedSchedule: NormalizedScheduleResponse,
-  weekNumber: number,
+export function sortLessonsByTime(
+  lessons: FlattenedScheduleItem[],
 ): FlattenedScheduleItem[] {
-  assertPositiveInt(weekNumber, "weekNumber");
-  return sortLessonsByTime(
-    filterLessons(normalizedSchedule, {
-      source: "schedules",
-      weekNumber,
-    }),
-  );
-}
-
-/**
- * Returns a new lessons array sorted by start time, then by end time.
- * Invalid or missing time strings are kept at the end in original order.
- *
- * @param lessons - Lessons to sort.
- * @returns New sorted lessons array.
- *
- * @example
- * ```ts
- * const sorted = sortLessonsByTime(response.lessons);
- * ```
- */
-export function sortLessonsByTime<T extends LessonWithTime>(lessons: readonly T[]): T[] {
   return lessons
     .map((lesson, index) => ({
       lesson,
@@ -341,7 +144,7 @@ export function sortLessonsByTime<T extends LessonWithTime>(lessons: readonly T[
       start: parseTimeToMinutes(lesson.startLessonTime),
       end: parseTimeToMinutes(lesson.endLessonTime),
     }))
-    .sort((a, b) => {
+    .toSorted((a, b) => {
       const startDiff =
         (a.start ?? Number.POSITIVE_INFINITY) -
         (b.start ?? Number.POSITIVE_INFINITY);
@@ -356,178 +159,22 @@ export function sortLessonsByTime<T extends LessonWithTime>(lessons: readonly T[
       }
       return a.index - b.index;
     })
-    .map((entry) => entry.lesson);
+    .map((item) => item.lesson);
 }
 
 /**
- * Groups lessons by weekday.
+ * Returns lessons that fall within the requested academic week number.
  *
- * Lessons with `day === null` (e.g., date-specific exams) are omitted from groups.
+ * Lessons without an explicit `weekNumber` list (i.e. `weekNumber === null`) are
+ * treated as repeating every week and are always included.
  *
- * @param lessons - Lessons to group.
- * @returns Weekday map with arrays sorted by time for each day.
- *
- * @example
- * ```ts
- * const grouped = groupLessonsByDay(response.lessons);
- * ```
+ * @public
  */
-export function groupLessonsByDay(
-  lessons: readonly FlattenedScheduleItem[],
-): FlattenedLessonsByDay {
-  const grouped = createEmptyLessonsByDay();
-  for (const lesson of lessons) {
-    if (!lesson.day) {
-      continue;
-    }
-    grouped[lesson.day].push(lesson);
-  }
-  for (const weekday of WEEKDAYS) {
-    grouped[weekday] = sortLessonsByTime(grouped[weekday]);
-  }
-  return grouped;
-}
-
-/**
- * Returns the lesson active at the specified moment.
- *
- * Time comparison uses local hours/minutes: `startLessonTime <= now < endLessonTime`.
- * A lesson is not considered active exactly at its end time.
- *
- * @param lessons - Lessons for one day (or any same-day set).
- * @param now - Optional current moment override.
- * @returns Current lesson or `null` when none is active.
- *
- * @example
- * ```ts
- * const current = getCurrentLesson(todayLessons, new Date());
- * ```
- */
-export function getCurrentLesson<T extends LessonWithTime>(
-  lessons: readonly T[],
-  now: Date = new Date(),
-): T | null {
-  const current = toDateOrThrow(now, "now");
-  const nowMinutes = current.getHours() * 60 + current.getMinutes();
-  for (const lesson of sortLessonsByTime(lessons)) {
-    const start = parseTimeToMinutes(lesson.startLessonTime);
-    const end = parseTimeToMinutes(lesson.endLessonTime);
-    if (start === null || end === null || end <= start) {
-      continue;
-    }
-    if (nowMinutes >= start && nowMinutes < end) {
-      return lesson;
-    }
-  }
-  return null;
-}
-
-/**
- * Returns the nearest upcoming lesson after the specified moment.
- *
- * A lesson starting exactly at `now` is not returned (use {@link getCurrentLesson} instead).
- * A lesson that just ended at `now` is also not returned as current — the next one is.
- *
- * @param lessons - Lessons for one day (or any same-day set).
- * @param now - Optional current moment override.
- * @returns Next lesson or `null` when there is no upcoming lesson.
- *
- * @example
- * ```ts
- * const next = getNextLesson(todayLessons, new Date());
- * ```
- */
-export function getNextLesson<T extends LessonWithTime>(
-  lessons: readonly T[],
-  now: Date = new Date(),
-): T | null {
-  const current = toDateOrThrow(now, "now");
-  const nowMinutes = current.getHours() * 60 + current.getMinutes();
-  for (const lesson of sortLessonsByTime(lessons)) {
-    const start = parseTimeToMinutes(lesson.startLessonTime);
-    if (start === null) {
-      continue;
-    }
-    if (start > nowMinutes) {
-      return lesson;
-    }
-  }
-  return null;
-}
-
-/**
- * Builds lightweight day models for schedule screens.
- *
- * Uses local calendar dates. Returns day objects with lessons,
- * "today" marker, and optional current/next lesson metadata for the current day.
- * `currentLesson` and `nextLesson` are only computed for today (`isToday === true`).
- *
- * @param normalizedSchedule - Normalized schedule payload from {@link normalizeSchedule}.
- * @param options - Builder options for date range and filtering.
- * @returns Day models ready for direct UI rendering.
- *
- * @example
- * ```ts
- * const days = buildScheduleDays(schedule, { days: 7, includeEmptyDays: false });
- * // Use days?.lessons for in-day progress:
- * const current = getCurrentLesson(days?.lessons ?? []);
- * ```
- */
-export function buildScheduleDays(
-  normalizedSchedule: NormalizedScheduleResponse,
-  options: BuildScheduleDaysOptions = {},
-): ScheduleDay[] {
-  const now = toDateOrThrow(options.now ?? new Date(), "options.now");
-  const startDate = toDateOrThrow(
-    options.startDate ?? now,
-    "options.startDate",
+export function getLessonsForWeek(
+  schedule: NormalizedScheduleResponse,
+  week: number,
+): FlattenedScheduleItem[] {
+  return schedule.lessons.filter(
+    (l) => l.weekNumber === null || l.weekNumber.includes(week),
   );
-  const days = options.days ?? 7;
-  assertPositiveInt(days, "options.days");
-
-  const includeEmptyDays = options.includeEmptyDays ?? true;
-  const includeCurrentAndNextLessons =
-    options.includeCurrentAndNextLessons ?? true;
-  const todayKey = toDateKey(now);
-  const rangeStart = new Date(
-    startDate.getFullYear(),
-    startDate.getMonth(),
-    startDate.getDate(),
-  );
-
-  const scheduleDays: ScheduleDay[] = [];
-  for (let index = 0; index < days; index += 1) {
-    const dayDate = new Date(rangeStart);
-    dayDate.setDate(rangeStart.getDate() + index);
-
-    const lessons = getLessonsForDate(normalizedSchedule, dayDate);
-    const dateKey = toDateKey(dayDate);
-    const isToday = dateKey === todayKey;
-    const hasLessons = lessons.length > 0;
-
-    if (!includeEmptyDays && !hasLessons) {
-      continue;
-    }
-
-    const weekday = toWeekday(dayDate);
-    scheduleDays.push({
-      date: dayDate,
-      dateKey,
-      weekday,
-      weekdayLabel: weekday ?? SUNDAY_LABEL,
-      lessons,
-      isToday,
-      hasLessons,
-      currentLesson:
-        includeCurrentAndNextLessons && isToday
-          ? getCurrentLesson(lessons, now)
-          : null,
-      nextLesson:
-        includeCurrentAndNextLessons && isToday
-          ? getNextLesson(lessons, now)
-          : null,
-    });
-  }
-
-  return scheduleDays;
 }

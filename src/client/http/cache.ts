@@ -56,9 +56,9 @@ export function setCache(config: Readonly<InternalClientConfig>, key: string, va
   // drop the least-recently-used ones until we are within capacity.
   // O(n log n) but only runs when the cache is nearly full, so it is infrequent.
   if (config.responseCache.size > config.cacheMaxEntries) {
-    const byLeastRecentlyUsed = [...config.responseCache.entries()].toSorted(
-      (a, b) => a[1].accessedAt - b[1].accessedAt,
-    );
+    const byLeastRecentlyUsed: Array<[string, CacheEntry]> = [
+      ...config.responseCache.entries(),
+    ].toSorted((a, b) => a[1].accessedAt - b[1].accessedAt);
     for (const [k] of byLeastRecentlyUsed) {
       if (config.responseCache.size <= config.cacheMaxEntries) {
         break;
