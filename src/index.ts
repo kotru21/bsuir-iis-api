@@ -18,6 +18,13 @@ export type { ReadOptions } from "./modules/types";
 export {
   buildScheduleDays,
   filterLessons,
+  formatEmployeeShortName,
+  formatLessonAuditories,
+  formatLessonEmployees,
+  formatLessonSubgroup,
+  formatLessonTimeRange,
+  formatLessonType,
+  formatLessonWeekNumbers,
   getCurrentLesson,
   getLessonsForDate,
   getLessonsForWeek,

@@ -12,3 +12,12 @@ export {
   groupLessonsByDay,
   sortLessonsByTime,
 } from "../helpers/schedule";
+export {
+  formatEmployeeShortName,
+  formatLessonAuditories,
+  formatLessonEmployees,
+  formatLessonSubgroup,
+  formatLessonTimeRange,
+  formatLessonType,
+  formatLessonWeekNumbers,
+} from "../helpers/scheduleFormat";
