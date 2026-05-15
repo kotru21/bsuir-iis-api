@@ -57,17 +57,15 @@ describe("mergeSignals — public API branches", () => {
   it("returns the single signal directly when no timeout", () => {
     const ctrl = new AbortController();
     const result = mergeSignals([ctrl.signal]);
-    // Either same reference or functionally identical
     expect(result.aborted).toBe(false);
     ctrl.abort();
-    // If returned by ref, aborted; if wrapped, still aborted via event
-    // Just ensure no error is thrown and signal is eventually aborted
     expect(result.aborted).toBe(true);
   });
 
-  it("returns an aborted signal for empty array with timeout=0", async () => {
-    const signal = mergeSignals([], 0);
-    await vi.advanceTimersByTimeAsync(0);
+  it("aborts combined signal after timeout when no caller signal", async () => {
+    const signal = mergeSignals([], 300);
+    expect(signal.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(300);
     expect(signal.aborted).toBe(true);
   });
 
