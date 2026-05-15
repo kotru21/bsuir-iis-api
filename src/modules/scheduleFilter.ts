@@ -20,11 +20,9 @@ function matchesFilter(item: FlattenedScheduleItem, filter: ScheduleFilterOption
     return false;
   }
 
-  if (typeof filter.weekNumber === "number") {
-    if (!Array.isArray(item.weekNumber) || !item.weekNumber.includes(filter.weekNumber)) {
+  if (typeof filter.weekNumber === "number" && (!Array.isArray(item.weekNumber) || !item.weekNumber.includes(filter.weekNumber))) {
       return false;
     }
-  }
 
   if (typeof filter.subgroup === "number" && item.numSubgroup !== 0 && item.numSubgroup !== filter.subgroup) {
     return false;
@@ -36,7 +34,7 @@ function matchesFilter(item: FlattenedScheduleItem, filter: ScheduleFilterOption
 
   if (filter.auditory) {
     const normalizedFilter = filter.auditory.toLowerCase();
-    const auds = lessonAuditories(item as unknown as ScheduleItem);
+    const auds = lessonAuditories(item);
     if (!auds.some((a) => a.toLowerCase().includes(normalizedFilter))) {
       return false;
     }

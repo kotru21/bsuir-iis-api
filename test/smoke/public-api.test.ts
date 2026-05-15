@@ -16,7 +16,7 @@ import {
 describe("public api", () => {
   it("exports createBsuirClient and error classes", () => {
     const client = createBsuirClient({
-      fetch: (async () => new Response(JSON.stringify(2), { status: 200 })) as typeof fetch
+      fetch: (async () => Response.json(2, { status: 200 })) as typeof fetch
     });
 
     expect(client).toHaveProperty("schedule");

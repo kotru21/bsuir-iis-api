@@ -28,4 +28,4 @@ export function createListModule<T>(
 }
 
 /** Convenience re-export of the return type for modules built with createListModule. */
-export type ReturnType<T> = { listAll(options?: ReadOptions): Promise<T[]> };
+export interface ReturnType<T> { listAll(options?: ReadOptions): Promise<T[]> }

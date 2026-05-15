@@ -13,7 +13,7 @@ describe("createBsuirClient", () => {
   });
 
   it("throws BsuirConfigurationError when neither custom nor global fetch is available", () => {
-    vi.stubGlobal("fetch", undefined);
+    vi.stubGlobal("fetch");
     try {
       let caught: unknown;
       try {

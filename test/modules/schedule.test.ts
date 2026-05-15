@@ -37,7 +37,7 @@ function buildScheduleResponse(overrides: Partial<ScheduleResponse> = {}): Sched
               rank: null,
               photoLink: "https://iis.bsuir.by/api/v1/employees/photo/536343",
               calendarId: "k2ecr5nj6j3m45f3pk31ji7l1s@group.calendar.google.com",
-              id: 536343,
+              id: 536_343,
               urlId: "v-vladymtsev",
               jobPositions: null
             }
