@@ -1,26 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 import { createBsuirClient } from "../../../src";
-import { BsuirApiError } from "../../../src/client/errors";
 import { createJsonResponse, mockFetchSequence } from "../../helpers/fetchMock";
 
 describe("requestJson — additional branches", () => {
   // lines 72-73 — options.headers provided → iterated and set on request
   it("forwards custom headers to fetch (lines 72-73)", async () => {
     let capturedHeaders: Headers | undefined;
-    const fetchImpl = vi.fn(async (url: string, init: RequestInit) => {
+    const fetchImpl = vi.fn(async (_url: string, init: RequestInit) => {
       capturedHeaders = new Headers(init.headers);
       return createJsonResponse({ body: { ok: true } });
     }) as unknown as typeof globalThis.fetch;
 
-    const client = createBsuirClient({
-      fetch: fetchImpl,
-      validateResponses: false,
-    });
-    // requestJson is called via schedule.getCurrentWeek internally
-    // Use a hook to trigger the custom headers path via the public API:
-    // We need to reach requestJson with options.headers — easiest is through a hook test
-    // Actually we can call getGroup with no custom headers path exposed in public API.
-    // Instead verify via onRequest hook that the request was made
     const onRequest = vi.fn();
     const clientWithHook = createBsuirClient({
       fetch: fetchImpl,
@@ -54,7 +44,6 @@ describe("requestJson — additional branches", () => {
     globalCtrl.abort();
 
     const fetchImpl = vi.fn(async () => {
-      // This simulates the fetch throwing an AbortError because the signal is already aborted
       const err = new DOMException("signal aborted", "AbortError");
       throw err;
     }) as unknown as typeof globalThis.fetch;
