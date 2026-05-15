@@ -28,7 +28,6 @@ describe("mergeSignalsManual — additional branches", () => {
     const combined = mergeSignalsManual([a.signal, b.signal]);
     a.abort();
     expect(combined.aborted).toBe(true);
-    // second abort should be a no-op (no throw)
     expect(() => b.abort()).not.toThrow();
   });
 
@@ -38,6 +37,21 @@ describe("mergeSignalsManual — additional branches", () => {
       const combined = mergeSignalsManual([], 200);
       expect(combined.aborted).toBe(false);
       await vi.advanceTimersByTimeAsync(200);
+      expect(combined.aborted).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("clears timeout when an external signal aborts first", async () => {
+    vi.useFakeTimers();
+    try {
+      const ctrl = new AbortController();
+      const combined = mergeSignalsManual([ctrl.signal], 10_000);
+      ctrl.abort();
+      expect(combined.aborted).toBe(true);
+      // Advancing past the timeout should not throw or cause issues
+      await vi.advanceTimersByTimeAsync(10_000);
       expect(combined.aborted).toBe(true);
     } finally {
       vi.useRealTimers();
@@ -62,16 +76,25 @@ describe("mergeSignals — public API branches", () => {
     expect(result.aborted).toBe(true);
   });
 
-  it("aborts combined signal after timeout when no caller signal", async () => {
-    const signal = mergeSignals([], 300);
-    expect(signal.aborted).toBe(false);
-    await vi.advanceTimersByTimeAsync(300);
-    expect(signal.aborted).toBe(true);
+  it("aborts when one of two signals aborts (no timeout)", () => {
+    const a = new AbortController();
+    const b = new AbortController();
+    const result = mergeSignals([a.signal, b.signal]);
+    expect(result.aborted).toBe(false);
+    a.abort();
+    expect(result.aborted).toBe(true);
   });
 
   it("supports legacy single-signal signature", () => {
     const ctrl = new AbortController();
     const result = mergeSignals(ctrl.signal);
+    expect(result.aborted).toBe(false);
+    ctrl.abort();
+    expect(result.aborted).toBe(true);
+  });
+
+  it("supports legacy single-signal with undefined", () => {
+    const result = mergeSignals(undefined);
     expect(result.aborted).toBe(false);
   });
 });
