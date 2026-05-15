@@ -46,10 +46,18 @@ describe("getRetryDelayMs", () => {
     }
   });
 
-  it("uses Retry-After numeric seconds when valid", () => {
-    const config = makeConfig({ retryJitter: false });
+  it("uses Retry-After numeric seconds when within retryMaxDelayMs", () => {
+    // retryMaxDelayMs raised above 5s so the value is NOT capped
+    const config = makeConfig({ retryJitter: false, retryMaxDelayMs: 10_000 });
     const delay = getRetryDelayMs(config, 0, "5");
     expect(delay).toBe(5_000);
+  });
+
+  it("caps Retry-After at retryMaxDelayMs when header value exceeds it (line 48)", () => {
+    // retryMaxDelayMs = 3000, Retry-After = 5s (5000ms) → capped at 3000
+    const config = makeConfig({ retryJitter: false, retryMaxDelayMs: 3_000 });
+    const delay = getRetryDelayMs(config, 0, "5");
+    expect(delay).toBe(3_000);
   });
 
   it("ignores Retry-After HTTP date in the past (line 31)", () => {
@@ -57,13 +65,7 @@ describe("getRetryDelayMs", () => {
     const config = makeConfig({ retryJitter: false, retryDelayMs: 300, retryMaxDelayMs: 3_000 });
     // Date in the past → delayMs <= 0 → parseRetryAfterMs returns null → falls back to backoff
     const delay = getRetryDelayMs(config, 0, "Mon, 12 May 2025 09:00:00 GMT");
-    expect(delay).toBe(300); // falls back to baseDelay
-  });
-
-  it("caps Retry-After at retryMaxDelayMs", () => {
-    const config = makeConfig({ retryJitter: false, retryMaxDelayMs: 1_000 });
-    const delay = getRetryDelayMs(config, 0, "60"); // 60s → 60_000ms → capped at 1_000
-    expect(delay).toBe(1_000);
+    expect(delay).toBe(300);
   });
 
   it("caps baseDelay at retryMaxDelayMs (exponential overflow)", () => {
