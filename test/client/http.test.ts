@@ -7,7 +7,7 @@ import { createJsonResponse, mockFetchSequence } from "../helpers/fetchMock";
 const BASE_CONFIG: Omit<InternalClientConfig, "fetchImpl"> = {
   baseUrl: "https://iis.bsuir.by/api/v1",
   signal: undefined,
-  timeoutMs: 1000,
+  timeoutMs: 1_000,
   retries: 0,
   retryDelayMs: 1,
   retryMaxDelayMs: 500,
@@ -72,7 +72,7 @@ describe("requestJson", () => {
 
   it("parses JSON success body even when Content-Type omits application/json", async () => {
     const fetchImpl = mockFetchSequence([
-      Response.json({ ok: true }, {
+      new Response(JSON.stringify({ ok: true }), {
         status: 200,
         headers: { "Content-Type": "text/plain; charset=utf-8" }
       })
@@ -117,7 +117,7 @@ describe("requestJson", () => {
     ]);
     const config = createConfig(fetchImpl, { retries: 0 });
 
-    const error = await requestJson(config, "/faculties").catch((error_: unknown) => error_);
+    const error = await requestJson(config, "/faculties").catch((err: unknown) => err);
     expect(error).toBeInstanceOf(BsuirApiError);
     expect(error).toMatchObject({
       message: "Invalid JSON response payload",
@@ -138,7 +138,7 @@ describe("requestJson", () => {
     ]);
     const config = createConfig(fetchImpl, { retries: 0, maxResponseBytes: 10 });
 
-    const error = await requestJson(config, "/faculties").catch((error_: unknown) => error_);
+    const error = await requestJson(config, "/faculties").catch((err: unknown) => err);
     expect(error).toBeInstanceOf(BsuirApiError);
     expect(error).toMatchObject({
       message: "Response body exceeds maxResponseBytes limit (10 bytes)"
@@ -240,7 +240,7 @@ describe("requestJson", () => {
       ]);
       const config = createConfig(fetchImpl, {
         retries: 1,
-        retryDelayMs: 2000,
+        retryDelayMs: 2_000,
         retryMaxDelayMs: 50,
         retryJitter: false
       });
@@ -411,7 +411,7 @@ describe("requestJson", () => {
       }
       return createJsonResponse({ body: { ok: true } });
     }) as typeof globalThis.fetch;
-    const config = createConfig(fetchImpl, { timeoutMs: 5000 });
+    const config = createConfig(fetchImpl, { timeoutMs: 5_000 });
 
     await expect(requestJson(config, "/faculties", { signal: controller.signal })).rejects.toMatchObject(
       { name: "AbortError" }

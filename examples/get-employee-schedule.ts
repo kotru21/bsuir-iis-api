@@ -4,6 +4,12 @@ const client = createBsuirClient();
 
 const urlId = process.argv[2] ?? "s-nesterenkov";
 
-const schedule = await client.schedule.getEmployee(urlId);
-// eslint-disable-next-line no-console
-console.log(`Lessons count for ${urlId}:`, schedule.lessons.length);
+async function main(): Promise<void> {
+  const schedule = await client.schedule.getEmployee(urlId);
+  console.log(`Lessons count for ${urlId}:`, schedule.lessons.length);
+}
+
+void main().catch((error: unknown) => {
+  console.error("Failed to fetch employee schedule:", error);
+  process.exitCode = 1;
+});

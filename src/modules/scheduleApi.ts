@@ -26,7 +26,6 @@ type ScheduleResponseByRawOption<TRaw extends boolean | undefined, TRawDefault e
 /**
  * Creates schedule API module with raw/normalized response support.
  */
-// eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export function createScheduleModule<TRawDefault extends boolean>(
   config: Readonly<InternalClientConfig<TRawDefault>>,
 ) {
@@ -78,8 +77,8 @@ export function createScheduleModule<TRawDefault extends boolean>(
     filter: ScheduleFilterOptions,
     options: ReadOptions = {},
   ): Promise<FlattenedScheduleItem[]> {
-    const schedule = await getGroup(groupNumber, { ...options, raw: false });
-    return filterLessons(schedule, filter);
+    const normalized = await getGroup(groupNumber, { ...options, raw: false });
+    return filterLessons(normalized, filter);
   }
 
   /**
@@ -90,21 +89,18 @@ export function createScheduleModule<TRawDefault extends boolean>(
     filter: ScheduleFilterOptions,
     options: ReadOptions = {},
   ): Promise<FlattenedScheduleItem[]> {
-    const schedule = await getEmployee(urlId, { ...options, raw: false });
-    return filterLessons(schedule, filter);
+    const normalized = await getEmployee(urlId, { ...options, raw: false });
+    return filterLessons(normalized, filter);
   }
 
   /**
-   * Returns the current academic week number.
+   * Returns current academic week number.
    */
   async function getCurrentWeek(options: ReadOptions = {}): Promise<number> {
     const payload = await requestJson<unknown>(config, "/schedule/current-week", {
       signal: options.signal,
     });
-    if (config.validateResponses) {
-      assertApiDateResponse(payload, "/schedule/current-week");
-    }
-    return parseCurrentWeek(payload as ApiDateResponse);
+    return parseCurrentWeek(payload);
   }
 
   return {
@@ -128,27 +124,79 @@ export function createScheduleModule<TRawDefault extends boolean>(
     },
 
     /**
-     * Returns schedule lessons for a group, optionally filtered by subgroup.
+     * Returns regular schedule lessons of a specific subgroup for a group.
      */
-    async getGroupSchedule(
+    async getGroupBySubgroup(
       groupNumber: string,
-      subgroup?: number,
+      subgroup: number,
       options: ReadOptions = {},
     ): Promise<FlattenedScheduleItem[]> {
+      assertPositiveInt(subgroup, "subgroup");
       return getGroupFiltered(groupNumber, { source: "schedules", subgroup }, options);
     },
 
     /**
-     * Returns schedule lessons for an employee, optionally filtered by subgroup.
+     * Returns regular schedule lessons of a specific subgroup for an employee.
      */
-    async getEmployeeSchedule(
+    async getEmployeeBySubgroup(
       urlId: string,
-      subgroup?: number,
+      subgroup: number,
       options: ReadOptions = {},
     ): Promise<FlattenedScheduleItem[]> {
+      assertPositiveInt(subgroup, "subgroup");
       return getEmployeeFiltered(urlId, { source: "schedules", subgroup }, options);
     },
 
     getCurrentWeek,
+
+    /**
+     * Calls IIS `/last-update-date/student-group`.
+     */
+    async getLastUpdateByGroup(
+      params: { groupNumber: string } | { id: number },
+      options: ReadOptions = {},
+    ): Promise<ApiDateResponse> {
+      let query: Record<string, string | number>;
+      if ("groupNumber" in params) {
+        assertGroupNumber(params.groupNumber, "groupNumber");
+        query = { groupNumber: params.groupNumber };
+      } else {
+        assertPositiveInt(params.id, "id");
+        query = { id: params.id };
+      }
+      const payload = await requestJson<unknown>(config, "/last-update-date/student-group", {
+        query,
+        signal: options.signal,
+      });
+      if (config.validateResponses) {
+        assertApiDateResponse(payload, "/last-update-date/student-group");
+      }
+      return payload as ApiDateResponse;
+    },
+
+    /**
+     * Calls IIS `/last-update-date/employee`.
+     */
+    async getLastUpdateByEmployee(
+      params: { urlId: string } | { id: number },
+      options: ReadOptions = {},
+    ): Promise<ApiDateResponse> {
+      let query: Record<string, string | number>;
+      if ("urlId" in params) {
+        assertEmployeeUrlId(params.urlId, "urlId");
+        query = { "url-id": params.urlId };
+      } else {
+        assertPositiveInt(params.id, "id");
+        query = { id: params.id };
+      }
+      const payload = await requestJson<unknown>(config, "/last-update-date/employee", {
+        query,
+        signal: options.signal,
+      });
+      if (config.validateResponses) {
+        assertApiDateResponse(payload, "/last-update-date/employee");
+      }
+      return payload as ApiDateResponse;
+    },
   };
 }

@@ -1,10 +1,3 @@
-/**
- * Parses a date string in `DD.MM.YYYY` format.
- *
- * @returns A UTC `Date` instance, or `null` when the value is absent or malformed.
- *
- * @public
- */
 export function parseDdMmYyyy(value: string | null): Date | null {
   if (!value) {
     return null;

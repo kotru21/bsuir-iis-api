@@ -7,8 +7,8 @@ describe("catalog modules", () => {
     const fetchImpl = mockFetchSequence([
       createJsonResponse({ body: [{ name: "053503", id: 1 }] }),
       createJsonResponse({ body: [{ urlId: "s-nesterenkov", id: 10 }] }),
-      createJsonResponse({ body: [{ id: 20_026, name: "ФКСиС", abbrev: "ФКСиС" }] }),
-      createJsonResponse({ body: [{ id: 20_027, name: "ПОИТ", abbrev: "ПОИТ" }] }),
+      createJsonResponse({ body: [{ id: 20026, name: "ФКСиС", abbrev: "ФКСиС" }] }),
+      createJsonResponse({ body: [{ id: 20027, name: "ПОИТ", abbrev: "ПОИТ" }] }),
       createJsonResponse({ body: [{ id: 1, name: "ИиТП", abbrev: "ИиТП", educationForm: [] }] }),
       createJsonResponse({ body: [{ id: 1, name: "104", note: "" }] })
     ]);

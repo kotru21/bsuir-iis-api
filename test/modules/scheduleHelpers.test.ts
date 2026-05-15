@@ -124,7 +124,7 @@ describe("schedule helpers", () => {
   it("sorts and groups lessons by day", () => {
     const schedule = buildNormalizedSchedule();
     const mixed = [schedule.lessons[0], schedule.lessons[3], schedule.lessons[1], schedule.lessons[4]].filter(
-      (item): item is NonNullable<typeof item> => item !== null && item !== undefined,
+      (item): item is NonNullable<typeof item> => Boolean(item),
     );
 
     const sorted = sortLessonsByTime(mixed);

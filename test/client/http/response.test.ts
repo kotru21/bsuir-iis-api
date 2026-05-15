@@ -76,7 +76,7 @@ describe("parseBody", () => {
 
   it("uses text() fallback when response.body is null", async () => {
     const res = makeResponse('{"fallback":true}', { useStream: false });
-    expect(await parseBody(res, 1000)).toEqual({ fallback: true });
+    expect(await parseBody(res, 1_000)).toEqual({ fallback: true });
   });
 
   it("throws via fallback when body is null and text exceeds limit", async () => {

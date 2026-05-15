@@ -2,15 +2,19 @@ import { createBsuirClient } from "../src";
 
 const client = createBsuirClient();
 
-const [groups, employees, faculties] = await Promise.all([
-  client.groups.listAll(),
-  client.employees.listAll(),
-  client.faculties.listAll()
-]);
+async function main(): Promise<void> {
+  const [groups, employees, faculties] = await Promise.all([
+    client.groups.listAll(),
+    client.employees.listAll(),
+    client.faculties.listAll()
+  ]);
 
-// eslint-disable-next-line no-console
-console.log("Groups:", groups.length);
-// eslint-disable-next-line no-console
-console.log("Employees:", employees.length);
-// eslint-disable-next-line no-console
-console.log("Faculties:", faculties.length);
+  console.log("Groups:", groups.length);
+  console.log("Employees:", employees.length);
+  console.log("Faculties:", faculties.length);
+}
+
+void main().catch((error: unknown) => {
+  console.error("Failed to list catalogs:", error);
+  process.exitCode = 1;
+});

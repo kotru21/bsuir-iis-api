@@ -20,39 +20,56 @@ function matchesFilter(item: FlattenedScheduleItem, filter: ScheduleFilterOption
     return false;
   }
 
-  if (typeof filter.weekNumber === "number" && (!Array.isArray(item.weekNumber) || !item.weekNumber.includes(filter.weekNumber))) {
+  if (typeof filter.weekNumber === "number") {
+    if (!Array.isArray(item.weekNumber) || !item.weekNumber.includes(filter.weekNumber)) {
       return false;
     }
+  }
 
-  if (typeof filter.subgroup === "number" && item.numSubgroup !== 0 && item.numSubgroup !== filter.subgroup) {
+  if (typeof filter.subgroup === "number" && item.numSubgroup !== filter.subgroup) {
     return false;
   }
 
-  if (filter.lessonType && item.lessonTypeAbbrev !== filter.lessonType) {
-    return false;
-  }
-
-  if (filter.auditory) {
-    const normalizedFilter = filter.auditory.toLowerCase();
-    const auds = lessonAuditories(item);
-    if (!auds.some((a) => a.toLowerCase().includes(normalizedFilter))) {
+  if (filter.lessonTypeAbbrev) {
+    const types = Array.isArray(filter.lessonTypeAbbrev)
+      ? filter.lessonTypeAbbrev
+      : [filter.lessonTypeAbbrev];
+    if (!item.lessonTypeAbbrev || !types.includes(item.lessonTypeAbbrev)) {
       return false;
     }
+  }
+
+  if (filter.subjectQuery) {
+    const query = filter.subjectQuery.toLowerCase();
+    const haystack = `${item.subject} ${item.subjectFullName} ${item.note ?? ""}`.toLowerCase();
+    if (!haystack.includes(query)) {
+      return false;
+    }
+  }
+
+  if (filter.employeeUrlId) {
+    const employeeMatch = item.employees?.some((employee) => employee.urlId === filter.employeeUrlId);
+    if (!employeeMatch) {
+      return false;
+    }
+  }
+
+  if (filter.auditory && !lessonAuditories(item).includes(filter.auditory)) {
+    return false;
   }
 
   return true;
 }
 
 /**
- * Filters a normalized schedule by the provided filter options.
- * @public
+ * Filters normalized schedule lessons by criteria.
  */
 export function filterLessons(
-  schedule: NormalizedScheduleResponse,
+  response: NormalizedScheduleResponse,
   filter: ScheduleFilterOptions,
 ): FlattenedScheduleItem[] {
   if (typeof filter.weekNumber === "number") {
-    assertPositiveInt(filter.weekNumber, "weekNumber");
+    assertPositiveInt(filter.weekNumber, "filter.weekNumber");
   }
-  return schedule.lessons.filter((item) => matchesFilter(item, filter));
+  return response.lessons.filter((item) => matchesFilter(item, filter));
 }

@@ -56,7 +56,7 @@ export function mergeSignals(
 
   // Use platform AbortSignal.any when available (covers both timeout and multi-signal cases)
   if (typeof AbortSignalCtor.any === "function") {
-    const all = timeout === undefined ? parts : [...parts, AbortSignal.timeout(timeout)];
+    const all = timeout !== undefined ? [...parts, AbortSignal.timeout(timeout)] : parts;
     return AbortSignalCtor.any(all);
   }
 

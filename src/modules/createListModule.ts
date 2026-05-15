@@ -5,12 +5,11 @@ import type { ReadOptions } from "./types";
 
 /**
  * Creates a simple catalog-like module exposing `listAll()` for a fixed endpoint.
- * @public
  */
 export function createListModule<T>(
   config: Readonly<InternalClientConfig>,
   endpoint: string,
-): { listAll(options?: ReadOptions): Promise<T[]> } {
+) {
   return {
     /**
      * Returns all items from the configured endpoint.
@@ -26,6 +25,3 @@ export function createListModule<T>(
     },
   };
 }
-
-/** Convenience re-export of the return type for modules built with createListModule. */
-export interface ReturnType<T> { listAll(options?: ReadOptions): Promise<T[]> }

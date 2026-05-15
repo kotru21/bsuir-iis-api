@@ -68,7 +68,7 @@ describe("createBsuirClient — baseUrl validation (lines 61, 65, 69, 82)", () =
 describe("createBsuirClient — option validation (line 101)", () => {
   it("throws when retryDelayMs > retryMaxDelayMs (line 101)", () => {
     expect(() =>
-      createBsuirClient({ retryDelayMs: 5000, retryMaxDelayMs: 1000 })
+      createBsuirClient({ retryDelayMs: 5_000, retryMaxDelayMs: 1_000 })
     ).toThrow(BsuirConfigurationError);
   });
 

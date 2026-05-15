@@ -4,6 +4,12 @@ const client = createBsuirClient();
 
 const groupNumber = process.argv[2] ?? "053503";
 
-const schedule = await client.schedule.getGroup(groupNumber);
-// eslint-disable-next-line no-console
-console.log(`Lessons count for ${groupNumber}:`, schedule.lessons.length);
+async function main(): Promise<void> {
+  const schedule = await client.schedule.getGroup(groupNumber);
+  console.log(`Lessons count for ${groupNumber}:`, schedule.lessons.length);
+}
+
+void main().catch((error: unknown) => {
+  console.error("Failed to fetch group schedule:", error);
+  process.exitCode = 1;
+});
