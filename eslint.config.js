@@ -2,7 +2,9 @@ import js from "@eslint/js";
 import { defineConfig } from "eslint/config";
 import eslintConfigPrettier from "eslint-config-prettier";
 import globals from "globals";
+import jsdoc from "eslint-plugin-jsdoc";
 import tseslint from "typescript-eslint";
+import unicorn from "eslint-plugin-unicorn";
 
 const TS_FILES = ["**/*.ts", "**/*.mts", "**/*.cts"];
 
@@ -26,8 +28,8 @@ export default defineConfig(
   },
   js.configs.recommended,
   ...typedConfigs,
+  unicorn.configs["flat/recommended"],
   {
-    // parserOptions must cover the same set of files as typedConfigs
     files: TS_FILES,
     languageOptions: {
       parserOptions: {
@@ -39,26 +41,51 @@ export default defineConfig(
       }
     },
     rules: {
+      // --- TypeScript ---
       "@typescript-eslint/consistent-type-imports": "error",
       "@typescript-eslint/no-import-type-side-effects": "error",
+      "@typescript-eslint/explicit-module-boundary-types": "warn",
+      "@typescript-eslint/no-shadow": "error",
       "@typescript-eslint/no-unused-vars": [
         "error",
         {
           argsIgnorePattern: "^_",
           varsIgnorePattern: "^_",
-          // allow unused catch binding: catch (_e) {}
           caughtErrorsIgnorePattern: "^_",
-          // allow { used, ...rest } even when rest is unused
           ignoreRestSiblings: true
         }
       ],
       "@typescript-eslint/prefer-nullish-coalescing": [
         "error",
+        { ignorePrimitives: { string: true } }
+      ],
+
+      // --- General ---
+      "no-console": "warn",
+      "eqeqeq": ["error", "always", { null: "ignore" }],
+
+      // --- Unicorn (опinionated правила отключены для библиотеки) ---
+      "unicorn/prevent-abbreviations": "off",
+      "unicorn/no-null": "off",
+      "unicorn/prefer-module": "off",
+      "unicorn/filename-case": "off",
+      "unicorn/no-array-reduce": "off"
+    }
+  },
+  {
+    // JSDoc только для публичного src API
+    files: ["src/**/*.ts"],
+    plugins: { jsdoc },
+    rules: {
+      "jsdoc/require-jsdoc": [
+        "warn",
         {
-          // avoid false positives on empty-string checks: value || "default"
-          ignorePrimitives: { string: true }
+          publicOnly: true,
+          require: { FunctionDeclaration: true, MethodDefinition: false }
         }
-      ]
+      ],
+      "jsdoc/check-param-names": "error",
+      "jsdoc/check-types": "off" // TypeScript сам следит за типами
     }
   },
   {
@@ -70,21 +97,17 @@ export default defineConfig(
       }
     },
     rules: {
-      // unsafe-* are too noisy for test helpers that intentionally use `any`
       "@typescript-eslint/no-unsafe-assignment": "warn",
       "@typescript-eslint/no-unsafe-call": "warn",
       "@typescript-eslint/no-unsafe-member-access": "warn",
-      // async test functions without await are common in vitest
       "@typescript-eslint/require-await": "off",
-      // expect(fn()).toBeUndefined() patterns trigger this
       "@typescript-eslint/no-confusing-void-expression": "off",
-      // ! assertions are acceptable in controlled test data
       "@typescript-eslint/no-non-null-assertion": "off",
-      // test helpers often use mixed array literal styles
       "@typescript-eslint/array-type": "off",
-      // test fixtures sometimes need explicit casts for clarity
-      "@typescript-eslint/no-unnecessary-type-assertion": "off"
-      // no-misused-spread: kept ON (real bug detector, even in tests)
+      "@typescript-eslint/no-unnecessary-type-assertion": "off",
+      // В тестах unicorn тоже менее строгий
+      "unicorn/no-array-callback-reference": "off",
+      "unicorn/consistent-function-scoping": "off"
     }
   },
   eslintConfigPrettier
