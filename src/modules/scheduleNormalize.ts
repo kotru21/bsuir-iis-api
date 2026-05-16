@@ -1,4 +1,5 @@
 import { BsuirResponseValidationError } from "../client/errors";
+import { assertScheduleResponse } from "../client/responseValidators";
 import { WEEKDAYS } from "../types/common";
 import type {
   FlattenedLessonsByDay,
@@ -35,61 +36,17 @@ function cloneScheduleItem(item: ScheduleItem): ScheduleItem {
   };
 }
 
-function asRecord(payload: unknown): Record<string, unknown> | null {
+// Minimal envelope check kept here (not in responseValidators) because the normalize
+// path always needs at least this much shape safety to avoid crashing on a non-object
+// payload — even when full validation is disabled. The full validator
+// `assertScheduleResponse` is the single source of truth for the complete check.
+function assertMinimalScheduleEnvelope(
+  payload: unknown,
+  endpoint: string
+): asserts payload is { schedules?: unknown; exams?: unknown } {
   if (typeof payload !== "object" || payload === null || Array.isArray(payload)) {
-    return null;
-  }
-  return payload as Record<string, unknown>;
-}
-
-function isNullableObject(value: unknown): boolean {
-  return (
-    value === null || value === undefined || (typeof value === "object" && !Array.isArray(value))
-  );
-}
-
-function assertScheduleEnvelope(payload: unknown, endpoint: string): void {
-  const record = asRecord(payload);
-  if (!record) {
     throw new BsuirResponseValidationError(
       `Invalid response payload for ${endpoint}: expected object`,
-      endpoint
-    );
-  }
-
-  const schedules = record.schedules;
-  const exams = record.exams;
-  const employeeDto = record.employeeDto;
-  const studentGroupDto = record.studentGroupDto;
-
-  if (
-    schedules !== null &&
-    schedules !== undefined &&
-    (typeof schedules !== "object" || Array.isArray(schedules))
-  ) {
-    throw new BsuirResponseValidationError(
-      `Invalid response payload for ${endpoint}: 'schedules' must be object or null`,
-      endpoint
-    );
-  }
-
-  if (exams !== null && exams !== undefined && !Array.isArray(exams)) {
-    throw new BsuirResponseValidationError(
-      `Invalid response payload for ${endpoint}: 'exams' must be array or null`,
-      endpoint
-    );
-  }
-
-  if (!isNullableObject(employeeDto)) {
-    throw new BsuirResponseValidationError(
-      `Invalid response payload for ${endpoint}: 'employeeDto' must be object or null`,
-      endpoint
-    );
-  }
-
-  if (!isNullableObject(studentGroupDto)) {
-    throw new BsuirResponseValidationError(
-      `Invalid response payload for ${endpoint}: 'studentGroupDto' must be object or null`,
       endpoint
     );
   }
@@ -102,8 +59,14 @@ export function normalizeSchedule(
   response: ScheduleResponse,
   options?: { validate?: boolean; endpoint?: string }
 ): NormalizedScheduleResponse {
+  const endpoint = options?.endpoint ?? "/schedule";
   if (options?.validate) {
-    assertScheduleEnvelope(response, options.endpoint ?? "/schedule");
+    // Full envelope validation via the single source of truth.
+    assertScheduleResponse(response, endpoint);
+  } else {
+    // Even without full validation, refuse to normalize a non-object payload —
+    // letting it through would only push a less-clear TypeError onto the caller.
+    assertMinimalScheduleEnvelope(response, endpoint);
   }
   const scheduleLessons: FlattenedScheduleItem[] = [];
   const examLessons: FlattenedScheduleItem[] = [];
@@ -123,8 +86,8 @@ export function normalizeSchedule(
       normalizedSchedules[day] = clonedDayItems;
     }
 
-    const flattenedDayItems = clonedDayItems.map((item) => ({
-      ...cloneScheduleItem(item),
+    const flattenedDayItems: FlattenedScheduleItem[] = clonedDayItems.map((item) => ({
+      ...item,
       day,
       source: "schedules" as const
     }));
@@ -134,7 +97,7 @@ export function normalizeSchedule(
 
   for (const exam of normalizedExams) {
     const flattenedExam: FlattenedScheduleItem = {
-      ...cloneScheduleItem(exam),
+      ...exam,
       day: null,
       source: "exams"
     };

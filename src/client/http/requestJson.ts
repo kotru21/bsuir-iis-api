@@ -44,21 +44,71 @@ function buildRequestKey(method: RequestMethod, endpoint: string, headers: Heade
   return `${method}\n${endpoint}\n${normalizeHeadersForRequestKey(headers)}`;
 }
 
-function isPrivateHeader(name: string): boolean {
-  const normalized = name.toLowerCase();
+// Explicit denylist of header names that carry per-identity credentials. Any of these,
+// when present on a request, disables shared response caching and in-flight dedup so
+// that one identity's response cannot be returned to another caller.
+const PRIVATE_HEADER_DENYLIST = new Set<string>([
+  "authorization",
+  "proxy-authorization",
+  "cookie",
+  "set-cookie",
+  "x-api-key",
+  "api-key",
+  "x-auth-token",
+  "x-access-token",
+  "x-csrf-token",
+  "x-session-id",
+  "x-session-token"
+]);
+
+function isBodyInit(value: unknown): value is BodyInit {
+  if (typeof value === "string") {
+    return true;
+  }
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
   if (
-    normalized === "authorization" ||
-    normalized === "proxy-authorization" ||
-    normalized === "cookie" ||
-    normalized === "set-cookie" ||
-    normalized === "x-api-key"
+    value instanceof URLSearchParams ||
+    value instanceof ArrayBuffer ||
+    ArrayBuffer.isView(value)
   ) {
     return true;
   }
-  if (normalized.endsWith("-api-key")) {
+  // FormData, Blob and ReadableStream are not always available in every runtime,
+  // so guard with typeof to avoid ReferenceErrors in minimal environments.
+  if (typeof FormData !== "undefined" && value instanceof FormData) {
     return true;
   }
-  return normalized.includes("token") || normalized.includes("secret");
+  if (typeof Blob !== "undefined" && value instanceof Blob) {
+    return true;
+  }
+  if (typeof ReadableStream !== "undefined" && value instanceof ReadableStream) {
+    return true;
+  }
+  return false;
+}
+
+function serializeRequestBody(rawBody: unknown, headers: Headers): BodyInit | undefined {
+  if (rawBody === undefined) {
+    return undefined;
+  }
+  if (isBodyInit(rawBody)) {
+    // Pass-through for stream/form/binary bodies. Do not set Content-Type; the platform
+    // (or the caller's explicit header) is responsible for it — e.g. FormData picks its
+    // own multipart boundary.
+    return rawBody;
+  }
+  // Fall through to JSON for plain objects/arrays/numbers/booleans/null.
+  const serialized = JSON.stringify(rawBody);
+  if (!headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+  return serialized;
+}
+
+function isPrivateHeader(name: string): boolean {
+  return PRIVATE_HEADER_DENYLIST.has(name.toLowerCase());
 }
 
 function hasPrivateHeaders(headers: Headers): boolean {
@@ -114,27 +164,27 @@ export async function requestJson<T>(
     }
   }
 
-  const body = options.body === undefined ? undefined : JSON.stringify(options.body);
-  if (body !== undefined && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
+  const body = serializeRequestBody(options.body, headers);
 
   const cacheMode = options.cache ?? "default";
-  // Caching and dedup are disabled when a per-call signal is provided (caller manages lifecycle)
-  // OR when a global client signal is already aborted — stale data must not be served after abort.
-  const hasActiveSignal = options.signal != null || config.signal?.aborted === true;
+  // Caching and dedup are disabled only when a relevant signal is already aborted.
+  // A non-aborted signal is fine — its job is to cancel the network request, not to
+  // signal "this caller has private data." The previous behavior disabled caching
+  // whenever any signal was passed in, which silently defeated the cache for any
+  // caller using cancellation. We now allow caching/dedup with an unaborted signal.
+  const signalAborted = options.signal?.aborted === true || config.signal?.aborted === true;
   const hasPrivateRequestHeaders = hasPrivateHeaders(headers);
   const canUseCaching =
     config.cacheTtlMs !== undefined &&
     method === "GET" &&
-    !hasActiveSignal &&
+    !signalAborted &&
     !hasPrivateRequestHeaders;
   const canReadFromCache = canUseCaching && cacheMode === "default";
   const canWriteToCache = canUseCaching && cacheMode !== "no-store";
   const canUseDedup =
     config.dedupeInFlight &&
     method === "GET" &&
-    !hasActiveSignal &&
+    !signalAborted &&
     !hasPrivateRequestHeaders &&
     cacheMode === "default";
   let requestKey: string | undefined;

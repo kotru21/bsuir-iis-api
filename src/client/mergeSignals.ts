@@ -65,23 +65,33 @@ export function mergeSignalsManual(signals: AbortSignal[], timeoutMs?: number): 
   const combined = new AbortController();
   const listeners: { signal: AbortSignal; handler: () => void }[] = [];
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  let cleanedUp = false;
 
   const onAnyAbort = (): void => {
     if (!combined.signal.aborted) {
       if (timeoutId !== undefined) {
         clearTimeout(timeoutId);
+        timeoutId = undefined;
       }
       combined.abort();
     }
   };
 
+  // Idempotent: safe to invoke synchronously during setup or asynchronously via the
+  // abort event. Clears both the timeout and every registered listener exactly once.
   const cleanup = (): void => {
+    if (cleanedUp) {
+      return;
+    }
+    cleanedUp = true;
     if (timeoutId !== undefined) {
       clearTimeout(timeoutId);
+      timeoutId = undefined;
     }
     for (const listener of listeners) {
       listener.signal.removeEventListener("abort", listener.handler);
     }
+    listeners.length = 0;
   };
 
   // Register cleanup before possibly synchronous abort path below.
@@ -96,15 +106,17 @@ export function mergeSignalsManual(signals: AbortSignal[], timeoutMs?: number): 
     }, timeoutMs);
   }
 
-  // Setup listeners for external signals
+  // Setup listeners for external signals. We push the listener record BEFORE
+  // calling addEventListener so that, if any synchronous handler firing path
+  // triggers `cleanup`, the listener is reachable and will be removed correctly.
   for (const signal of signals) {
     if (signal.aborted) {
       onAnyAbort();
       break;
-    } else {
-      signal.addEventListener("abort", onAnyAbort, { once: true });
-      listeners.push({ signal, handler: onAnyAbort });
     }
+    const record = { signal, handler: onAnyAbort };
+    listeners.push(record);
+    signal.addEventListener("abort", onAnyAbort, { once: true });
   }
 
   return combined.signal;

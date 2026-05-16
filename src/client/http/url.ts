@@ -1,20 +1,24 @@
 import type { QueryParams } from "../types";
 import { BsuirValidationError } from "../errors";
 
-const SAFE_QUERY_KEY = /^[A-Za-z0-9_-]+$/;
+// Reject control chars (incl. CR/LF/NUL), whitespace, DEL, and URL-structural characters
+// (`?`, `#`, `&`, `=`). Other printable characters are allowed and will be percent-encoded
+// by URLSearchParams as needed.
+// eslint-disable-next-line no-control-regex
+const UNSAFE_QUERY_KEY = /[\u0000-\u0020\u007F&=?#]/;
 const SCHEME_PREFIX = /^[A-Za-z][A-Za-z\d+.-]*:/;
 
 function assertSafeQueryKey(key: string): void {
-  if (key.trim().length === 0) {
+  if (key.length === 0) {
     throw new BsuirValidationError(
-      "Query parameter key must not be empty or whitespace",
+      "Query parameter key must not be empty",
       "queryKey",
       key
     );
   }
-  if (!SAFE_QUERY_KEY.test(key)) {
+  if (UNSAFE_QUERY_KEY.test(key)) {
     throw new BsuirValidationError(
-      `Invalid query parameter key '${key}': use only letters, digits, underscores, and hyphens`,
+      `Invalid query parameter key '${key}': must not contain control characters, whitespace, or '? # & ='`,
       "queryKey",
       key
     );
@@ -59,6 +63,9 @@ function assertSafePath(path: string): void {
 
 /**
  * Builds absolute endpoint URL from base URL, path and query params.
+ *
+ * Query parameters are sorted by key to produce deterministic URLs - important
+ * for cache key stability and for reproducible request fingerprints.
  */
 export function buildUrl(baseUrl: string, path: string, query?: QueryParams): string {
   assertSafePath(path);
@@ -67,10 +74,10 @@ export function buildUrl(baseUrl: string, path: string, query?: QueryParams): st
   const url = new URL(`${normalizedBase}${normalizedPath}`);
 
   if (query) {
-    for (const [key, value] of Object.entries(query)) {
-      if (value === undefined || value === null) {
-        continue;
-      }
+    const sortedEntries = Object.entries(query)
+      .filter(([, value]) => value !== undefined && value !== null)
+      .toSorted((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+    for (const [key, value] of sortedEntries) {
       assertSafeQueryKey(key);
       url.searchParams.set(key, String(value));
     }

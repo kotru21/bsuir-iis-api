@@ -105,6 +105,19 @@ export interface BuildScheduleDaysOptions {
    * @defaultValue `true`
    */
   includeCurrentAndNextLessons?: boolean;
+  /**
+   * Callback fired once per lesson whose `startLessonTime` or `endLessonTime`
+   * cannot be parsed as `HH:MM`. The lesson is otherwise still included in the
+   * day's `lessons` array but sorted to the end. Use this to surface upstream
+   * data issues that would otherwise be silently ignored.
+   *
+   * Errors thrown by the hook are caught and discarded.
+   */
+  onInvalidTime?: (info: {
+    field: "startLessonTime" | "endLessonTime";
+    value: string;
+    lesson: { startLessonTime: string; endLessonTime: string };
+  }) => void;
 }
 
 /**

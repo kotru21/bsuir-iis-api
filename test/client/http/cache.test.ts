@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setCache, tryReadCache } from "../../../src/client/http/cache";
+import { BsuirConfigurationError } from "../../../src/client/errors";
 import type { InternalClientConfig } from "../../../src/client/types";
 
 function makeConfig(overrides: Partial<InternalClientConfig> = {}): InternalClientConfig {
@@ -49,13 +50,14 @@ describe("tryReadCache", () => {
     expect(config.responseCache.has("k3")).toBe(true);
   });
 
-  it("returns a deep-cloned value so cache hits cannot mutate shared entries", () => {
+  it("returns a deeply-frozen value so cache hits cannot mutate shared entries", () => {
     const config = makeConfig();
     setCache(config, "k1", { nested: { value: 1 }, items: [1, 2] });
 
     const cached = tryReadCache(config, "k1") as { nested: { value: number }; items: number[] };
-    cached.nested.value = 999;
-    cached.items.push(3);
+    expect(Object.isFrozen(cached)).toBe(true);
+    expect(Object.isFrozen(cached.nested)).toBe(true);
+    expect(Object.isFrozen(cached.items)).toBe(true);
 
     const cachedAgain = tryReadCache(config, "k1") as { nested: { value: number }; items: number[] };
     expect(cachedAgain).toEqual({ nested: { value: 1 }, items: [1, 2] });
@@ -122,6 +124,20 @@ describe("setCache", () => {
 
     expect(config.responseCache.has("expired")).toBe(false);
     expect(config.responseCache.size).toBe(2);
+  });
+
+  it("rejects non-JSON values (Date, Map, class instances)", () => {
+    const config = makeConfig({ cacheTtlMs: 1000 });
+    expect(() => setCache(config, "k", new Date())).toThrow(BsuirConfigurationError);
+    expect(() => setCache(config, "k", new Map())).toThrow(BsuirConfigurationError);
+    class Foo {
+      readonly tag = "foo";
+    }
+    expect(() => setCache(config, "k", new Foo())).toThrow(BsuirConfigurationError);
+    expect(() => setCache(config, "k", Number.NaN)).toThrow(BsuirConfigurationError);
+    expect(() => setCache(config, "k", Number.POSITIVE_INFINITY)).toThrow(
+      BsuirConfigurationError
+    );
   });
 
   it("evicts least-recently-used entries when cache exceeds maxEntries", () => {

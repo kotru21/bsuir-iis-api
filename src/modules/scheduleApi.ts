@@ -72,23 +72,33 @@ export interface ScheduleModule<TRawDefault extends boolean> {
   getGroupBySubgroup(
     groupNumber: string,
     subgroup: number,
-    options: ReadOptions & { raw: true }
+    options: ReadOptions & { rawEnvelope: true }
+  ): Promise<ScheduleResponse>;
+  getGroupBySubgroup(
+    groupNumber: string,
+    subgroup: number,
+    options: ReadOptions & { raw: true; rawEnvelope?: false | undefined }
   ): Promise<ScheduleItem[]>;
   getGroupBySubgroup(
     groupNumber: string,
     subgroup: number,
-    options?: ReadOptions & { raw?: false | undefined }
+    options?: ReadOptions & { raw?: false | undefined; rawEnvelope?: false | undefined }
   ): Promise<FlattenedScheduleItem[]>;
 
   getEmployeeBySubgroup(
     urlId: string,
     subgroup: number,
-    options: ReadOptions & { raw: true }
+    options: ReadOptions & { rawEnvelope: true }
+  ): Promise<ScheduleResponse>;
+  getEmployeeBySubgroup(
+    urlId: string,
+    subgroup: number,
+    options: ReadOptions & { raw: true; rawEnvelope?: false | undefined }
   ): Promise<ScheduleItem[]>;
   getEmployeeBySubgroup(
     urlId: string,
     subgroup: number,
-    options?: ReadOptions & { raw?: false | undefined }
+    options?: ReadOptions & { raw?: false | undefined; rawEnvelope?: false | undefined }
   ): Promise<FlattenedScheduleItem[]>;
 
   getCurrentWeek(options?: ReadOptions): Promise<number>;
@@ -118,6 +128,19 @@ function filterRawSubgroupLessons(
     }
   }
   return items;
+}
+
+function filterRawSubgroupEnvelope(
+  response: ScheduleResponse,
+  subgroup: number
+): ScheduleResponse {
+  const cloned = structuredClone(response);
+  const schedules = cloned.schedules ?? {};
+  for (const day of Object.keys(schedules) as (keyof typeof schedules)[]) {
+    const items = schedules[day] ?? [];
+    schedules[day] = items.filter((lesson) => lesson.numSubgroup === subgroup);
+  }
+  return cloned;
 }
 
 /**
@@ -229,15 +252,29 @@ export function createScheduleModule<TRawDefault extends boolean>(
 
   /**
    * Returns regular schedule lessons for a subgroup.
-   * When `raw: true`, returns raw `ScheduleItem[]` (without flatten metadata).
+   *
+   * Shape selection:
+   * - `rawEnvelope: true` → returns the full `ScheduleResponse` with `schedules` arrays
+   *   filtered to the requested subgroup. Preserves `employeeDto`, `studentGroupDto`,
+   *   exam fields, and date ranges from the original envelope.
+   * - `raw: true` (without `rawEnvelope`) → returns `ScheduleItem[]` only.
+   * - default → returns flattened `FlattenedScheduleItem[]` with day/source metadata.
    */
   async function getGroupBySubgroup(
     groupNumber: string,
     subgroup: number,
-    options?: ReadOptions & { raw?: boolean }
-  ): Promise<FlattenedScheduleItem[] | ScheduleItem[]> {
+    options?: ReadOptions & { raw?: boolean; rawEnvelope?: boolean }
+  ): Promise<FlattenedScheduleItem[] | ScheduleItem[] | ScheduleResponse> {
     const resolvedOptions = options ?? {};
     assertPositiveInt(subgroup, "subgroup");
+    if (resolvedOptions.rawEnvelope === true) {
+      const raw = await getGroup(groupNumber, {
+        signal: resolvedOptions.signal,
+        cache: resolvedOptions.cache,
+        raw: true
+      });
+      return filterRawSubgroupEnvelope(raw, subgroup);
+    }
     if (resolvedOptions.raw === true) {
       const raw = await getGroup(groupNumber, {
         signal: resolvedOptions.signal,
@@ -251,15 +288,29 @@ export function createScheduleModule<TRawDefault extends boolean>(
 
   /**
    * Returns regular schedule lessons for an employee subgroup filter.
-   * When `raw: true`, returns raw `ScheduleItem[]` (without flatten metadata).
+   *
+   * Shape selection:
+   * - `rawEnvelope: true` → returns the full `ScheduleResponse` with `schedules` arrays
+   *   filtered to the requested subgroup. Preserves `employeeDto`, `studentGroupDto`,
+   *   exam fields, and date ranges from the original envelope.
+   * - `raw: true` (without `rawEnvelope`) → returns `ScheduleItem[]` only.
+   * - default → returns flattened `FlattenedScheduleItem[]` with day/source metadata.
    */
   async function getEmployeeBySubgroup(
     urlId: string,
     subgroup: number,
-    options?: ReadOptions & { raw?: boolean }
-  ): Promise<FlattenedScheduleItem[] | ScheduleItem[]> {
+    options?: ReadOptions & { raw?: boolean; rawEnvelope?: boolean }
+  ): Promise<FlattenedScheduleItem[] | ScheduleItem[] | ScheduleResponse> {
     const resolvedOptions = options ?? {};
     assertPositiveInt(subgroup, "subgroup");
+    if (resolvedOptions.rawEnvelope === true) {
+      const raw = await getEmployee(urlId, {
+        signal: resolvedOptions.signal,
+        cache: resolvedOptions.cache,
+        raw: true
+      });
+      return filterRawSubgroupEnvelope(raw, subgroup);
+    }
     if (resolvedOptions.raw === true) {
       const raw = await getEmployee(urlId, {
         signal: resolvedOptions.signal,

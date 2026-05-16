@@ -3,6 +3,11 @@ import type { InternalClientConfig } from "../types";
 /** HTTP status codes retriable by the request pipeline. */
 export const RETRIABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
 const MAX_ACCEPTED_RETRY_AFTER_MS = 60_000;
+// Hard internal cap applied to any Retry-After value (numeric or date-based) before
+// the higher-level decision logic compares it against MAX_ACCEPTED_RETRY_AFTER_MS.
+// Prevents arithmetic overflow or unreasonably large delays from hostile/misconfigured
+// upstreams from being propagated further.
+const RETRY_AFTER_INTERNAL_CAP_MS = 86_400_000;
 
 /** Delays execution for a specified number of milliseconds. */
 export function sleep(ms: number): Promise<void> {
@@ -21,7 +26,8 @@ function parseRetryAfterMs(retryAfter: string | null): number | null {
     asSeconds >= 0 && // Validate it's actually numeric format, not a date string starting with a digit.
     /^\d+(\.\d+)?$/.test(retryAfter.trim())
   ) {
-    return Math.floor(asSeconds * 1000);
+    const ms = Math.floor(asSeconds * 1000);
+    return Math.min(ms, RETRY_AFTER_INTERNAL_CAP_MS);
   }
 
   // Try parsing as HTTP date format (RFC 7231: http-date).
@@ -30,7 +36,7 @@ function parseRetryAfterMs(retryAfter: string | null): number | null {
     const delayMs = dateValue - Date.now();
     // Only accept if date is in the future.
     if (delayMs > 0) {
-      return Math.min(delayMs, 86_400_000); // Cap at 24 hours to prevent unreasonably long waits.
+      return Math.min(delayMs, RETRY_AFTER_INTERNAL_CAP_MS);
     }
   }
 

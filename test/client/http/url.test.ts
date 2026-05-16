@@ -84,4 +84,18 @@ describe("buildUrl", () => {
       BsuirValidationError
     );
   });
+
+  it("sorts query keys deterministically for stable cache keys", () => {
+    const a = buildUrl("https://iis.bsuir.by/api/v1", "/x", { b: "2", a: "1", c: "3" });
+    const b = buildUrl("https://iis.bsuir.by/api/v1", "/x", { c: "3", a: "1", b: "2" });
+    expect(a).toBe(b);
+    expect(a).toBe("https://iis.bsuir.by/api/v1/x?a=1&b=2&c=3");
+  });
+
+  it("allows printable non-structural characters in query keys (e.g. dot, bracket)", () => {
+    expect(buildUrl("https://iis.bsuir.by/api/v1", "/x", { "a.b": "1" })).toContain("a.b=1");
+    expect(buildUrl("https://iis.bsuir.by/api/v1", "/x", { "filter[id]": "1" })).toContain(
+      "id"
+    );
+  });
 });

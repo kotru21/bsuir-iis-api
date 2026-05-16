@@ -21,12 +21,23 @@ describe("announcements module", () => {
     expect(result).toEqual([]);
   });
 
-  it("rethrows generic 404 errors that do not match no-announcements envelope", async () => {
+  it("maps any 404 to empty array by default (no body-marker heuristic)", async () => {
     const fetchImpl = mockFetchSequence([
       createJsonResponse({ status: 404, body: { message: "not found" } })
     ]);
     const client = createBsuirClient({ fetch: fetchImpl, retries: 0 });
-    await expect(client.announcements.byEmployee("v-petrov")).rejects.toBeInstanceOf(BsuirApiError);
+    const result = await client.announcements.byEmployee("v-petrov");
+    expect(result).toEqual([]);
+  });
+
+  it("rethrows 404 when treat404AsEmpty: false is passed", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ status: 404, body: { message: "not found" } })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl, retries: 0 });
+    await expect(
+      client.announcements.byEmployee("v-petrov", { treat404AsEmpty: false })
+    ).rejects.toBeInstanceOf(BsuirApiError);
   });
 
   it("rethrows 400 errors", async () => {

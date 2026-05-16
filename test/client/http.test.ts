@@ -450,7 +450,8 @@ describe("requestJson", () => {
     expect(second.ok).toBe(true);
   });
 
-  it("does not deduplicate GET requests with caller AbortSignal", async () => {
+  it("deduplicates GET requests even when caller passes a non-aborted AbortSignal", async () => {
+    // Non-aborted signals are fine for cache/dedup — only an already-aborted signal disables them.
     const fetchImpl = mockFetchSequence([
       createJsonResponse({ body: { ok: true } }),
       createJsonResponse({ body: { ok: true } })
@@ -464,7 +465,19 @@ describe("requestJson", () => {
       requestJson<{ ok: boolean }>(config, "/faculties", { signal: signalB })
     ]);
 
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables cache write when per-call signal is already aborted before request", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ body: { value: 1 } })
+    ]);
+    const config = createConfig(fetchImpl, { cacheTtlMs: 60_000 });
+    const ctrl = new AbortController();
+    ctrl.abort();
+    await requestJson(config, "/faculties", { signal: ctrl.signal });
+    // Aborted signal must prevent the response from being stored.
+    expect(config.responseCache.size).toBe(0);
   });
 
   it("disables cache and dedup when Authorization header is present", async () => {

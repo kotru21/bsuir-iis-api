@@ -103,6 +103,28 @@ function toDateOrThrow(value: Date, fieldName: string): Date {
   return cloned;
 }
 
+/**
+ * Optional callback invoked when a lesson's `startLessonTime` or `endLessonTime`
+ * cannot be parsed as `HH:MM`. Use this to surface upstream data issues that the
+ * default behavior (sorting such lessons to the end, ignoring them for
+ * current/next lookups) would otherwise hide.
+ *
+ * The callback is fired at most once per malformed value per call site. It must
+ * not throw — exceptions from a hook are caught and discarded.
+ *
+ * @example
+ * ```ts
+ * const sorted = sortLessonsByTime(lessons, {
+ *   onInvalidTime: (info) => logger.warn("malformed lesson time", info),
+ * });
+ * ```
+ */
+export type InvalidLessonTimeHook = (info: {
+  field: "startLessonTime" | "endLessonTime";
+  value: string;
+  lesson: LessonWithTime;
+}) => void;
+
 function parseTimeToMinutes(value: string): number | null {
   const matched = /^(\d{1,2}):(\d{2})$/.exec(value);
   if (!matched) {
@@ -122,6 +144,35 @@ function parseTimeToMinutes(value: string): number | null {
     return null;
   }
   return hours * 60 + minutes;
+}
+
+function reportInvalidTime(
+  lesson: LessonWithTime,
+  field: "startLessonTime" | "endLessonTime",
+  value: string,
+  hook: InvalidLessonTimeHook | undefined
+): void {
+  if (!hook) {
+    return;
+  }
+  try {
+    hook({ field, value, lesson });
+  } catch {
+    // Hook failures must not break schedule sorting/lookup.
+  }
+}
+
+function parseLessonTime(
+  lesson: LessonWithTime,
+  field: "startLessonTime" | "endLessonTime",
+  hook: InvalidLessonTimeHook | undefined
+): number | null {
+  const value = lesson[field];
+  const parsed = parseTimeToMinutes(value);
+  if (parsed === null && value.length > 0) {
+    reportInvalidTime(lesson, field, value, hook);
+  }
+  return parsed;
 }
 
 function isWithinLessonDateRange(
@@ -307,13 +358,17 @@ export function getLessonsForWeek(
  * const sorted = sortLessonsByTime(response.lessons);
  * ```
  */
-export function sortLessonsByTime<T extends LessonWithTime>(lessons: readonly T[]): T[] {
+export function sortLessonsByTime<T extends LessonWithTime>(
+  lessons: readonly T[],
+  options?: { onInvalidTime?: InvalidLessonTimeHook | undefined }
+): T[] {
+  const hook = options?.onInvalidTime;
   return lessons
     .map((lesson, index) => ({
       lesson,
       index,
-      start: parseTimeToMinutes(lesson.startLessonTime),
-      end: parseTimeToMinutes(lesson.endLessonTime)
+      start: parseLessonTime(lesson, "startLessonTime", hook),
+      end: parseLessonTime(lesson, "endLessonTime", hook)
     }))
     .toSorted((a, b) => {
       const startDiff =
@@ -376,13 +431,15 @@ export function groupLessonsByDay(
  */
 export function getCurrentLesson<T extends LessonWithTime>(
   lessons: readonly T[],
-  now: Date = new Date()
+  now: Date = new Date(),
+  options?: { onInvalidTime?: InvalidLessonTimeHook | undefined }
 ): T | null {
   const current = toDateOrThrow(now, "now");
   const nowMinutes = current.getHours() * 60 + current.getMinutes();
-  for (const lesson of sortLessonsByTime(lessons)) {
-    const start = parseTimeToMinutes(lesson.startLessonTime);
-    const end = parseTimeToMinutes(lesson.endLessonTime);
+  const hook = options?.onInvalidTime;
+  for (const lesson of sortLessonsByTime(lessons, { onInvalidTime: hook })) {
+    const start = parseLessonTime(lesson, "startLessonTime", hook);
+    const end = parseLessonTime(lesson, "endLessonTime", hook);
     if (start === null || end === null || end <= start) {
       continue;
     }
@@ -410,12 +467,14 @@ export function getCurrentLesson<T extends LessonWithTime>(
  */
 export function getNextLesson<T extends LessonWithTime>(
   lessons: readonly T[],
-  now: Date = new Date()
+  now: Date = new Date(),
+  options?: { onInvalidTime?: InvalidLessonTimeHook | undefined }
 ): T | null {
   const current = toDateOrThrow(now, "now");
   const nowMinutes = current.getHours() * 60 + current.getMinutes();
-  for (const lesson of sortLessonsByTime(lessons)) {
-    const start = parseTimeToMinutes(lesson.startLessonTime);
+  const hook = options?.onInvalidTime;
+  for (const lesson of sortLessonsByTime(lessons, { onInvalidTime: hook })) {
+    const start = parseLessonTime(lesson, "startLessonTime", hook);
     if (start === null) {
       continue;
     }
@@ -455,6 +514,7 @@ export function buildScheduleDays(
 
   const includeEmptyDays = options.includeEmptyDays ?? true;
   const includeCurrentAndNextLessons = options.includeCurrentAndNextLessons ?? true;
+  const onInvalidTime = options.onInvalidTime as InvalidLessonTimeHook | undefined;
   const todayKey = toDateKey(now);
   const rangeStart = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
 
@@ -482,8 +542,13 @@ export function buildScheduleDays(
       isToday,
       hasLessons,
       currentLesson:
-        includeCurrentAndNextLessons && isToday ? getCurrentLesson(lessons, now) : null,
-      nextLesson: includeCurrentAndNextLessons && isToday ? getNextLesson(lessons, now) : null
+        includeCurrentAndNextLessons && isToday
+          ? getCurrentLesson(lessons, now, { onInvalidTime })
+          : null,
+      nextLesson:
+        includeCurrentAndNextLessons && isToday
+          ? getNextLesson(lessons, now, { onInvalidTime })
+          : null
     });
   }
 

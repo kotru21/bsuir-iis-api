@@ -142,9 +142,9 @@ export interface BsuirClientOptions {
    * Global `AbortSignal` that cancels **all** requests made by this client
    * instance. Per-call signals are combined with this one.
    *
-   * Note: caching and in-flight deduplication are disabled for requests that
-   * carry a signal (per-call or global) to prevent stale data from being
-   * returned after cancellation.
+   * Note: caching and in-flight deduplication are disabled only when the
+   * signal is already aborted at the time the request is made. A live
+   * (non-aborted) signal is fine — caching and dedup remain enabled.
    */
   signal?: AbortSignal;
   /**
@@ -203,8 +203,9 @@ export interface BsuirClientOptions {
    * `fromCache: true`. The cache uses `Map` insertion order as LRU:
    * cache reads "touch" entries and eviction removes oldest keys first.
    *
-   * Caching is automatically skipped for requests that carry an `AbortSignal`
-   * (per-call or global) to prevent serving stale data after cancellation.
+   * Caching is automatically skipped for requests where the relevant
+   * `AbortSignal` (per-call or global) is already aborted, to prevent
+   * serving stale data after cancellation.
    *
    * Caching is also automatically skipped when request headers include
    * credentials/private identity data such as `Authorization`, `Cookie`,
@@ -229,7 +230,7 @@ export interface BsuirClientOptions {
    * hits the network; the second one awaits the same `Promise`. This prevents
    * duplicate API calls in scenarios like parallel component rendering.
    *
-   * Disabled automatically when the request carries an `AbortSignal`.
+   * Disabled automatically when the relevant `AbortSignal` is already aborted.
    * Also disabled for non-default cache modes and requests with private
    * credential headers.
    *
