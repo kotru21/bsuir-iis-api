@@ -59,11 +59,27 @@ describe("createBsuirClient", () => {
   it("allows explicit insecure localhost baseUrl for trusted local testing", () => {
     expect(() =>
       createBsuirClient({
-        baseUrl: "http://localhost:8787/api/v1",
+        baseUrl: "http://localhost/api/v1",
         allowInsecureHttp: true,
         allowedBaseUrlHosts: ["localhost"]
       })
     ).not.toThrow();
+  });
+
+  it("rejects baseUrl when explicit non-default port is provided", () => {
+    expect(() =>
+      createBsuirClient({
+        baseUrl: "https://iis.bsuir.by:8443/api/v1"
+      })
+    ).toThrow(BsuirConfigurationError);
+  });
+
+  it("rejects unsafe userAgent header value", () => {
+    expect(() =>
+      createBsuirClient({
+        userAgent: "sdk\r\nx-injected: 1"
+      })
+    ).toThrow(BsuirConfigurationError);
   });
 
   it("supports global cancellation signal", async () => {

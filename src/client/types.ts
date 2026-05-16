@@ -1,4 +1,5 @@
 export type QueryValue = string | number | boolean | null | undefined;
+export type RequestCacheMode = "default" | "no-store" | "reload";
 
 export type QueryParams = Record<string, QueryValue>;
 export type RequestMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -85,6 +86,16 @@ export interface RequestOptions {
    * Additional request headers.
    */
   headers?: HeadersInit | undefined;
+  /**
+   * Per-request cache mode for successful GET requests.
+   *
+   * - `"default"`: read from cache and write to cache.
+   * - `"no-store"`: always bypass cache read/write.
+   * - `"reload"`: bypass cache read, but write fresh response to cache.
+   *
+   * @defaultValue "default"
+   */
+  cache?: RequestCacheMode | undefined;
 }
 
 /**
@@ -188,8 +199,8 @@ export interface BsuirClientOptions {
    *
    * When configured, responses are stored in a `Map` keyed by the full request
    * URL. Cache hits skip the network entirely and fire `onResponse` with
-   * `fromCache: true`. The cache uses a true LRU eviction policy — the
-   * least-recently-*read* entry is evicted first when `maxEntries` is exceeded.
+   * `fromCache: true`. The cache uses `Map` insertion order as LRU:
+   * cache reads "touch" entries and eviction removes oldest keys first.
    *
    * Caching is automatically skipped for requests that carry an `AbortSignal`
    * (per-call or global) to prevent serving stale data after cancellation.
@@ -204,7 +215,7 @@ export interface BsuirClientOptions {
    */
   cache?: CacheOptions;
   /**
-   * Enables in-flight GET request deduplication by full URL.
+   * Enables in-flight GET request deduplication by method + URL + headers.
    *
    * When two identical GET requests are made concurrently, only the first one
    * hits the network; the second one awaits the same `Promise`. This prevents
@@ -212,7 +223,7 @@ export interface BsuirClientOptions {
    *
    * Disabled automatically when the request carries an `AbortSignal`.
    *
-   * @defaultValue true
+   * @defaultValue false
    */
   dedupeInFlight?: boolean;
   /**
@@ -227,7 +238,7 @@ export interface BsuirClientOptions {
    * Enables runtime shape validation of API responses.
    *
    * When `true`, each response is checked against the expected TypeScript type
-   * at runtime. An `BsuirApiError` is thrown if the payload does not match,
+   * at runtime. A `BsuirResponseValidationError` is thrown if the payload does not match,
    * which makes integration issues with the upstream API visible immediately
    * instead of causing silent type-cast bugs later.
    *
@@ -311,7 +322,7 @@ export interface InternalClientConfig<TRawDefault extends boolean = boolean> {
   maxResponseBytes: number;
   validateResponses: boolean;
   hooks: ClientHooks;
-  responseCache: Map<string, { expiresAt: number; value: unknown; accessedAt: number }>;
+  responseCache: Map<string, { expiresAt: number; value: unknown }>;
   inFlightRequests: Map<string, Promise<unknown>>;
   defaultRaw: TRawDefault;
 }

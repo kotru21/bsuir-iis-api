@@ -93,7 +93,8 @@ export function createScheduleModule<TRawDefault extends boolean>(
     assertGroupNumber(groupNumber, "groupNumber");
     const payload = await requestJson<unknown>(config, "/schedule", {
       query: { studentGroup: groupNumber },
-      signal: options.signal
+      signal: options.signal,
+      cache: options.cache
     });
     if (config.validateResponses) {
       assertScheduleResponse(payload, "/schedule");
@@ -113,7 +114,10 @@ export function createScheduleModule<TRawDefault extends boolean>(
   ): Promise<ScheduleResponseByRawOption<TRaw, TRawDefault>> {
     assertEmployeeUrlId(urlId, "urlId");
     const endpoint = `/employees/schedule/${encodeURIComponent(urlId)}`;
-    const payload = await requestJson<unknown>(config, endpoint, { signal: options.signal });
+    const payload = await requestJson<unknown>(config, endpoint, {
+      signal: options.signal,
+      cache: options.cache
+    });
     if (config.validateResponses) {
       assertScheduleResponse(payload, endpoint);
     }
@@ -130,7 +134,11 @@ export function createScheduleModule<TRawDefault extends boolean>(
     filter: ScheduleFilterOptions,
     options: ReadOptions = {}
   ): Promise<FlattenedScheduleItem[]> {
-    const normalized = await getGroup(groupNumber, { ...options, raw: false });
+    const normalized = await getGroup(groupNumber, {
+      signal: options.signal,
+      cache: options.cache,
+      raw: false
+    });
     return filterLessons(normalized, filter);
   }
 
@@ -142,7 +150,11 @@ export function createScheduleModule<TRawDefault extends boolean>(
     filter: ScheduleFilterOptions,
     options: ReadOptions = {}
   ): Promise<FlattenedScheduleItem[]> {
-    const normalized = await getEmployee(urlId, { ...options, raw: false });
+    const normalized = await getEmployee(urlId, {
+      signal: options.signal,
+      cache: options.cache,
+      raw: false
+    });
     return filterLessons(normalized, filter);
   }
 
@@ -151,7 +163,8 @@ export function createScheduleModule<TRawDefault extends boolean>(
    */
   async function getCurrentWeek(options: ReadOptions = {}): Promise<number> {
     const payload = await requestJson<unknown>(config, "/schedule/current-week", {
-      signal: options.signal
+      signal: options.signal,
+      cache: options.cache
     });
     return parseCurrentWeek(payload);
   }
@@ -225,7 +238,8 @@ export function createScheduleModule<TRawDefault extends boolean>(
       }
       const payload = await requestJson<unknown>(config, "/last-update-date/student-group", {
         query,
-        signal: options.signal
+        signal: options.signal,
+        cache: options.cache
       });
       if (config.validateResponses) {
         assertApiDateResponse(payload, "/last-update-date/student-group");
@@ -250,7 +264,8 @@ export function createScheduleModule<TRawDefault extends boolean>(
       }
       const payload = await requestJson<unknown>(config, "/last-update-date/employee", {
         query,
-        signal: options.signal
+        signal: options.signal,
+        cache: options.cache
       });
       if (config.validateResponses) {
         assertApiDateResponse(payload, "/last-update-date/employee");

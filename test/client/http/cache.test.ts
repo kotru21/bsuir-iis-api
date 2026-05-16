@@ -35,22 +35,24 @@ describe("tryReadCache", () => {
     expect(tryReadCache(config, "key")).toBeUndefined();
   });
 
-  it("returns value and updates accessedAt on hit", () => {
+  it("returns value and touches key as most recently used", () => {
     vi.setSystemTime(1000);
-    const config = makeConfig();
-    config.responseCache.set("key", { value: { ok: true }, expiresAt: 2000, accessedAt: 1000 });
+    const config = makeConfig({ cacheMaxEntries: 2 });
+    setCache(config, "k1", 1);
+    setCache(config, "k2", 2);
 
-    vi.setSystemTime(1500);
-    expect(tryReadCache(config, "key")).toEqual({ ok: true });
+    expect(tryReadCache(config, "k1")).toBe(1);
 
-    const entry = config.responseCache.get("key");
-    expect(entry?.accessedAt).toBe(1500);
+    setCache(config, "k3", 3);
+    expect(config.responseCache.has("k1")).toBe(true);
+    expect(config.responseCache.has("k2")).toBe(false);
+    expect(config.responseCache.has("k3")).toBe(true);
   });
 
   it("returns undefined and deletes the entry when expired", () => {
     vi.setSystemTime(1000);
     const config = makeConfig();
-    config.responseCache.set("key", { value: "stale", expiresAt: 1000, accessedAt: 500 });
+    config.responseCache.set("key", { value: "stale", expiresAt: 1000 });
 
     vi.setSystemTime(1001);
     expect(tryReadCache(config, "key")).toBeUndefined();
@@ -89,51 +91,28 @@ describe("setCache", () => {
     expect(config.responseCache.size).toBe(1);
   });
 
-  it("does not evict when size is within 90% threshold", () => {
+  it("evicts expired entries before capacity-based eviction", () => {
     vi.setSystemTime(1000);
-    // cacheMaxEntries=10, threshold = 9; adding 9 entries → size === threshold, no eviction
-    const config = makeConfig({ cacheTtlMs: 60_000, cacheMaxEntries: 10 });
-    for (let i = 0; i < 9; i++) {
-      setCache(config, `k${String(i)}`, i);
-    }
-    expect(config.responseCache.size).toBe(9);
-  });
-
-  it("evicts expired entries when cache exceeds 90% capacity", () => {
-    vi.setSystemTime(1000);
-    const config = makeConfig({ cacheTtlMs: 60_000, cacheMaxEntries: 10 });
-
-    // Fill 9 entries (fresh)
-    for (let i = 0; i < 9; i++) {
-      setCache(config, `fresh${String(i)}`, i);
-    }
-
-    // Add one expired entry manually
-    config.responseCache.set("expired", { value: "old", expiresAt: 999, accessedAt: 500 });
-    expect(config.responseCache.size).toBe(10);
-
-    // This set pushes size > threshold (10 > 9), triggers cleanup
-    vi.setSystemTime(2000);
-    setCache(config, "new", "new");
+    const config = makeConfig({ cacheTtlMs: 60_000, cacheMaxEntries: 2 });
+    config.responseCache.set("expired", { value: "old", expiresAt: 999 });
+    setCache(config, "k1", 1);
+    setCache(config, "k2", 2);
 
     expect(config.responseCache.has("expired")).toBe(false);
-    expect(config.responseCache.has("new")).toBe(true);
+    expect(config.responseCache.size).toBe(2);
   });
 
-  it("evicts LRU entries when expired eviction alone is insufficient", () => {
+  it("evicts least-recently-used entries when cache exceeds maxEntries", () => {
     vi.setSystemTime(1000);
     const config = makeConfig({ cacheTtlMs: 60_000, cacheMaxEntries: 3 });
+    setCache(config, "lru1", 1);
+    setCache(config, "lru2", 2);
+    setCache(config, "lru3", 3);
 
-    // Add 3 fresh entries with different accessedAt
-    config.responseCache.set("lru1", { value: 1, expiresAt: 99_000, accessedAt: 100 });
-    config.responseCache.set("lru2", { value: 2, expiresAt: 99_000, accessedAt: 200 });
-    config.responseCache.set("lru3", { value: 3, expiresAt: 99_000, accessedAt: 300 });
-
-    // Adding 4th entry: size 4 > cacheMaxEntries 3 → LRU eviction
     setCache(config, "lru4", 4);
 
-    // lru1 had the lowest accessedAt, should be evicted
     expect(config.responseCache.has("lru1")).toBe(false);
+    expect(config.responseCache.has("lru2")).toBe(true);
     expect(config.responseCache.has("lru4")).toBe(true);
     expect(config.responseCache.size).toBe(3);
   });

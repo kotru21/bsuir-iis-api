@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildUrl } from "../../../src/client/http/url";
+import { BsuirValidationError } from "../../../src/client/errors";
 
 describe("buildUrl", () => {
   it("builds a simple URL from base and path", () => {
@@ -48,5 +49,17 @@ describe("buildUrl", () => {
     expect(buildUrl("https://iis.bsuir.by/api/v1", "/items", { active: true })).toBe(
       "https://iis.bsuir.by/api/v1/items?active=true"
     );
+  });
+
+  it("rejects empty query key", () => {
+    expect(() =>
+      buildUrl("https://iis.bsuir.by/api/v1", "/items", { " ": "1" })
+    ).toThrow(BsuirValidationError);
+  });
+
+  it("rejects unsafe query key characters", () => {
+    expect(() =>
+      buildUrl("https://iis.bsuir.by/api/v1", "/items", { "a&b": "1" })
+    ).toThrow(BsuirValidationError);
   });
 });

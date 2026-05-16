@@ -86,4 +86,31 @@ describe("createBsuirClient — option validation (line 101)", () => {
       })
     ).not.toThrow();
   });
+
+  it("accepts hostnames with trailing dot when normalized allowlist matches", () => {
+    expect(() =>
+      createBsuirClient({
+        baseUrl: "https://IIS.BSUIR.BY./api/v1",
+        allowedBaseUrlHosts: ["iis.bsuir.by"]
+      })
+    ).not.toThrow();
+  });
+
+  it("rejects baseUrl with explicit port even for allowed host", () => {
+    expect(() =>
+      createBsuirClient({
+        baseUrl: "https://iis.bsuir.by:8443/api/v1",
+        allowedBaseUrlHosts: ["iis.bsuir.by"]
+      })
+    ).toThrow(BsuirConfigurationError);
+  });
+
+  it("accepts IPv6 hostname when allowlist uses bracketless form", () => {
+    expect(() =>
+      createBsuirClient({
+        baseUrl: "https://[::1]/api/v1",
+        allowedBaseUrlHosts: ["::1"]
+      })
+    ).not.toThrow();
+  });
 });

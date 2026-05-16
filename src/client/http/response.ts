@@ -1,4 +1,6 @@
-import { BsuirApiError } from "../errors";
+import { BsuirApiError, BsuirResponsePayloadTooLargeError } from "../errors";
+
+const UTF8_ENCODER = new TextEncoder();
 
 async function readBodyTextWithLimit(
   response: Response,
@@ -8,23 +10,23 @@ async function readBodyTextWithLimit(
   if (contentLengthHeader) {
     const parsedLength = Number(contentLengthHeader);
     if (Number.isFinite(parsedLength) && parsedLength > maxResponseBytes) {
-      throw new BsuirApiError(
+      throw new BsuirResponsePayloadTooLargeError(
         `Response body exceeds maxResponseBytes limit (${String(maxResponseBytes)} bytes)`,
         response.status,
         response.url,
-        null
+        maxResponseBytes
       );
     }
   }
 
   if (!response.body || typeof response.body.getReader !== "function") {
     const fallbackText = await response.text();
-    if (new TextEncoder().encode(fallbackText).byteLength > maxResponseBytes) {
-      throw new BsuirApiError(
+    if (UTF8_ENCODER.encode(fallbackText).byteLength > maxResponseBytes) {
+      throw new BsuirResponsePayloadTooLargeError(
         `Response body exceeds maxResponseBytes limit (${String(maxResponseBytes)} bytes)`,
         response.status,
         response.url,
-        null
+        maxResponseBytes
       );
     }
     return fallbackText;
@@ -42,11 +44,11 @@ async function readBodyTextWithLimit(
     bytesRead += value.byteLength;
     if (bytesRead > maxResponseBytes) {
       await reader.cancel();
-      throw new BsuirApiError(
+      throw new BsuirResponsePayloadTooLargeError(
         `Response body exceeds maxResponseBytes limit (${String(maxResponseBytes)} bytes)`,
         response.status,
         response.url,
-        null
+        maxResponseBytes
       );
     }
     text += decoder.decode(value, { stream: true });

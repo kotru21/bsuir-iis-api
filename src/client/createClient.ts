@@ -14,6 +14,7 @@ import {
 const DEFAULT_BASE_URL = "https://iis.bsuir.by/api/v1";
 const DEFAULT_ALLOWED_BASE_URL_HOSTS = ["iis.bsuir.by"];
 const DEFAULT_MAX_RESPONSE_BYTES = 5_000_000;
+const INVALID_HEADER_LINE_BREAK = /[\r\n]/;
 
 // Prevents setTimeout() integer overflow (max safe value ~24.8 days).
 // 5 minutes is a generous upper bound for any HTTP request in this context.
@@ -49,6 +50,29 @@ function assertIntegerOption(
   return value;
 }
 
+function normalizeHostname(rawHostname: string): string {
+  const trimmed = rawHostname.trim().toLowerCase().replace(/\.+$/, "");
+  if (trimmed.length === 0) {
+    return "";
+  }
+  if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
+function assertSafeHeaderValue(value: string | undefined, optionName: string): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (INVALID_HEADER_LINE_BREAK.test(value) || value.includes("\0")) {
+    throw new BsuirConfigurationError(
+      `'${optionName}' must not contain CR, LF or NUL characters`
+    );
+  }
+  return value;
+}
+
 function normalizeBaseUrl(
   rawBaseUrl: string,
   allowInsecureHttp: boolean,
@@ -75,20 +99,28 @@ function normalizeBaseUrl(
     );
   }
 
+  if (parsed.port.length > 0) {
+    throw new BsuirConfigurationError("'baseUrl' must not include an explicit port");
+  }
+
   const normalizedAllowedHosts = new Set(
-    allowedHosts.map((host) => host.trim().toLowerCase()).filter((host) => host.length > 0)
+    allowedHosts.map((host) => normalizeHostname(host)).filter((host) => host.length > 0)
   );
   if (normalizedAllowedHosts.size === 0) {
     throw new BsuirConfigurationError("'allowedBaseUrlHosts' must contain at least one hostname");
   }
 
-  const host = parsed.hostname.toLowerCase();
+  const host = normalizeHostname(parsed.hostname);
+  if (host.length === 0) {
+    throw new BsuirConfigurationError("'baseUrl' must include a valid hostname");
+  }
   if (!normalizedAllowedHosts.has(host)) {
     throw new BsuirConfigurationError(
       `'baseUrl' host '${host}' is not allowed. Allowed hosts: ${[...normalizedAllowedHosts].join(", ")}`
     );
   }
 
+  parsed.hostname = host;
   const normalizedPath = parsed.pathname.replace(/\/+$/, "");
   return `${parsed.origin}${normalizedPath}`;
 }
@@ -135,12 +167,12 @@ function createInternalConfig<TRawDefault extends boolean>(
     retryDelayMs,
     retryMaxDelayMs,
     retryJitter: options.retryJitter ?? true,
-    userAgent: options.userAgent,
+    userAgent: assertSafeHeaderValue(options.userAgent, "userAgent"),
     cacheTtlMs,
     cacheMaxEntries,
     dedupeInFlight: options.dedupeInFlight ?? true,
     maxResponseBytes,
-    validateResponses: options.validateResponses ?? true,
+    validateResponses: options.validateResponses ?? false,
     hooks: options.hooks ?? {},
     responseCache: new Map(),
     inFlightRequests: new Map(),

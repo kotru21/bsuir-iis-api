@@ -8,6 +8,7 @@ export type {
   ErrorHookContext,
   QueryParams,
   QueryValue,
+  RequestCacheMode,
   RequestHookContext,
   RequestMethod,
   RequestOptions,
@@ -35,19 +36,42 @@ export {
   normalizeSchedule,
   sortLessonsByTime
 } from "./modules/schedule";
-export type {
-  BuildScheduleDaysOptions,
-  LessonWithTime,
-  ScheduleDay,
-  ScheduleFilterOptions
-} from "./types/schedule";
 export {
   BsuirApiError,
   BsuirConfigurationError,
   BsuirNetworkError,
+  BsuirResponsePayloadTooLargeError,
   BsuirResponseValidationError,
   BsuirTimeoutError,
   BsuirValidationError
 } from "./client/errors";
 
-export * from "./types";
+export type { Announcement } from "./types/announcement";
+export type {
+  Auditory,
+  AuditoryDepartment,
+  AuditoryType,
+  BuildingNumber,
+  Department,
+  EducationForm,
+  Faculty,
+  Speciality,
+  SpecialityEducationForm,
+  StudentGroupCatalogItem
+} from "./types/catalog";
+export { WEEKDAYS } from "./types/common";
+export type { ApiDateResponse, Maybe, StudentGroupShort, Weekday } from "./types/common";
+export type { Employee, EmployeeCatalogItem } from "./types/employee";
+export type {
+  BuildScheduleDaysOptions,
+  FlattenedLessonsByDay,
+  FlattenedScheduleItem,
+  LessonWithTime,
+  LessonStudentGroup,
+  NormalizedScheduleResponse,
+  ScheduleDay,
+  ScheduleFilterOptions,
+  ScheduleItem,
+  ScheduleResponse,
+  WeekScheduleMap
+} from "./types/schedule";

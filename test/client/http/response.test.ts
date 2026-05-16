@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BsuirApiError } from "../../../src/client/errors";
+import { BsuirApiError, BsuirResponsePayloadTooLargeError } from "../../../src/client/errors";
 import { parseBody } from "../../../src/client/http/response";
 
 function makeResponse(
@@ -40,7 +40,7 @@ describe("parseBody", () => {
 
   it("throws when content-length header exceeds limit", async () => {
     const res = makeResponse("x", { contentLength: 200 });
-    await expect(parseBody(res, limit)).rejects.toBeInstanceOf(BsuirApiError);
+    await expect(parseBody(res, limit)).rejects.toBeInstanceOf(BsuirResponsePayloadTooLargeError);
   });
 
   it("does not throw when content-length is within limit", async () => {
@@ -51,7 +51,7 @@ describe("parseBody", () => {
   it("throws when body exceeds limit while streaming", async () => {
     const big = "x".repeat(limit + 1);
     const res = makeResponse(big, { contentType: "text/plain" });
-    await expect(parseBody(res, limit)).rejects.toBeInstanceOf(BsuirApiError);
+    await expect(parseBody(res, limit)).rejects.toBeInstanceOf(BsuirResponsePayloadTooLargeError);
   });
 
   it("throws for empty body when content-type is JSON", async () => {
@@ -82,6 +82,6 @@ describe("parseBody", () => {
   it("throws via fallback when body is null and text exceeds limit", async () => {
     const big = "x".repeat(limit + 1);
     const res = makeResponse(big, { contentType: "text/plain", useStream: false });
-    await expect(parseBody(res, limit)).rejects.toBeInstanceOf(BsuirApiError);
+    await expect(parseBody(res, limit)).rejects.toBeInstanceOf(BsuirResponsePayloadTooLargeError);
   });
 });

@@ -1,4 +1,9 @@
-import { BsuirApiError, BsuirNetworkError, BsuirTimeoutError } from "../errors";
+import {
+  BsuirApiError,
+  BsuirNetworkError,
+  BsuirResponsePayloadTooLargeError,
+  BsuirTimeoutError
+} from "../errors";
 import { mergeSignals } from "../mergeSignals";
 import type {
   ErrorHookContext,
@@ -16,18 +21,24 @@ import { parseBody } from "./response";
 import { getRetryDelayMs, RETRIABLE_STATUS_CODES, sleep } from "./retry";
 import { buildUrl } from "./url";
 
-function combineAbortSignals(
-  first: AbortSignal | undefined,
-  second: AbortSignal | undefined
-): AbortSignal | undefined {
-  if (!first) {
-    return second;
-  }
-  if (!second) {
-    return first;
-  }
-  // Delegate to mergeSignals for consistent signal combination logic.
-  return mergeSignals([first, second]);
+function normalizeHeadersForCacheKey(headers: Headers): string {
+  return [...headers.entries()]
+    .map(([key, value]) => [key.toLowerCase(), value] as const)
+    .toSorted((a, b) => {
+      if (a[0] !== b[0]) {
+        return a[0] < b[0] ? -1 : 1;
+      }
+      if (a[1] !== b[1]) {
+        return a[1] < b[1] ? -1 : 1;
+      }
+      return 0;
+    })
+    .map(([key, value]) => `${key}:${value}`)
+    .join("\n");
+}
+
+function buildRequestKey(method: RequestMethod, endpoint: string, headers: Headers): string {
+  return `${method}\n${endpoint}\n${normalizeHeadersForCacheKey(headers)}`;
 }
 
 function baseHookContext(
@@ -79,15 +90,18 @@ export async function requestJson<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  const cacheKey = endpoint;
+  const requestKey = buildRequestKey(method, endpoint, headers);
+  const cacheMode = options.cache ?? "default";
   // Caching and dedup are disabled when a per-call signal is provided (caller manages lifecycle)
   // OR when a global client signal is already aborted — stale data must not be served after abort.
   const hasActiveSignal = options.signal != null || config.signal?.aborted === true;
   const canUseCaching = config.cacheTtlMs !== undefined && method === "GET" && !hasActiveSignal;
+  const canReadFromCache = canUseCaching && cacheMode === "default";
+  const canWriteToCache = canUseCaching && cacheMode !== "no-store";
   const canUseDedup = config.dedupeInFlight && method === "GET" && !hasActiveSignal;
 
-  if (canUseCaching) {
-    const cached = tryReadCache(config, cacheKey);
+  if (canReadFromCache) {
+    const cached = tryReadCache(config, requestKey);
     if (cached !== undefined) {
       const cacheHitCtx: ResponseHookContext = {
         ...baseHookContext(method, path, endpoint, 1, maxAttempts, options.query),
@@ -115,8 +129,7 @@ export async function requestJson<T>(
 
       config.hooks.onRequest?.(hookCtx);
 
-      const externalSignal = combineAbortSignals(options.signal, config.signal);
-      const requestSignal = mergeSignals(externalSignal, config.timeoutMs);
+      const requestSignal = mergeSignals([options.signal, config.signal], config.timeoutMs);
 
       try {
         const requestInit: RequestInit = {
@@ -170,6 +183,10 @@ export async function requestJson<T>(
         return parsed;
       } catch (error: unknown) {
         if (error instanceof BsuirApiError) {
+          throw error;
+        }
+
+        if (error instanceof BsuirResponsePayloadTooLargeError) {
           throw error;
         }
 
@@ -229,29 +246,27 @@ export async function requestJson<T>(
     throw new BsuirNetworkError(`Unexpected retry loop termination for ${path}`, endpoint, null);
   };
 
+  const requestAndMaybeCache = (): Promise<T> =>
+    performRequest().then((payload) => {
+      if (canWriteToCache) {
+        setCache(config, requestKey, payload);
+      }
+      return payload;
+    });
+
   if (canUseDedup) {
-    const inFlight = config.inFlightRequests.get(cacheKey);
+    const inFlight = config.inFlightRequests.get(requestKey);
     if (inFlight) {
       return (await inFlight) as T;
     }
 
-    const inFlightPromise: Promise<T> = performRequest()
-      .then((payload) => {
-        if (canUseCaching) {
-          setCache(config, cacheKey, payload);
-        }
-        return payload;
-      })
+    const inFlightPromise: Promise<T> = requestAndMaybeCache()
       .finally(() => {
-        config.inFlightRequests.delete(cacheKey);
+        config.inFlightRequests.delete(requestKey);
       });
-    config.inFlightRequests.set(cacheKey, inFlightPromise);
+    config.inFlightRequests.set(requestKey, inFlightPromise);
     return await inFlightPromise;
   }
 
-  const payload = await performRequest();
-  if (canUseCaching) {
-    setCache(config, cacheKey, payload);
-  }
-  return payload;
+  return await requestAndMaybeCache();
 }

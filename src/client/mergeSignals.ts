@@ -9,7 +9,7 @@ const AbortSignalCtor = AbortSignal as AbortSignalConstructor;
  * When `AbortSignal.any` exists at runtime, delegates to the platform implementation.
  * Otherwise uses a manual merge so all signals are respected.
  *
- * @param signalsOrFirst - Array of signals to merge, or a single signal (legacy signature)
+ * @param signals - Signals to merge
  * @param timeoutMs - Optional timeout in milliseconds to include as an additional signal
  *
  * @remarks
@@ -17,38 +17,25 @@ const AbortSignalCtor = AbortSignal as AbortSignalConstructor;
  * that is never aborted — the caller is responsible for not doing this intentionally.
  */
 export function mergeSignals(
-  signalsOrFirst: AbortSignal[] | (AbortSignal | undefined),
+  signals: readonly (AbortSignal | undefined)[],
   timeoutMs?: number
 ): AbortSignal {
-  // Handle both signatures for backwards compatibility
-  let signals: (AbortSignal | undefined)[];
-  let timeout: number | undefined;
-
-  if (Array.isArray(signalsOrFirst)) {
-    signals = signalsOrFirst;
-    timeout = timeoutMs;
-  } else {
-    // Legacy signature: mergeSignals(signal, timeoutMs)
-    signals = [signalsOrFirst];
-    timeout = timeoutMs;
-  }
-
   const parts = signals.filter((s): s is AbortSignal => s !== undefined);
 
   if (parts.length === 0) {
-    if (timeout !== undefined) {
+    if (timeoutMs !== undefined) {
       // Only a timeout, no external signal
       if (typeof AbortSignalCtor.any === "function") {
-        return AbortSignalCtor.any([AbortSignal.timeout(timeout)]);
+        return AbortSignalCtor.any([AbortSignal.timeout(timeoutMs)]);
       }
-      return mergeSignalsManual([], timeout);
+      return mergeSignalsManual([], timeoutMs);
     }
     // No signals and no timeout — returns a signal that is never aborted.
     // This is a degenerate case; callers should avoid it.
     return new AbortController().signal;
   }
 
-  if (parts.length === 1 && timeout === undefined) {
+  if (parts.length === 1 && timeoutMs === undefined) {
     // Single signal, no timeout — return it directly
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     return parts[0]!;
@@ -56,12 +43,12 @@ export function mergeSignals(
 
   // Use platform AbortSignal.any when available (covers both timeout and multi-signal cases)
   if (typeof AbortSignalCtor.any === "function") {
-    const all = timeout === undefined ? parts : [...parts, AbortSignal.timeout(timeout)];
+    const all = timeoutMs === undefined ? parts : [...parts, AbortSignal.timeout(timeoutMs)];
     return AbortSignalCtor.any(all);
   }
 
   // Fallback: manual merge with possible timeout
-  return mergeSignalsManual(parts, timeout);
+  return mergeSignalsManual(parts, timeoutMs);
 }
 
 /** Used when `AbortSignal.any` is unavailable; exposed for unit tests. */

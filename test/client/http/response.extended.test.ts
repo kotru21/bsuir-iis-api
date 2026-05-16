@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseBody } from "../../../src/client/http/response";
-import { BsuirApiError } from "../../../src/client/errors";
+import { BsuirApiError, BsuirResponsePayloadTooLargeError } from "../../../src/client/errors";
 
 function makeResponse(body: string, contentType: string, status = 200): Response {
   return new Response(body, {
@@ -49,6 +49,6 @@ describe("parseBody", () => {
       status: 200,
       headers: { "Content-Type": "text/plain", "Content-Length": "100" }
     });
-    await expect(parseBody(response, 50)).rejects.toBeInstanceOf(BsuirApiError);
+    await expect(parseBody(response, 50)).rejects.toBeInstanceOf(BsuirResponsePayloadTooLargeError);
   });
 });

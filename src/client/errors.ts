@@ -23,6 +23,21 @@ export class BsuirApiError extends Error {
   }
 }
 
+export class BsuirResponsePayloadTooLargeError extends Error {
+  readonly status: number;
+  readonly endpoint: string;
+  readonly maxResponseBytes: number;
+
+  constructor(message: string, status: number, endpoint: string, maxResponseBytes: number) {
+    super(message);
+    fixErrorPrototype(this, BsuirResponsePayloadTooLargeError.prototype);
+    this.name = "BsuirResponsePayloadTooLargeError";
+    this.status = status;
+    this.endpoint = endpoint;
+    this.maxResponseBytes = maxResponseBytes;
+  }
+}
+
 export class BsuirNetworkError extends Error {
   readonly endpoint: string;
 

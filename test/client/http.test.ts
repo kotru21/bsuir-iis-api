@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { requestJson } from "../../src/client/http";
-import { BsuirApiError, BsuirNetworkError, BsuirTimeoutError } from "../../src/client/errors";
+import {
+  BsuirApiError,
+  BsuirNetworkError,
+  BsuirResponsePayloadTooLargeError,
+  BsuirTimeoutError
+} from "../../src/client/errors";
 import type { InternalClientConfig } from "../../src/client/types";
 import { createJsonResponse, mockFetchSequence } from "../helpers/fetchMock";
 
@@ -145,7 +150,7 @@ describe("requestJson", () => {
     const config = createConfig(fetchImpl, { retries: 0, maxResponseBytes: 10 });
 
     const error = await requestJson(config, "/faculties").catch((error_: unknown) => error_);
-    expect(error).toBeInstanceOf(BsuirApiError);
+    expect(error).toBeInstanceOf(BsuirResponsePayloadTooLargeError);
     expect(error).toMatchObject({
       message: "Response body exceeds maxResponseBytes limit (10 bytes)"
     });
@@ -324,6 +329,42 @@ describe("requestJson", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
+  it("skips cache read/write when cache mode is no-store", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ body: { value: 1 } }),
+      createJsonResponse({ body: { value: 2 } })
+    ]);
+    const config = createConfig(fetchImpl, {
+      cacheTtlMs: 60_000
+    });
+
+    const first = await requestJson<{ value: number }>(config, "/faculties", { cache: "no-store" });
+    const second = await requestJson<{ value: number }>(config, "/faculties");
+
+    expect(first.value).toBe(1);
+    expect(second.value).toBe(2);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("bypasses cache read and refreshes cache when cache mode is reload", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ body: { value: 1 } }),
+      createJsonResponse({ body: { value: 2 } })
+    ]);
+    const config = createConfig(fetchImpl, {
+      cacheTtlMs: 60_000
+    });
+
+    const first = await requestJson<{ value: number }>(config, "/faculties");
+    const second = await requestJson<{ value: number }>(config, "/faculties", { cache: "reload" });
+    const third = await requestJson<{ value: number }>(config, "/faculties");
+
+    expect(first.value).toBe(1);
+    expect(second.value).toBe(2);
+    expect(third.value).toBe(2);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
   it("deduplicates concurrent in-flight GET requests", async () => {
     let resolveFetch: ((value: Response) => void) | undefined;
     const fetchImpl = vi.fn(
@@ -343,6 +384,38 @@ describe("requestJson", () => {
     }
     resolveFetch(createJsonResponse({ body: { ok: true } }));
 
+    const [first, second] = await Promise.all([firstPromise, secondPromise]);
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+  });
+
+  it("does not deduplicate concurrent requests when headers differ", async () => {
+    const resolvers: Array<(value: Response) => void> = [];
+    const fetchImpl = vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolvers.push(resolve);
+        })
+    ) as unknown as typeof globalThis.fetch;
+    const config = createConfig(fetchImpl);
+
+    const firstPromise = requestJson<{ ok: boolean }>(config, "/faculties", {
+      headers: { "Accept-Language": "ru" }
+    });
+    const secondPromise = requestJson<{ ok: boolean }>(config, "/faculties", {
+      headers: { "Accept-Language": "en" }
+    });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+
+    expect(resolvers).toHaveLength(2);
+    const firstResolve = resolvers[0];
+    const secondResolve = resolvers[1];
+    if (!firstResolve || !secondResolve) {
+      throw new Error("missing fetch resolvers");
+    }
+    firstResolve(createJsonResponse({ body: { ok: true } }));
+    secondResolve(createJsonResponse({ body: { ok: true } }));
     const [first, second] = await Promise.all([firstPromise, secondPromise]);
     expect(first.ok).toBe(true);
     expect(second.ok).toBe(true);

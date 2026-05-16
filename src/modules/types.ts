@@ -1,3 +1,5 @@
+import type { RequestCacheMode } from "../client/types";
+
 /**
  * Read options used by all module methods.
  */
@@ -7,7 +9,7 @@ export interface ReadOptions {
    */
   signal?: AbortSignal | undefined;
   /**
-   * When true, return raw API payload where supported.
+   * Per-request cache mode.
    */
-  raw?: boolean;
+  cache?: RequestCacheMode | undefined;
 }

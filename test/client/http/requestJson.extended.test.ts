@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createBsuirClient } from "../../../src";
+import { BsuirResponseValidationError, createBsuirClient } from "../../../src";
 import { createJsonResponse, mockFetchSequence } from "../../helpers/fetchMock";
 
 describe("requestJson — additional branches", () => {
@@ -22,7 +22,7 @@ describe("requestJson — additional branches", () => {
     expect(capturedHeaders?.get("Accept")).toBe("application/json");
   });
 
-  // line 30 — combineAbortSignals: both signals present → mergeSignals([first, second])
+  // requestJson combines per-call and global signals through mergeSignals([...], timeout)
   it("combines per-call signal and global config signal (line 30)", async () => {
     const globalCtrl = new AbortController();
     const perCallCtrl = new AbortController();
@@ -64,5 +64,11 @@ describe("requestJson — additional branches", () => {
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
     const result = await client.groups.listAll();
     expect(result).toEqual([]);
+  });
+
+  it("always validates list shape even when validateResponses=false", async () => {
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: { not: "array" } })]);
+    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
+    await expect(client.groups.listAll()).rejects.toBeInstanceOf(BsuirResponseValidationError);
   });
 });

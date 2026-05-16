@@ -56,10 +56,4 @@ describe("mergeSignals — additional branches", () => {
     expect(result.aborted).toBe(true);
     vi.useRealTimers();
   });
-
-  it("legacy signature: mergeSignals(signal, timeout)", () => {
-    const ctrl = new AbortController();
-    const result = mergeSignals(ctrl.signal, 100_000);
-    expect(result.aborted).toBe(false);
-  });
 });

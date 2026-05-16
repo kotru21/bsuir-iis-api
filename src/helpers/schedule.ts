@@ -1,5 +1,5 @@
 import { filterLessons } from "../modules/scheduleFilter";
-import type { Weekday } from "../types/common";
+import { WEEKDAYS, type Weekday } from "../types/common";
 import type {
   BuildScheduleDaysOptions,
   FlattenedLessonsByDay,
@@ -9,8 +9,6 @@ import type {
   ScheduleDay
 } from "../types/schedule";
 import { assertPositiveInt } from "../utils/guards";
-
-const WEEKDAYS: Weekday[] = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"];
 
 const SUNDAY_LABEL = "Воскресенье";
 const MS_PER_DAY = 24 * 60 * 60 * 1000;

@@ -1,4 +1,4 @@
-import type { Weekday } from "../types/common";
+import { WEEKDAYS } from "../types/common";
 import type {
   FlattenedLessonsByDay,
   FlattenedScheduleItem,
@@ -6,8 +6,6 @@ import type {
   ScheduleItem,
   ScheduleResponse
 } from "../types/schedule";
-
-const WEEKDAYS: Weekday[] = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"];
 
 function lessonAuditories(item: ScheduleItem): string[] {
   const { auditories } = item;
@@ -18,7 +16,6 @@ function lessonAuditories(item: ScheduleItem): string[] {
  * Transforms raw schedule response into normalized structure with flattened lessons.
  */
 export function normalizeSchedule(response: ScheduleResponse): NormalizedScheduleResponse {
-  const lessons: FlattenedScheduleItem[] = [];
   const scheduleLessons: FlattenedScheduleItem[] = [];
   const examLessons: FlattenedScheduleItem[] = [];
   const lessonsByDay = Object.fromEntries(
@@ -39,7 +36,6 @@ export function normalizeSchedule(response: ScheduleResponse): NormalizedSchedul
       };
     });
     lessonsByDay[day] = flattenedDayItems;
-    lessons.push(...flattenedDayItems);
     scheduleLessons.push(...flattenedDayItems);
   }
 
@@ -51,9 +47,9 @@ export function normalizeSchedule(response: ScheduleResponse): NormalizedSchedul
       day: null,
       source: "exams"
     };
-    lessons.push(flattenedExam);
     examLessons.push(flattenedExam);
   }
+  const lessons = [...scheduleLessons, ...examLessons];
 
   return {
     ...response,
