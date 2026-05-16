@@ -63,10 +63,15 @@ export class BsuirTimeoutError extends Error {
 }
 
 export class BsuirValidationError extends Error {
-  constructor(message: string) {
+  readonly field: string | undefined;
+  readonly value: unknown;
+
+  constructor(message: string, field?: string, value?: unknown) {
     super(message);
     fixErrorPrototype(this, BsuirValidationError.prototype);
     this.name = "BsuirValidationError";
+    this.field = field;
+    this.value = value;
   }
 }
 

@@ -6,25 +6,25 @@ const GROUP_NUMBER_PATTERN = /^\d+$/;
 const EMPLOYEE_URL_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/i;
 
 /**
- *
+ * Asserts that a value is a non-empty string.
  */
 export function assertNonEmptyString(value: unknown, fieldName: string): asserts value is string {
   if (typeof value !== "string" || value.trim().length === 0) {
-    throw new BsuirValidationError(`'${fieldName}' must be a non-empty string`);
+    throw new BsuirValidationError(`'${fieldName}' must be a non-empty string`, fieldName, value);
   }
 }
 
 /**
- *
+ * Asserts that a value is a positive integer.
  */
 export function assertPositiveInt(value: unknown, fieldName: string): asserts value is number {
   if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
-    throw new BsuirValidationError(`'${fieldName}' must be a positive integer`);
+    throw new BsuirValidationError(`'${fieldName}' must be a positive integer`, fieldName, value);
   }
 }
 
 /**
- *
+ * Asserts that a group number is a non-empty string containing only digits.
  */
 export function assertGroupNumber(
   value: unknown,
@@ -32,22 +32,26 @@ export function assertGroupNumber(
 ): asserts value is string {
   assertNonEmptyString(value, fieldName);
   if (!GROUP_NUMBER_PATTERN.test(value)) {
-    throw new BsuirValidationError(`'${fieldName}' must contain only digits`);
+    throw new BsuirValidationError(`'${fieldName}' must contain only digits`, fieldName, value);
   }
 }
 
 /**
- *
+ * Asserts that an employee urlId is a non-empty slug.
  */
 export function assertEmployeeUrlId(value: unknown, fieldName = "urlId"): asserts value is string {
   assertNonEmptyString(value, fieldName);
   if (!EMPLOYEE_URL_ID_PATTERN.test(value)) {
-    throw new BsuirValidationError(`'${fieldName}' must be a valid slug (letters, digits, hyphen)`);
+    throw new BsuirValidationError(
+      `'${fieldName}' must be a valid slug (letters, digits, hyphen)`,
+      fieldName,
+      value
+    );
   }
 }
 
 /**
- *
+ * Returns `true` if the error object represents an abort/cancellation.
  */
 export function isAbortError(error: unknown): boolean {
   // Browser: DOMException with name "AbortError"

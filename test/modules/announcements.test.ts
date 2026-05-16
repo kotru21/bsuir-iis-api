@@ -12,13 +12,21 @@ describe("announcements module", () => {
     expect(result).toHaveLength(1);
   });
 
-  it("returns empty array when API returns 404", async () => {
+  it("returns empty array when API returns 404 no-announcements envelope", async () => {
     const fetchImpl = mockFetchSequence([
-      createJsonResponse({ status: 404, body: { message: "not found" } })
+      createJsonResponse({ status: 404, body: { message: "No announcements found" } })
     ]);
     const client = createBsuirClient({ fetch: fetchImpl });
     const result = await client.announcements.byEmployee("v-petrov");
     expect(result).toEqual([]);
+  });
+
+  it("rethrows generic 404 errors that do not match no-announcements envelope", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ status: 404, body: { message: "not found" } })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl, retries: 0 });
+    await expect(client.announcements.byEmployee("v-petrov")).rejects.toBeInstanceOf(BsuirApiError);
   });
 
   it("rethrows 400 errors", async () => {

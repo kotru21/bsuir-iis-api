@@ -24,6 +24,19 @@ describe("guards", () => {
     expect(() => assertPositiveInt("1", "id")).toThrow(BsuirValidationError);
   });
 
+  it("exposes structured field/value metadata on validation errors", () => {
+    try {
+      assertGroupNumber("05350A", "groupNumber");
+      throw new Error("expected validation error");
+    } catch (error) {
+      expect(error).toBeInstanceOf(BsuirValidationError);
+      expect(error).toMatchObject({
+        field: "groupNumber",
+        value: "05350A"
+      });
+    }
+  });
+
   it("validates group number and employee urlId formats", () => {
     expect(() => assertGroupNumber("053503")).not.toThrow();
     expect(() => assertGroupNumber("05350A")).toThrow(BsuirValidationError);

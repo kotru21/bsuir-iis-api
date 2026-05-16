@@ -49,6 +49,18 @@ describe("tryReadCache", () => {
     expect(config.responseCache.has("k3")).toBe(true);
   });
 
+  it("returns a deep-cloned value so cache hits cannot mutate shared entries", () => {
+    const config = makeConfig();
+    setCache(config, "k1", { nested: { value: 1 }, items: [1, 2] });
+
+    const cached = tryReadCache(config, "k1") as { nested: { value: number }; items: number[] };
+    cached.nested.value = 999;
+    cached.items.push(3);
+
+    const cachedAgain = tryReadCache(config, "k1") as { nested: { value: number }; items: number[] };
+    expect(cachedAgain).toEqual({ nested: { value: 1 }, items: [1, 2] });
+  });
+
   it("returns undefined and deletes the entry when expired", () => {
     vi.setSystemTime(1000);
     const config = makeConfig();
@@ -89,6 +101,16 @@ describe("setCache", () => {
 
     expect(config.responseCache.get("key")?.value).toBe("v2");
     expect(config.responseCache.size).toBe(1);
+  });
+
+  it("stores a clone so mutating original payload after write does not poison cache", () => {
+    const config = makeConfig({ cacheTtlMs: 1000 });
+    const payload = { nested: { value: 1 } };
+    setCache(config, "key", payload);
+    payload.nested.value = 2;
+
+    const cached = tryReadCache(config, "key") as { nested: { value: number } };
+    expect(cached.nested.value).toBe(1);
   });
 
   it("evicts expired entries before capacity-based eviction", () => {

@@ -14,7 +14,11 @@ export function parseCurrentWeek(payload: unknown): number {
 
 function parseCurrentWeekInternal(payload: unknown, depth: number): number {
   if (depth > MAX_PARSE_DEPTH) {
-    throw new BsuirValidationError("'currentWeek' response payload has excessive nesting depth");
+    throw new BsuirValidationError(
+      "'currentWeek' response payload has excessive nesting depth",
+      "currentWeek",
+      payload
+    );
   }
 
   if (typeof payload === "number") {
@@ -25,7 +29,11 @@ function parseCurrentWeekInternal(payload: unknown, depth: number): number {
   if (typeof payload === "string") {
     const normalized = payload.trim();
     if (normalized.length === 0) {
-      throw new BsuirValidationError("'currentWeek' response payload is an empty string");
+      throw new BsuirValidationError(
+        "'currentWeek' response payload is an empty string",
+        "currentWeek",
+        payload
+      );
     }
     const parsed = Number(normalized);
     // assertPositiveInt validates both isInteger and > 0 — no need to pre-check isInteger
@@ -43,5 +51,9 @@ function parseCurrentWeekInternal(payload: unknown, depth: number): number {
     }
   }
 
-  throw new BsuirValidationError("'currentWeek' response payload must be a positive integer");
+  throw new BsuirValidationError(
+    "'currentWeek' response payload must be a positive integer",
+    "currentWeek",
+    payload
+  );
 }

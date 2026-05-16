@@ -22,9 +22,9 @@ describe("parseBody", () => {
     expect(result).toBe("hello world");
   });
 
-  it("returns empty string for empty body with non-JSON content type", async () => {
+  it("returns null for empty body with non-JSON content type", async () => {
     const result = await parseBody(makeResponse("", "text/plain"), 1_000_000);
-    expect(result).toBe("");
+    expect(result).toBeNull();
   });
 
   it("throws BsuirApiError for empty JSON body (declaredJson, empty text)", async () => {

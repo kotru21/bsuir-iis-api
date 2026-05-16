@@ -6,6 +6,7 @@ import type {
   FlattenedScheduleItem,
   NormalizedScheduleResponse,
   ScheduleFilterOptions,
+  ScheduleItem,
   ScheduleResponse
 } from "../types/schedule";
 import { assertEmployeeUrlId, assertGroupNumber, assertPositiveInt } from "../utils/guards";
@@ -14,27 +15,44 @@ import { filterLessons } from "./scheduleFilter";
 import { normalizeSchedule } from "./scheduleNormalize";
 import type { ReadOptions } from "./types";
 
-type ScheduleResponseByRawOption<
-  TRaw extends boolean | undefined,
-  TRawDefault extends boolean
-> = TRaw extends true
+type DefaultScheduleResponse<TRawDefault extends boolean> = TRawDefault extends true
   ? ScheduleResponse
-  : TRaw extends false
-    ? NormalizedScheduleResponse
-    : TRawDefault extends true
-      ? ScheduleResponse
-      : NormalizedScheduleResponse;
+  : NormalizedScheduleResponse;
 
 export interface ScheduleModule<TRawDefault extends boolean> {
-  getGroup<TRaw extends boolean | undefined = undefined>(
+  getGroup(
     groupNumber: string,
-    options?: ReadOptions & { raw?: TRaw }
-  ): Promise<ScheduleResponseByRawOption<TRaw, TRawDefault>>;
+    options: ReadOptions & { raw: true }
+  ): Promise<ScheduleResponse>;
+  getGroup(
+    groupNumber: string,
+    options: ReadOptions & { raw: false }
+  ): Promise<NormalizedScheduleResponse>;
+  getGroup(
+    groupNumber: string,
+    options?: ReadOptions & { raw?: undefined }
+  ): Promise<DefaultScheduleResponse<TRawDefault>>;
+  getGroup(
+    groupNumber: string,
+    options: ReadOptions & { raw: boolean }
+  ): Promise<ScheduleResponse | NormalizedScheduleResponse>;
 
-  getEmployee<TRaw extends boolean | undefined = undefined>(
+  getEmployee(
     urlId: string,
-    options?: ReadOptions & { raw?: TRaw }
-  ): Promise<ScheduleResponseByRawOption<TRaw, TRawDefault>>;
+    options: ReadOptions & { raw: true }
+  ): Promise<ScheduleResponse>;
+  getEmployee(
+    urlId: string,
+    options: ReadOptions & { raw: false }
+  ): Promise<NormalizedScheduleResponse>;
+  getEmployee(
+    urlId: string,
+    options?: ReadOptions & { raw?: undefined }
+  ): Promise<DefaultScheduleResponse<TRawDefault>>;
+  getEmployee(
+    urlId: string,
+    options: ReadOptions & { raw: boolean }
+  ): Promise<ScheduleResponse | NormalizedScheduleResponse>;
 
   getGroupFiltered(
     groupNumber: string,
@@ -54,13 +72,23 @@ export interface ScheduleModule<TRawDefault extends boolean> {
   getGroupBySubgroup(
     groupNumber: string,
     subgroup: number,
-    options?: ReadOptions
+    options: ReadOptions & { raw: true }
+  ): Promise<ScheduleItem[]>;
+  getGroupBySubgroup(
+    groupNumber: string,
+    subgroup: number,
+    options?: ReadOptions & { raw?: false | undefined }
   ): Promise<FlattenedScheduleItem[]>;
 
   getEmployeeBySubgroup(
     urlId: string,
     subgroup: number,
-    options?: ReadOptions
+    options: ReadOptions & { raw: true }
+  ): Promise<ScheduleItem[]>;
+  getEmployeeBySubgroup(
+    urlId: string,
+    subgroup: number,
+    options?: ReadOptions & { raw?: false | undefined }
   ): Promise<FlattenedScheduleItem[]>;
 
   getCurrentWeek(options?: ReadOptions): Promise<number>;
@@ -76,6 +104,22 @@ export interface ScheduleModule<TRawDefault extends boolean> {
   ): Promise<ApiDateResponse>;
 }
 
+function filterRawSubgroupLessons(
+  response: ScheduleResponse,
+  subgroup: number
+): ScheduleItem[] {
+  const items: ScheduleItem[] = [];
+  const schedules = response.schedules ?? {};
+  for (const dayItems of Object.values(schedules)) {
+    for (const lesson of dayItems) {
+      if (lesson.numSubgroup === subgroup) {
+        items.push(structuredClone(lesson));
+      }
+    }
+  }
+  return items;
+}
+
 /**
  * Creates schedule API module with raw/normalized response support.
  */
@@ -86,44 +130,58 @@ export function createScheduleModule<TRawDefault extends boolean>(
    * Returns schedule for a student group.
    * By default returns normalized payload unless `raw: true` is passed.
    */
-  async function getGroup<TRaw extends boolean | undefined = undefined>(
+  async function getGroup(
     groupNumber: string,
-    options: ReadOptions & { raw?: TRaw } = {}
-  ): Promise<ScheduleResponseByRawOption<TRaw, TRawDefault>> {
+    options?: ReadOptions & { raw?: boolean }
+  ): Promise<ScheduleResponse | NormalizedScheduleResponse> {
+    const resolvedOptions = options ?? {};
     assertGroupNumber(groupNumber, "groupNumber");
     const payload = await requestJson<unknown>(config, "/schedule", {
       query: { studentGroup: groupNumber },
-      signal: options.signal,
-      cache: options.cache
+      signal: resolvedOptions.signal,
+      cache: resolvedOptions.cache
     });
-    if (config.validateResponses) {
+    const returnRaw = resolvedOptions.raw ?? config.defaultRaw;
+    if (config.validateResponses && returnRaw) {
       assertScheduleResponse(payload, "/schedule");
     }
     const response = payload as ScheduleResponse;
-    const result = (options.raw ?? config.defaultRaw) ? response : normalizeSchedule(response);
-    return result as ScheduleResponseByRawOption<TRaw, TRawDefault>;
+    if (returnRaw) {
+      return response;
+    }
+    return normalizeSchedule(response, {
+      validate: config.validateResponses,
+      endpoint: "/schedule"
+    });
   }
 
   /**
    * Returns schedule for an employee.
    * By default returns normalized payload unless `raw: true` is passed.
    */
-  async function getEmployee<TRaw extends boolean | undefined = undefined>(
+  async function getEmployee(
     urlId: string,
-    options: ReadOptions & { raw?: TRaw } = {}
-  ): Promise<ScheduleResponseByRawOption<TRaw, TRawDefault>> {
+    options?: ReadOptions & { raw?: boolean }
+  ): Promise<ScheduleResponse | NormalizedScheduleResponse> {
+    const resolvedOptions = options ?? {};
     assertEmployeeUrlId(urlId, "urlId");
     const endpoint = `/employees/schedule/${encodeURIComponent(urlId)}`;
     const payload = await requestJson<unknown>(config, endpoint, {
-      signal: options.signal,
-      cache: options.cache
+      signal: resolvedOptions.signal,
+      cache: resolvedOptions.cache
     });
-    if (config.validateResponses) {
+    const returnRaw = resolvedOptions.raw ?? config.defaultRaw;
+    if (config.validateResponses && returnRaw) {
       assertScheduleResponse(payload, endpoint);
     }
     const response = payload as ScheduleResponse;
-    const result = (options.raw ?? config.defaultRaw) ? response : normalizeSchedule(response);
-    return result as ScheduleResponseByRawOption<TRaw, TRawDefault>;
+    if (returnRaw) {
+      return response;
+    }
+    return normalizeSchedule(response, {
+      validate: config.validateResponses,
+      endpoint
+    });
   }
 
   /**
@@ -138,7 +196,7 @@ export function createScheduleModule<TRawDefault extends boolean>(
       signal: options.signal,
       cache: options.cache,
       raw: false
-    });
+    }) as NormalizedScheduleResponse;
     return filterLessons(normalized, filter);
   }
 
@@ -154,7 +212,7 @@ export function createScheduleModule<TRawDefault extends boolean>(
       signal: options.signal,
       cache: options.cache,
       raw: false
-    });
+    }) as NormalizedScheduleResponse;
     return filterLessons(normalized, filter);
   }
 
@@ -169,11 +227,59 @@ export function createScheduleModule<TRawDefault extends boolean>(
     return parseCurrentWeek(payload);
   }
 
+  /**
+   * Returns regular schedule lessons for a subgroup.
+   * When `raw: true`, returns raw `ScheduleItem[]` (without flatten metadata).
+   */
+  async function getGroupBySubgroup(
+    groupNumber: string,
+    subgroup: number,
+    options?: ReadOptions & { raw?: boolean }
+  ): Promise<FlattenedScheduleItem[] | ScheduleItem[]> {
+    const resolvedOptions = options ?? {};
+    assertPositiveInt(subgroup, "subgroup");
+    if (resolvedOptions.raw === true) {
+      const raw = await getGroup(groupNumber, {
+        signal: resolvedOptions.signal,
+        cache: resolvedOptions.cache,
+        raw: true
+      });
+      return filterRawSubgroupLessons(raw, subgroup);
+    }
+    return getGroupFiltered(groupNumber, { source: "schedules", subgroup }, resolvedOptions);
+  }
+
+  /**
+   * Returns regular schedule lessons for an employee subgroup filter.
+   * When `raw: true`, returns raw `ScheduleItem[]` (without flatten metadata).
+   */
+  async function getEmployeeBySubgroup(
+    urlId: string,
+    subgroup: number,
+    options?: ReadOptions & { raw?: boolean }
+  ): Promise<FlattenedScheduleItem[] | ScheduleItem[]> {
+    const resolvedOptions = options ?? {};
+    assertPositiveInt(subgroup, "subgroup");
+    if (resolvedOptions.raw === true) {
+      const raw = await getEmployee(urlId, {
+        signal: resolvedOptions.signal,
+        cache: resolvedOptions.cache,
+        raw: true
+      });
+      return filterRawSubgroupLessons(raw, subgroup);
+    }
+    return getEmployeeFiltered(urlId, { source: "schedules", subgroup }, resolvedOptions);
+  }
+
   return {
-    getGroup,
-    getEmployee,
+    getGroup: getGroup as ScheduleModule<TRawDefault>["getGroup"],
+    getEmployee: getEmployee as ScheduleModule<TRawDefault>["getEmployee"],
     getGroupFiltered,
     getEmployeeFiltered,
+    getGroupBySubgroup: getGroupBySubgroup as ScheduleModule<TRawDefault>["getGroupBySubgroup"],
+    getEmployeeBySubgroup:
+      getEmployeeBySubgroup as ScheduleModule<TRawDefault>["getEmployeeBySubgroup"],
+    getCurrentWeek,
 
     /**
      * Returns exams for a group.
@@ -194,32 +300,6 @@ export function createScheduleModule<TRawDefault extends boolean>(
     ): Promise<FlattenedScheduleItem[]> {
       return getEmployeeFiltered(urlId, { source: "exams" }, options);
     },
-
-    /**
-     * Returns regular schedule lessons of a specific subgroup for a group.
-     */
-    async getGroupBySubgroup(
-      groupNumber: string,
-      subgroup: number,
-      options: ReadOptions = {}
-    ): Promise<FlattenedScheduleItem[]> {
-      assertPositiveInt(subgroup, "subgroup");
-      return getGroupFiltered(groupNumber, { source: "schedules", subgroup }, options);
-    },
-
-    /**
-     * Returns regular schedule lessons of a specific subgroup for an employee.
-     */
-    async getEmployeeBySubgroup(
-      urlId: string,
-      subgroup: number,
-      options: ReadOptions = {}
-    ): Promise<FlattenedScheduleItem[]> {
-      assertPositiveInt(subgroup, "subgroup");
-      return getEmployeeFiltered(urlId, { source: "schedules", subgroup }, options);
-    },
-
-    getCurrentWeek,
 
     /**
      * Calls IIS `/last-update-date/student-group`.

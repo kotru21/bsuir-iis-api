@@ -62,4 +62,26 @@ describe("buildUrl", () => {
       buildUrl("https://iis.bsuir.by/api/v1", "/items", { "a&b": "1" })
     ).toThrow(BsuirValidationError);
   });
+
+  it("rejects path traversal segments", () => {
+    expect(() => buildUrl("https://iis.bsuir.by/api/v1", "../admin")).toThrow(BsuirValidationError);
+    expect(() => buildUrl("https://iis.bsuir.by/api/v1", "/x/../admin")).toThrow(
+      BsuirValidationError
+    );
+  });
+
+  it("rejects absolute/protocol-style path overrides", () => {
+    expect(() => buildUrl("https://iis.bsuir.by/api/v1", "//evil.test/path")).toThrow(
+      BsuirValidationError
+    );
+    expect(() => buildUrl("https://iis.bsuir.by/api/v1", "https://evil.test/path")).toThrow(
+      BsuirValidationError
+    );
+  });
+
+  it("rejects backslashes in path", () => {
+    expect(() => buildUrl("https://iis.bsuir.by/api/v1", String.raw`\\evil\path`)).toThrow(
+      BsuirValidationError
+    );
+  });
 });

@@ -75,6 +75,18 @@ export function mergeSignalsManual(signals: AbortSignal[], timeoutMs?: number): 
     }
   };
 
+  const cleanup = (): void => {
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
+    }
+    for (const listener of listeners) {
+      listener.signal.removeEventListener("abort", listener.handler);
+    }
+  };
+
+  // Register cleanup before possibly synchronous abort path below.
+  combined.signal.addEventListener("abort", cleanup, { once: true });
+
   // Setup timeout if provided
   if (timeoutMs !== undefined) {
     timeoutId = setTimeout(() => {
@@ -94,20 +106,6 @@ export function mergeSignalsManual(signals: AbortSignal[], timeoutMs?: number): 
       listeners.push({ signal, handler: onAnyAbort });
     }
   }
-
-  // Cleanup listeners and timeout when combined signal aborts to prevent memory leaks
-  combined.signal.addEventListener(
-    "abort",
-    () => {
-      if (timeoutId !== undefined) {
-        clearTimeout(timeoutId);
-      }
-      for (const listener of listeners) {
-        listener.signal.removeEventListener("abort", listener.handler);
-      }
-    },
-    { once: true }
-  );
 
   return combined.signal;
 }

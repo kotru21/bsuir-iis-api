@@ -8,12 +8,36 @@ import type { ReadOptions } from "./types";
 
 const ANNOUNCEMENT_EMPTY_LIST_STATUSES = new Set<number>([404]);
 
+function hasNoAnnouncementsMarker(body: unknown): boolean {
+  if (body === null || body === "") {
+    return true;
+  }
+  if (typeof body !== "object" || Array.isArray(body)) {
+    return false;
+  }
+  const record = body as Record<string, unknown>;
+  const message =
+    typeof record.message === "string" ? record.message : typeof record.error === "string" ? record.error : "";
+  if (message.length === 0) {
+    return false;
+  }
+  const normalized = message.toLowerCase();
+  return normalized.includes("announcement") || normalized.includes("объяв");
+}
+
+function endpointMatchesPath(endpoint: string, path: string): boolean {
+  try {
+    return new URL(endpoint).pathname.endsWith(path);
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Fetches an announcement list, converting empty responses (404) to empty arrays.
- * The BSUIR IIS API returns 404 when an entity has no announcements.
+ * Fetches an announcement list, converting explicit "no announcements" 404 envelopes to empty arrays.
  * This function normalizes those to an empty list instead of throwing an error.
  *
- * @returns The announcement list, or empty array if API returned 404
+ * @returns The announcement list, or empty array for known no-announcements 404 responses
  * @throws {BsuirApiError} For non-empty responses with error status codes
  * @throws {BsuirNetworkError} On transport failures
  * @throws {BsuirTimeoutError} When request times out
@@ -28,7 +52,12 @@ async function requestAnnouncementList(
     assertArrayResponse(payload, path);
     return payload as Announcement[];
   } catch (error) {
-    if (error instanceof BsuirApiError && ANNOUNCEMENT_EMPTY_LIST_STATUSES.has(error.status)) {
+    if (
+      error instanceof BsuirApiError &&
+      ANNOUNCEMENT_EMPTY_LIST_STATUSES.has(error.status) &&
+      endpointMatchesPath(error.endpoint, path) &&
+      hasNoAnnouncementsMarker(error.body)
+    ) {
       return [];
     }
     throw error;

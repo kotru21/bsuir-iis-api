@@ -106,7 +106,7 @@ describe("requestJson", () => {
     await expect(requestJson(config, "/faculties")).rejects.toBeInstanceOf(BsuirApiError);
   });
 
-  it("returns empty string when success body is empty and Content-Type is not JSON", async () => {
+  it("returns null when success body is empty and Content-Type is not JSON", async () => {
     const fetchImpl = mockFetchSequence([
       new Response("", {
         status: 200,
@@ -115,8 +115,8 @@ describe("requestJson", () => {
     ]);
     const config = createConfig(fetchImpl, { retries: 0 });
 
-    const body = await requestJson<string>(config, "/faculties");
-    expect(body).toBe("");
+    const body = await requestJson<null>(config, "/faculties");
+    expect(body).toBeNull();
   });
 
   it("throws BsuirApiError when JSON Content-Type body is not valid JSON", async () => {
@@ -346,6 +346,35 @@ describe("requestJson", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
+  it("does not deduplicate default and no-store concurrent requests", async () => {
+    const resolvers: Array<(value: Response) => void> = [];
+    const fetchImpl = vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolvers.push(resolve);
+        })
+    ) as unknown as typeof globalThis.fetch;
+    const config = createConfig(fetchImpl, {
+      cacheTtlMs: 60_000,
+      dedupeInFlight: true
+    });
+
+    const firstPromise = requestJson<{ value: number }>(config, "/faculties");
+    const secondPromise = requestJson<{ value: number }>(config, "/faculties", { cache: "no-store" });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+
+    const firstResolve = resolvers[0];
+    const secondResolve = resolvers[1];
+    if (!firstResolve || !secondResolve) {
+      throw new Error("missing fetch resolvers");
+    }
+    firstResolve(createJsonResponse({ body: { value: 1 } }));
+    secondResolve(createJsonResponse({ body: { value: 2 } }));
+    const [first, second] = await Promise.all([firstPromise, secondPromise]);
+    expect(first.value).toBe(1);
+    expect(second.value).toBe(2);
+  });
+
   it("bypasses cache read and refreshes cache when cache mode is reload", async () => {
     const fetchImpl = mockFetchSequence([
       createJsonResponse({ body: { value: 1 } }),
@@ -436,6 +465,65 @@ describe("requestJson", () => {
     ]);
 
     expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("disables cache and dedup when Authorization header is present", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ body: { value: 1 } }),
+      createJsonResponse({ body: { value: 2 } }),
+      createJsonResponse({ body: { value: 3 } }),
+      createJsonResponse({ body: { value: 4 } })
+    ]);
+    const config = createConfig(fetchImpl, {
+      cacheTtlMs: 60_000,
+      dedupeInFlight: true
+    });
+
+    const first = await requestJson<{ value: number }>(config, "/faculties", {
+      headers: { Authorization: "Bearer token-a" }
+    });
+    const second = await requestJson<{ value: number }>(config, "/faculties", {
+      headers: { Authorization: "Bearer token-a" }
+    });
+    expect(first.value).toBe(1);
+    expect(second.value).toBe(2);
+
+    const thirdPromise = requestJson<{ value: number }>(config, "/faculties", {
+      headers: { Authorization: "Bearer token-b" }
+    });
+    const fourthPromise = requestJson<{ value: number }>(config, "/faculties", {
+      headers: { Authorization: "Bearer token-b" }
+    });
+    const [third, fourth] = await Promise.all([thirdPromise, fourthPromise]);
+    expect(third.value).toBe(3);
+    expect(fourth.value).toBe(4);
+    expect(fetchImpl).toHaveBeenCalledTimes(4);
+    expect(config.responseCache.size).toBe(0);
+  });
+
+  it("treats oversized Retry-After as non-retriable and surfaces hook context", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({
+        status: 503,
+        headers: { "Retry-After": "120" },
+        body: { message: "slow down" }
+      }),
+      createJsonResponse({ body: { ok: true } })
+    ]);
+    const onRetry = vi.fn();
+    const config = createConfig(fetchImpl, {
+      retries: 1,
+      hooks: { onRetry }
+    });
+
+    await expect(requestJson(config, "/faculties")).rejects.toBeInstanceOf(BsuirApiError);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(onRetry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: "retry_after_too_large",
+        status: 503
+      })
+    );
   });
 
   it("retries network errors and eventually succeeds", async () => {

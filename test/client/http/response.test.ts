@@ -59,9 +59,9 @@ describe("parseBody", () => {
     await expect(parseBody(res, limit)).rejects.toBeInstanceOf(BsuirApiError);
   });
 
-  it("returns empty string for empty body when content-type is not JSON", async () => {
+  it("returns null for empty body when content-type is not JSON", async () => {
     const res = makeResponse("", { contentType: "text/plain" });
-    expect(await parseBody(res, limit)).toBe("");
+    expect(await parseBody(res, limit)).toBeNull();
   });
 
   it("throws for invalid JSON when content-type is JSON", async () => {

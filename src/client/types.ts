@@ -40,7 +40,7 @@ export interface RequestHookContext {
 
 export interface RetryHookContext extends RequestHookContext {
   delayMs: number;
-  reason: "http_status" | "network_error";
+  reason: "http_status" | "network_error" | "retry_after_too_large";
   status: number | undefined;
 }
 
@@ -112,6 +112,7 @@ export interface BsuirClientOptions {
    * Allows using `http://` for `baseUrl`.
    *
    * Keep disabled unless you explicitly need local/non-TLS endpoints in tests.
+   * When enabled, `http://` is allowed only for localhost/loopback hosts.
    *
    * @defaultValue false
    */
@@ -205,6 +206,13 @@ export interface BsuirClientOptions {
    * Caching is automatically skipped for requests that carry an `AbortSignal`
    * (per-call or global) to prevent serving stale data after cancellation.
    *
+   * Caching is also automatically skipped when request headers include
+   * credentials/private identity data such as `Authorization`, `Cookie`,
+   * `Proxy-Authorization`, or `X-API-Key`.
+   *
+   * For server-side multi-tenant apps, prefer one client instance per identity
+   * (per user/session/token) to avoid accidental data sharing.
+   *
    * @example
    * ```ts
    * // Cache for 5 minutes, keep at most 500 entries
@@ -222,6 +230,8 @@ export interface BsuirClientOptions {
    * duplicate API calls in scenarios like parallel component rendering.
    *
    * Disabled automatically when the request carries an `AbortSignal`.
+   * Also disabled for non-default cache modes and requests with private
+   * credential headers.
    *
    * @defaultValue false
    */
@@ -245,7 +255,7 @@ export interface BsuirClientOptions {
    * **Recommended to enable during development and in test environments.**
    * Can be left `false` in production for a small performance gain.
    *
-   * @defaultValue true
+   * @defaultValue false
    *
    * @example
    * ```ts

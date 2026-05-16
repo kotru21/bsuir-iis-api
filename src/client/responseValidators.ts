@@ -31,7 +31,7 @@ function isNullableObject(value: unknown): boolean {
 }
 
 /**
- *
+ * Asserts that payload is an array response.
  */
 export function assertArrayResponse(
   payload: unknown,
@@ -46,7 +46,7 @@ export function assertArrayResponse(
 }
 
 /**
- *
+ * Asserts that payload matches `{ lastUpdateDate: string }`.
  */
 export function assertApiDateResponse(
   payload: unknown,
@@ -62,7 +62,7 @@ export function assertApiDateResponse(
 }
 
 /**
- *
+ * Asserts that payload is a schedule response envelope.
  */
 export function assertScheduleResponse(
   payload: unknown,

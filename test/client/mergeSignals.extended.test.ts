@@ -56,4 +56,15 @@ describe("mergeSignals — additional branches", () => {
     expect(result.aborted).toBe(true);
     vi.useRealTimers();
   });
+
+  it("mergeSignalsManual: clears timeout immediately when one signal is already aborted", () => {
+    vi.useFakeTimers();
+    const ctrl = new AbortController();
+    ctrl.abort();
+
+    const result = mergeSignalsManual([ctrl.signal, new AbortController().signal], 10_000);
+    expect(result.aborted).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+    vi.useRealTimers();
+  });
 });

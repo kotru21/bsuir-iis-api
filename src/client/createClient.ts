@@ -61,6 +61,10 @@ function normalizeHostname(rawHostname: string): string {
   return trimmed;
 }
 
+function isLoopbackHost(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "::1" || hostname.startsWith("127.");
+}
+
 function assertSafeHeaderValue(value: string | undefined, optionName: string): string | undefined {
   if (value === undefined) {
     return undefined;
@@ -113,6 +117,11 @@ function normalizeBaseUrl(
   const host = normalizeHostname(parsed.hostname);
   if (host.length === 0) {
     throw new BsuirConfigurationError("'baseUrl' must include a valid hostname");
+  }
+  if (parsed.protocol === "http:" && allowInsecureHttp && !isLoopbackHost(host)) {
+    throw new BsuirConfigurationError(
+      "'allowInsecureHttp: true' is restricted to localhost/loopback HTTP endpoints only"
+    );
   }
   if (!normalizedAllowedHosts.has(host)) {
     throw new BsuirConfigurationError(
@@ -170,7 +179,7 @@ function createInternalConfig<TRawDefault extends boolean>(
     userAgent: assertSafeHeaderValue(options.userAgent, "userAgent"),
     cacheTtlMs,
     cacheMaxEntries,
-    dedupeInFlight: options.dedupeInFlight ?? true,
+    dedupeInFlight: options.dedupeInFlight ?? false,
     maxResponseBytes,
     validateResponses: options.validateResponses ?? false,
     hooks: options.hooks ?? {},

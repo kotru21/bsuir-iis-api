@@ -30,14 +30,14 @@ describe("createBsuirClient — baseUrl validation (lines 61, 65, 69, 82)", () =
     ).toThrow(BsuirConfigurationError);
   });
 
-  it("allows http:// when allowInsecureHttp: true", () => {
+  it("rejects non-loopback http:// even when allowInsecureHttp: true", () => {
     expect(() =>
       createBsuirClient({
         baseUrl: "http://iis.bsuir.by/api/v1",
         allowInsecureHttp: true,
         allowedBaseUrlHosts: ["iis.bsuir.by"]
       })
-    ).not.toThrow();
+    ).toThrow(BsuirConfigurationError);
   });
 
   it("throws when allowedBaseUrlHosts contains only blank strings (line 82)", () => {

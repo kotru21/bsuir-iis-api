@@ -18,12 +18,15 @@ import type {
 import { isAbortError } from "../../utils/guards";
 import { setCache, tryReadCache } from "./cache";
 import { parseBody } from "./response";
-import { getRetryDelayMs, RETRIABLE_STATUS_CODES, sleep } from "./retry";
+import { getRetryDecision, getRetryDelayMs, RETRIABLE_STATUS_CODES, sleep } from "./retry";
 import { buildUrl } from "./url";
 
-function normalizeHeadersForCacheKey(headers: Headers): string {
+const CACHE_KEY_HEADER_ALLOWLIST = new Set<string>(["accept", "accept-language"]);
+
+function normalizeHeadersForRequestKey(headers: Headers): string {
   return [...headers.entries()]
     .map(([key, value]) => [key.toLowerCase(), value] as const)
+    .filter(([key]) => CACHE_KEY_HEADER_ALLOWLIST.has(key))
     .toSorted((a, b) => {
       if (a[0] !== b[0]) {
         return a[0] < b[0] ? -1 : 1;
@@ -38,7 +41,33 @@ function normalizeHeadersForCacheKey(headers: Headers): string {
 }
 
 function buildRequestKey(method: RequestMethod, endpoint: string, headers: Headers): string {
-  return `${method}\n${endpoint}\n${normalizeHeadersForCacheKey(headers)}`;
+  return `${method}\n${endpoint}\n${normalizeHeadersForRequestKey(headers)}`;
+}
+
+function isPrivateHeader(name: string): boolean {
+  const normalized = name.toLowerCase();
+  if (
+    normalized === "authorization" ||
+    normalized === "proxy-authorization" ||
+    normalized === "cookie" ||
+    normalized === "set-cookie" ||
+    normalized === "x-api-key"
+  ) {
+    return true;
+  }
+  if (normalized.endsWith("-api-key")) {
+    return true;
+  }
+  return normalized.includes("token") || normalized.includes("secret");
+}
+
+function hasPrivateHeaders(headers: Headers): boolean {
+  for (const [key] of headers.entries()) {
+    if (isPrivateHeader(key)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function baseHookContext(
@@ -90,18 +119,32 @@ export async function requestJson<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  const requestKey = buildRequestKey(method, endpoint, headers);
   const cacheMode = options.cache ?? "default";
   // Caching and dedup are disabled when a per-call signal is provided (caller manages lifecycle)
   // OR when a global client signal is already aborted — stale data must not be served after abort.
   const hasActiveSignal = options.signal != null || config.signal?.aborted === true;
-  const canUseCaching = config.cacheTtlMs !== undefined && method === "GET" && !hasActiveSignal;
+  const hasPrivateRequestHeaders = hasPrivateHeaders(headers);
+  const canUseCaching =
+    config.cacheTtlMs !== undefined &&
+    method === "GET" &&
+    !hasActiveSignal &&
+    !hasPrivateRequestHeaders;
   const canReadFromCache = canUseCaching && cacheMode === "default";
   const canWriteToCache = canUseCaching && cacheMode !== "no-store";
-  const canUseDedup = config.dedupeInFlight && method === "GET" && !hasActiveSignal;
+  const canUseDedup =
+    config.dedupeInFlight &&
+    method === "GET" &&
+    !hasActiveSignal &&
+    !hasPrivateRequestHeaders &&
+    cacheMode === "default";
+  let requestKey: string | undefined;
+  const ensureRequestKey = (): string => {
+    requestKey ??= buildRequestKey(method, endpoint, headers);
+    return requestKey;
+  };
 
   if (canReadFromCache) {
-    const cached = tryReadCache(config, requestKey);
+    const cached = tryReadCache(config, ensureRequestKey());
     if (cached !== undefined) {
       const cacheHitCtx: ResponseHookContext = {
         ...baseHookContext(method, path, endpoint, 1, maxAttempts, options.query),
@@ -146,16 +189,25 @@ export async function requestJson<T>(
         if (!response.ok) {
           const errorBody = await parseBody(response, config.maxResponseBytes);
           if (attempt < maxRetries && RETRIABLE_STATUS_CODES.has(response.status)) {
-            const delayMs = getRetryDelayMs(config, attempt, response.headers.get("retry-after"));
-            const retryCtx: RetryHookContext = {
+            const retryDecision = getRetryDecision(config, attempt, response.headers.get("retry-after"));
+            if (retryDecision.retryable) {
+              const retryCtx: RetryHookContext = {
+                ...hookCtx,
+                delayMs: retryDecision.delayMs,
+                reason: "http_status",
+                status: response.status
+              };
+              config.hooks.onRetry?.(retryCtx);
+              await sleep(retryDecision.delayMs);
+              continue;
+            }
+            const skipRetryCtx: RetryHookContext = {
               ...hookCtx,
-              delayMs,
-              reason: "http_status",
+              delayMs: retryDecision.rejectedDelayMs,
+              reason: "retry_after_too_large",
               status: response.status
             };
-            config.hooks.onRetry?.(retryCtx);
-            await sleep(delayMs);
-            continue;
+            config.hooks.onRetry?.(skipRetryCtx);
           }
           const apiError = new BsuirApiError(
             `BSUIR API returned HTTP ${String(response.status)} for ${method} ${path}`,
@@ -249,22 +301,23 @@ export async function requestJson<T>(
   const requestAndMaybeCache = (): Promise<T> =>
     performRequest().then((payload) => {
       if (canWriteToCache) {
-        setCache(config, requestKey, payload);
+        setCache(config, ensureRequestKey(), payload);
       }
       return payload;
     });
 
   if (canUseDedup) {
-    const inFlight = config.inFlightRequests.get(requestKey);
+    const key = ensureRequestKey();
+    const inFlight = config.inFlightRequests.get(key);
     if (inFlight) {
       return (await inFlight) as T;
     }
 
     const inFlightPromise: Promise<T> = requestAndMaybeCache()
       .finally(() => {
-        config.inFlightRequests.delete(requestKey);
+        config.inFlightRequests.delete(key);
       });
-    config.inFlightRequests.set(requestKey, inFlightPromise);
+    config.inFlightRequests.set(key, inFlightPromise);
     return await inFlightPromise;
   }
 

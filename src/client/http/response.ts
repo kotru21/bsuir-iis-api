@@ -59,6 +59,7 @@ async function readBodyTextWithLimit(
 
 /**
  * Parses response body as JSON when possible, otherwise returns text.
+ * Returns `null` for empty non-JSON bodies.
  * Throws `BsuirApiError` for declared JSON payloads that are empty/invalid.
  */
 export async function parseBody(response: Response, maxResponseBytes: number): Promise<unknown> {
@@ -69,7 +70,7 @@ export async function parseBody(response: Response, maxResponseBytes: number): P
     if (declaredJson) {
       throw new BsuirApiError("Invalid JSON response payload", response.status, response.url, null);
     }
-    return "";
+    return null;
   }
   try {
     return JSON.parse(text) as unknown;
