@@ -96,6 +96,11 @@ export interface RequestOptions {
    * @defaultValue "default"
    */
   cache?: RequestCacheMode | undefined;
+  /**
+   * Optional response validator invoked for network responses before caching.
+   * Used by internal modules to avoid repeated validation on cache hits.
+   */
+  responseValidator?: ((payload: unknown) => void) | undefined;
 }
 
 /**

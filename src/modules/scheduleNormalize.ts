@@ -36,6 +36,26 @@ function cloneScheduleItem(item: ScheduleItem): ScheduleItem {
   };
 }
 
+function deepFreezeJson<T>(value: T): T {
+  if (value === null || typeof value !== "object") {
+    return value;
+  }
+  if (Object.isFrozen(value)) {
+    return value;
+  }
+  Object.freeze(value);
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      deepFreezeJson(item);
+    }
+  } else {
+    for (const key of Object.keys(value)) {
+      deepFreezeJson((value as Record<string, unknown>)[key]);
+    }
+  }
+  return value;
+}
+
 // Minimal envelope check kept here (not in responseValidators) because the normalize
 // path always needs at least this much shape safety to avoid crashing on a non-object
 // payload — even when full validation is disabled. The full validator
@@ -86,21 +106,23 @@ export function normalizeSchedule(
       normalizedSchedules[day] = clonedDayItems;
     }
 
-    const flattenedDayItems: FlattenedScheduleItem[] = clonedDayItems.map((item) => ({
-      ...item,
-      day,
-      source: "schedules" as const
-    }));
+    const flattenedDayItems: FlattenedScheduleItem[] = clonedDayItems.map((item) =>
+      deepFreezeJson({
+        ...item,
+        day,
+        source: "schedules" as const
+      })
+    );
     lessonsByDay[day] = flattenedDayItems;
     scheduleLessons.push(...flattenedDayItems);
   }
 
   for (const exam of normalizedExams) {
-    const flattenedExam: FlattenedScheduleItem = {
+    const flattenedExam: FlattenedScheduleItem = deepFreezeJson({
       ...exam,
       day: null,
       source: "exams"
-    };
+    });
     examLessons.push(flattenedExam);
   }
 

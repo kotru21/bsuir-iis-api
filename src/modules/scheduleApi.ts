@@ -82,6 +82,11 @@ export interface ScheduleModule<TRawDefault extends boolean> {
   getGroupBySubgroup(
     groupNumber: string,
     subgroup: number,
+    options: ReadOptions & { raw: boolean; rawEnvelope?: false | undefined }
+  ): Promise<ScheduleItem[] | FlattenedScheduleItem[]>;
+  getGroupBySubgroup(
+    groupNumber: string,
+    subgroup: number,
     options?: ReadOptions & { raw?: false | undefined; rawEnvelope?: false | undefined }
   ): Promise<FlattenedScheduleItem[]>;
 
@@ -95,6 +100,11 @@ export interface ScheduleModule<TRawDefault extends boolean> {
     subgroup: number,
     options: ReadOptions & { raw: true; rawEnvelope?: false | undefined }
   ): Promise<ScheduleItem[]>;
+  getEmployeeBySubgroup(
+    urlId: string,
+    subgroup: number,
+    options: ReadOptions & { raw: boolean; rawEnvelope?: false | undefined }
+  ): Promise<ScheduleItem[] | FlattenedScheduleItem[]>;
   getEmployeeBySubgroup(
     urlId: string,
     subgroup: number,
@@ -159,21 +169,23 @@ export function createScheduleModule<TRawDefault extends boolean>(
   ): Promise<ScheduleResponse | NormalizedScheduleResponse> {
     const resolvedOptions = options ?? {};
     assertGroupNumber(groupNumber, "groupNumber");
+    const returnRaw = resolvedOptions.raw ?? config.defaultRaw;
     const payload = await requestJson<unknown>(config, "/schedule", {
       query: { studentGroup: groupNumber },
       signal: resolvedOptions.signal,
-      cache: resolvedOptions.cache
+      cache: resolvedOptions.cache,
+      responseValidator: config.validateResponses
+        ? (value) => {
+            assertScheduleResponse(value, "/schedule");
+          }
+        : undefined
     });
-    const returnRaw = resolvedOptions.raw ?? config.defaultRaw;
-    if (config.validateResponses && returnRaw) {
-      assertScheduleResponse(payload, "/schedule");
-    }
     const response = payload as ScheduleResponse;
     if (returnRaw) {
       return response;
     }
     return normalizeSchedule(response, {
-      validate: config.validateResponses,
+      validate: false,
       endpoint: "/schedule"
     });
   }
@@ -189,20 +201,22 @@ export function createScheduleModule<TRawDefault extends boolean>(
     const resolvedOptions = options ?? {};
     assertEmployeeUrlId(urlId, "urlId");
     const endpoint = `/employees/schedule/${encodeURIComponent(urlId)}`;
+    const returnRaw = resolvedOptions.raw ?? config.defaultRaw;
     const payload = await requestJson<unknown>(config, endpoint, {
       signal: resolvedOptions.signal,
-      cache: resolvedOptions.cache
+      cache: resolvedOptions.cache,
+      responseValidator: config.validateResponses
+        ? (value) => {
+            assertScheduleResponse(value, endpoint);
+          }
+        : undefined
     });
-    const returnRaw = resolvedOptions.raw ?? config.defaultRaw;
-    if (config.validateResponses && returnRaw) {
-      assertScheduleResponse(payload, endpoint);
-    }
     const response = payload as ScheduleResponse;
     if (returnRaw) {
       return response;
     }
     return normalizeSchedule(response, {
-      validate: config.validateResponses,
+      validate: false,
       endpoint
     });
   }

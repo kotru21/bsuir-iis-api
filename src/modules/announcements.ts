@@ -55,7 +55,9 @@ async function requestAnnouncementList(
   const treat404AsEmpty = options.treat404AsEmpty ?? true;
   try {
     const payload = await requestJson<unknown>(config, path, options);
-    assertArrayResponse(payload, path);
+    if (config.validateResponses) {
+      assertArrayResponse(payload, path);
+    }
     return payload as Announcement[];
   } catch (error) {
     if (

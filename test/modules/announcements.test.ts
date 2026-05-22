@@ -66,6 +66,13 @@ describe("announcements module", () => {
     expect(result).toHaveLength(1);
   });
 
+  it("skips validation when validateResponses: false", async () => {
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: { not: "array" } })]);
+    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
+    const result = await client.announcements.byEmployee("v-petrov");
+    expect(result).toEqual({ not: "array" });
+  });
+
   it("returns announcements for department", async () => {
     const body = [{ id: 2, text: "Расписание" }];
     const fetchImpl = mockFetchSequence([createJsonResponse({ body })]);

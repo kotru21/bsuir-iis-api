@@ -4,7 +4,7 @@ import {
   BsuirResponsePayloadTooLargeError,
   BsuirTimeoutError
 } from "../errors";
-import { mergeSignals } from "../mergeSignals";
+import { getMergedSignalCleanup, mergeSignals } from "../mergeSignals";
 import type {
   ErrorHookContext,
   InternalClientConfig,
@@ -223,6 +223,7 @@ export async function requestJson<T>(
       config.hooks.onRequest?.(hookCtx);
 
       const requestSignal = mergeSignals([options.signal, config.signal], config.timeoutMs);
+      const requestSignalCleanup = getMergedSignalCleanup(requestSignal);
 
       try {
         const requestInit: RequestInit = {
@@ -342,6 +343,8 @@ export async function requestJson<T>(
         };
         config.hooks.onError?.(networkErrorCtx);
         throw networkError;
+      } finally {
+        requestSignalCleanup?.();
       }
     }
 
@@ -350,8 +353,12 @@ export async function requestJson<T>(
 
   const requestAndMaybeCache = (): Promise<T> =>
     performRequest().then((payload) => {
+      options.responseValidator?.(payload);
       if (canWriteToCache) {
-        setCache(config, ensureRequestKey(), payload);
+        const cached = setCache(config, ensureRequestKey(), payload);
+        if (cached !== undefined) {
+          return cached;
+        }
       }
       return payload;
     });

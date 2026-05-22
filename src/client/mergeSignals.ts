@@ -3,6 +3,18 @@ type AbortSignalConstructor = typeof AbortSignal & {
 };
 
 const AbortSignalCtor = AbortSignal as AbortSignalConstructor;
+const MERGED_SIGNAL_CLEANUP = Symbol("mergedSignalCleanup");
+
+type MergedSignalWithCleanup = AbortSignal & {
+  [MERGED_SIGNAL_CLEANUP]?: () => void;
+};
+
+/**
+ * Returns a cleanup callback for manually merged signals, when available.
+ */
+export function getMergedSignalCleanup(signal: AbortSignal): (() => void) | undefined {
+  return (signal as MergedSignalWithCleanup)[MERGED_SIGNAL_CLEANUP];
+}
 
 /**
  * Combines multiple abort signals and/or a timeout into a single signal.
@@ -92,10 +104,15 @@ export function mergeSignalsManual(signals: AbortSignal[], timeoutMs?: number): 
       listener.signal.removeEventListener("abort", listener.handler);
     }
     listeners.length = 0;
+    combined.signal.removeEventListener("abort", cleanup);
   };
 
   // Register cleanup before possibly synchronous abort path below.
   combined.signal.addEventListener("abort", cleanup, { once: true });
+  Object.defineProperty(combined.signal, MERGED_SIGNAL_CLEANUP, {
+    value: cleanup,
+    configurable: true
+  });
 
   // Setup timeout if provided
   if (timeoutMs !== undefined) {

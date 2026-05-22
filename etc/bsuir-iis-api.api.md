@@ -479,6 +479,7 @@ export interface RequestOptions {
     headers?: HeadersInit | undefined;
     method?: RequestMethod | undefined;
     query?: QueryParams | undefined;
+    responseValidator?: ((payload: unknown) => void) | undefined;
     signal?: AbortSignal | undefined;
 }
 
@@ -569,6 +570,104 @@ export interface ScheduleItem {
     subjectFullName: string;
     // (undocumented)
     weekNumber: number[] | null;
+}
+
+// @public (undocumented)
+export interface ScheduleModule<TRawDefault extends boolean> {
+    // (undocumented)
+    getCurrentWeek(options?: ReadOptions): Promise<number>;
+    // (undocumented)
+    getEmployee(urlId: string, options: ReadOptions & {
+        raw: true;
+    }): Promise<ScheduleResponse>;
+    // (undocumented)
+    getEmployee(urlId: string, options: ReadOptions & {
+        raw: false;
+    }): Promise<NormalizedScheduleResponse>;
+    // (undocumented)
+    getEmployee(urlId: string, options?: ReadOptions & {
+        raw?: undefined;
+    }): Promise<DefaultScheduleResponse<TRawDefault>>;
+    // (undocumented)
+    getEmployee(urlId: string, options: ReadOptions & {
+        raw: boolean;
+    }): Promise<ScheduleResponse | NormalizedScheduleResponse>;
+    // (undocumented)
+    getEmployeeBySubgroup(urlId: string, subgroup: number, options: ReadOptions & {
+        rawEnvelope: true;
+    }): Promise<ScheduleResponse>;
+    // (undocumented)
+    getEmployeeBySubgroup(urlId: string, subgroup: number, options: ReadOptions & {
+        raw: true;
+        rawEnvelope?: false | undefined;
+    }): Promise<ScheduleItem[]>;
+    // (undocumented)
+    getEmployeeBySubgroup(urlId: string, subgroup: number, options: ReadOptions & {
+        raw: boolean;
+        rawEnvelope?: false | undefined;
+    }): Promise<ScheduleItem[] | FlattenedScheduleItem[]>;
+    // (undocumented)
+    getEmployeeBySubgroup(urlId: string, subgroup: number, options?: ReadOptions & {
+        raw?: false | undefined;
+        rawEnvelope?: false | undefined;
+    }): Promise<FlattenedScheduleItem[]>;
+    // (undocumented)
+    getEmployeeExams(urlId: string, options?: ReadOptions): Promise<FlattenedScheduleItem[]>;
+    // (undocumented)
+    getEmployeeFiltered(urlId: string, filter: ScheduleFilterOptions, options?: ReadOptions): Promise<FlattenedScheduleItem[]>;
+    // (undocumented)
+    getGroup(groupNumber: string, options: ReadOptions & {
+        raw: true;
+    }): Promise<ScheduleResponse>;
+    // (undocumented)
+    getGroup(groupNumber: string, options: ReadOptions & {
+        raw: false;
+    }): Promise<NormalizedScheduleResponse>;
+    // Warning: (ae-forgotten-export) The symbol "DefaultScheduleResponse" needs to be exported by the entry point index.d.ts
+    //
+    // (undocumented)
+    getGroup(groupNumber: string, options?: ReadOptions & {
+        raw?: undefined;
+    }): Promise<DefaultScheduleResponse<TRawDefault>>;
+    // (undocumented)
+    getGroup(groupNumber: string, options: ReadOptions & {
+        raw: boolean;
+    }): Promise<ScheduleResponse | NormalizedScheduleResponse>;
+    // (undocumented)
+    getGroupBySubgroup(groupNumber: string, subgroup: number, options: ReadOptions & {
+        rawEnvelope: true;
+    }): Promise<ScheduleResponse>;
+    // (undocumented)
+    getGroupBySubgroup(groupNumber: string, subgroup: number, options: ReadOptions & {
+        raw: true;
+        rawEnvelope?: false | undefined;
+    }): Promise<ScheduleItem[]>;
+    // (undocumented)
+    getGroupBySubgroup(groupNumber: string, subgroup: number, options: ReadOptions & {
+        raw: boolean;
+        rawEnvelope?: false | undefined;
+    }): Promise<ScheduleItem[] | FlattenedScheduleItem[]>;
+    // (undocumented)
+    getGroupBySubgroup(groupNumber: string, subgroup: number, options?: ReadOptions & {
+        raw?: false | undefined;
+        rawEnvelope?: false | undefined;
+    }): Promise<FlattenedScheduleItem[]>;
+    // (undocumented)
+    getGroupExams(groupNumber: string, options?: ReadOptions): Promise<FlattenedScheduleItem[]>;
+    // (undocumented)
+    getGroupFiltered(groupNumber: string, filter: ScheduleFilterOptions, options?: ReadOptions): Promise<FlattenedScheduleItem[]>;
+    // (undocumented)
+    getLastUpdateByEmployee(params: {
+        urlId: string;
+    } | {
+        id: number;
+    }, options?: ReadOptions): Promise<ApiDateResponse>;
+    // (undocumented)
+    getLastUpdateByGroup(params: {
+        groupNumber: string;
+    } | {
+        id: number;
+    }, options?: ReadOptions): Promise<ApiDateResponse>;
 }
 
 // @public (undocumented)

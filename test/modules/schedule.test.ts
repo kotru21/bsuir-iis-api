@@ -122,6 +122,22 @@ describe("schedule module", () => {
     }
   });
 
+  it("freezes normalized lesson items to avoid cross-view mutations", async () => {
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildScheduleResponse() })]);
+    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
+
+    const response = await client.schedule.getGroup("053503");
+
+    expect("lessons" in response).toBe(true);
+    if ("lessons" in response) {
+      const lesson = response.lessons[0];
+      expect(Object.isFrozen(lesson)).toBe(true);
+      expect(Object.isFrozen(lesson?.auditories ?? [])).toBe(true);
+      expect(Object.isFrozen(response.lessonsByDay.Понедельник[0])).toBe(true);
+      expect(Object.isFrozen(response.scheduleLessons[0])).toBe(true);
+    }
+  });
+
   it("supports raw mode per request", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildScheduleResponse() })]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
@@ -355,20 +371,22 @@ describe("schedule module", () => {
 
     const employees = normalized.lessons[0]?.employees;
     if (Array.isArray(employees)) {
-      employees.push({
-        firstName: "New",
-        lastName: "Teacher",
-        middleName: "",
-        degree: "",
-        degreeAbbrev: "",
-        email: null,
-        rank: null,
-        photoLink: "",
-        calendarId: "",
-        id: 1,
-        urlId: "new-teacher",
-        jobPositions: null
-      });
+      expect(() =>
+        employees.push({
+          firstName: "New",
+          lastName: "Teacher",
+          middleName: "",
+          degree: "",
+          degreeAbbrev: "",
+          email: null,
+          rank: null,
+          photoLink: "",
+          calendarId: "",
+          id: 1,
+          urlId: "new-teacher",
+          jobPositions: null
+        })
+      ).toThrow(TypeError);
     }
 
     expect(payload.schedules?.Понедельник).toHaveLength(1);

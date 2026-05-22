@@ -71,4 +71,92 @@ describe("requestJson — additional branches", () => {
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
     await expect(client.groups.listAll()).rejects.toBeInstanceOf(BsuirResponseValidationError);
   });
+
+  it("returns a frozen payload when caching is enabled", async () => {
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: [{ id: 1 }] })]);
+    const client = createBsuirClient({
+      fetch: fetchImpl,
+      validateResponses: false,
+      cache: { ttlMs: 60_000 }
+    });
+
+    const response = await client.groups.listAll();
+    const first = response[0];
+
+    expect(Object.isFrozen(response)).toBe(true);
+    expect(Object.isFrozen(first ?? {})).toBe(true);
+  });
+
+  it("detaches manual merge listeners after successful request when AbortSignal.any is unavailable", async () => {
+    vi.useFakeTimers();
+    const controller = new AbortController();
+    let added = 0;
+    let removed = 0;
+    const originalDescriptor = Object.getOwnPropertyDescriptor(AbortSignal, "any");
+    const addDescriptor = Object.getOwnPropertyDescriptor(AbortSignal.prototype, "addEventListener");
+    const removeDescriptor = Object.getOwnPropertyDescriptor(
+      AbortSignal.prototype,
+      "removeEventListener"
+    );
+
+    try {
+      if (!originalDescriptor?.configurable) {
+        throw new Error("AbortSignal.any is not configurable");
+      }
+      Object.defineProperty(AbortSignal, "any", {
+        value: undefined,
+        configurable: true
+      });
+
+      AbortSignal.prototype.addEventListener = function (
+        type: string,
+        listener: EventListenerOrEventListenerObject,
+        options?: boolean | AddEventListenerOptions
+      ) {
+        if (this === controller.signal && type === "abort") {
+          added += 1;
+        }
+        return EventTarget.prototype.addEventListener.call(this, type, listener, options);
+      };
+
+      AbortSignal.prototype.removeEventListener = function (
+        type: string,
+        listener: EventListenerOrEventListenerObject,
+        options?: boolean | EventListenerOptions
+      ) {
+        if (this === controller.signal && type === "abort") {
+          removed += 1;
+        }
+        return EventTarget.prototype.removeEventListener.call(this, type, listener, options);
+      };
+
+      const fetchImpl = mockFetchSequence([createJsonResponse({ body: [] })]);
+      const client = createBsuirClient({
+        fetch: fetchImpl,
+        signal: controller.signal,
+        timeoutMs: 10_000,
+        validateResponses: false
+      });
+
+      await client.groups.listAll();
+
+      expect(added).toBeGreaterThan(0);
+      expect(removed).toBeGreaterThan(0);
+    } finally {
+      if (addDescriptor) {
+        Object.defineProperty(AbortSignal.prototype, "addEventListener", addDescriptor);
+      } else {
+        delete (AbortSignal.prototype as { addEventListener?: unknown }).addEventListener;
+      }
+      if (removeDescriptor) {
+        Object.defineProperty(AbortSignal.prototype, "removeEventListener", removeDescriptor);
+      } else {
+        delete (AbortSignal.prototype as { removeEventListener?: unknown }).removeEventListener;
+      }
+      if (originalDescriptor) {
+        Object.defineProperty(AbortSignal, "any", originalDescriptor);
+      }
+      vi.useRealTimers();
+    }
+  });
 });

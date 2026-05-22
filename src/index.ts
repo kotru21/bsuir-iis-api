@@ -16,6 +16,7 @@ export type {
   RetryHookContext
 } from "./client/types";
 export type { ReadOptions } from "./modules/types";
+export type { ScheduleModule } from "./modules/scheduleApi";
 export {
   buildScheduleDays,
   filterLessons,

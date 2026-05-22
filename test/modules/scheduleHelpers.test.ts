@@ -11,6 +11,7 @@ import {
   normalizeSchedule,
   sortLessonsByTime
 } from "../../src";
+import type { InvalidLessonTimeHook } from "../../src/helpers/schedule";
 import type {
   FlattenedScheduleItem,
   ScheduleItem,
@@ -149,6 +150,54 @@ describe("schedule helpers", () => {
       "Пара недели 2"
     ]);
     expect(grouped.Вторник.map((item) => item.subject)).toEqual(["Пара вторника"]);
+  });
+
+  it("calls onInvalidTime with field, value, and lesson for invalid time strings", () => {
+    const lesson = makeLesson({ startLessonTime: "invalid", endLessonTime: "10:20" });
+    const calls: Array<Parameters<InvalidLessonTimeHook>[0]> = [];
+    const onInvalidTime: InvalidLessonTimeHook = (info) => {
+      calls.push(info);
+    };
+
+    sortLessonsByTime([lesson], { onInvalidTime });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toEqual(
+      expect.objectContaining({
+        field: "startLessonTime",
+        value: "invalid"
+      })
+    );
+    expect(calls[0]?.lesson).toEqual(
+      expect.objectContaining({
+        startLessonTime: "invalid",
+        endLessonTime: "10:20"
+      })
+    );
+  });
+
+  it("does not call onInvalidTime for empty time strings", () => {
+    const lesson = makeLesson({ startLessonTime: "", endLessonTime: "" });
+    const calls: Array<Parameters<InvalidLessonTimeHook>[0]> = [];
+    const onInvalidTime: InvalidLessonTimeHook = (info) => {
+      calls.push(info);
+    };
+
+    sortLessonsByTime([lesson], { onInvalidTime });
+
+    expect(calls).toHaveLength(0);
+  });
+
+  it("swallows errors thrown by onInvalidTime hooks", () => {
+    const lesson = makeLesson({ startLessonTime: "invalid", endLessonTime: "10:20" });
+
+    expect(() =>
+      sortLessonsByTime([lesson], {
+        onInvalidTime: () => {
+          throw new Error("boom");
+        }
+      })
+    ).not.toThrow();
   });
 
   it("detects current and next lessons", () => {

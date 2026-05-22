@@ -76,13 +76,13 @@ export function tryReadCache(config: Readonly<InternalClientConfig>, key: string
  * instances) would either fail later on read or silently lose data on
  * structuredClone-based eviction strategies.
  */
-export function setCache(
+export function setCache<T>(
   config: Readonly<InternalClientConfig>,
   key: string,
-  value: unknown
-): void {
+  value: T
+): T | undefined {
   if (config.cacheTtlMs === undefined) {
-    return;
+    return undefined;
   }
   if (!isJsonValue(value)) {
     throw new BsuirConfigurationError(
@@ -104,7 +104,7 @@ export function setCache(
   });
 
   if (config.responseCache.size <= config.cacheMaxEntries) {
-    return;
+    return frozen;
   }
 
   // Remove expired entries before capacity-based eviction, but only when oversized.
@@ -115,7 +115,7 @@ export function setCache(
   }
 
   if (config.responseCache.size <= config.cacheMaxEntries) {
-    return;
+    return frozen;
   }
 
   // Evict least-recently-used entries using insertion order.
@@ -125,4 +125,6 @@ export function setCache(
     }
     config.responseCache.delete(k);
   }
+
+  return frozen;
 }
