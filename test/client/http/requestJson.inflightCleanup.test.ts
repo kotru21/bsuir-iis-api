@@ -18,6 +18,6 @@ describe("requestJson — inFlightRequests cleanup", () => {
     // After failure, subsequent call should trigger another network request
     await expect(client.groups.listAll()).resolves.toEqual([]);
 
-    expect((fetchImpl as any).mock.calls.length).toBe(2);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 });

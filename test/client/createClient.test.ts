@@ -119,7 +119,7 @@ describe("createBsuirClient", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
-  it("uses raw schedule payload by default when defaultRaw=true", async () => {
+  it("returns raw schedule payload when using getGroupRaw", async () => {
     const fetchImpl = vi.fn(async () =>
       createJsonResponse({
         body: {
@@ -134,9 +134,9 @@ describe("createBsuirClient", () => {
         }
       })
     ) as unknown as typeof fetch;
-    const client = createBsuirClient({ fetch: fetchImpl, defaultRaw: true });
+    const client = createBsuirClient({ fetch: fetchImpl });
 
-    const response = await client.schedule.getGroup("053503");
+    const response = await client.schedule.getGroupRaw("053503");
     expect("lessons" in response).toBe(false);
   });
 

@@ -78,7 +78,7 @@ export class BsuirApiError extends Error {
 }
 
 // @public
-export type BsuirClient = BsuirClientShape<true> | BsuirClientShape<false>;
+export type BsuirClient = BsuirClientShape;
 
 // @public
 export interface BsuirClientOptions {
@@ -87,7 +87,6 @@ export interface BsuirClientOptions {
     baseUrl?: string;
     cache?: CacheOptions;
     dedupeInFlight?: boolean;
-    defaultRaw?: boolean;
     fetch?: typeof globalThis.fetch;
     hooks?: ClientHooks;
     maxResponseBytes?: number;
@@ -102,7 +101,7 @@ export interface BsuirClientOptions {
 }
 
 // @public
-export interface BsuirClientShape<TRawDefault extends boolean> {
+export interface BsuirClientShape {
     // Warning: (ae-forgotten-export) The symbol "createAnnouncementsModule" needs to be exported by the entry point index.d.ts
     //
     // (undocumented)
@@ -130,7 +129,7 @@ export interface BsuirClientShape<TRawDefault extends boolean> {
     // Warning: (ae-forgotten-export) The symbol "createScheduleModule" needs to be exported by the entry point index.d.ts
     //
     // (undocumented)
-    schedule: ReturnType<typeof createScheduleModule<TRawDefault>>;
+    schedule: ReturnType<typeof createScheduleModule>;
     // Warning: (ae-forgotten-export) The symbol "createSpecialitiesModule" needs to be exported by the entry point index.d.ts
     //
     // (undocumented)
@@ -232,19 +231,7 @@ export interface ClientHooks {
 }
 
 // @public
-export function createBsuirClient(options: BsuirClientOptions & {
-    defaultRaw: true;
-}): BsuirClientShape<true>;
-
-// @public (undocumented)
-export function createBsuirClient(options?: BsuirClientOptions & {
-    defaultRaw?: false | undefined;
-}): BsuirClientShape<false>;
-
-// @public (undocumented)
-export function createBsuirClient(options: BsuirClientOptions & {
-    defaultRaw: boolean;
-}): BsuirClientShape<true> | BsuirClientShape<false>;
+export function createBsuirClient(options?: BsuirClientOptions): BsuirClientShape;
 
 // @public (undocumented)
 export interface Department {
@@ -573,25 +560,11 @@ export interface ScheduleItem {
 }
 
 // @public (undocumented)
-export interface ScheduleModule<TRawDefault extends boolean> {
+export interface ScheduleModule {
     // (undocumented)
     getCurrentWeek(options?: ReadOptions): Promise<number>;
     // (undocumented)
-    getEmployee(urlId: string, options: ReadOptions & {
-        raw: true;
-    }): Promise<ScheduleResponse>;
-    // (undocumented)
-    getEmployee(urlId: string, options: ReadOptions & {
-        raw: false;
-    }): Promise<NormalizedScheduleResponse>;
-    // (undocumented)
-    getEmployee(urlId: string, options?: ReadOptions & {
-        raw?: undefined;
-    }): Promise<DefaultScheduleResponse<TRawDefault>>;
-    // (undocumented)
-    getEmployee(urlId: string, options: ReadOptions & {
-        raw: boolean;
-    }): Promise<ScheduleResponse | NormalizedScheduleResponse>;
+    getEmployee(urlId: string, options?: ReadOptions): Promise<NormalizedScheduleResponse>;
     // (undocumented)
     getEmployeeBySubgroup(urlId: string, subgroup: number, options: ReadOptions & {
         rawEnvelope: true;
@@ -612,27 +585,15 @@ export interface ScheduleModule<TRawDefault extends boolean> {
         rawEnvelope?: false | undefined;
     }): Promise<FlattenedScheduleItem[]>;
     // (undocumented)
+    getEmployeeEnvelope(urlId: string, subgroup: number, options?: ReadOptions): Promise<ScheduleResponse>;
+    // (undocumented)
     getEmployeeExams(urlId: string, options?: ReadOptions): Promise<FlattenedScheduleItem[]>;
     // (undocumented)
     getEmployeeFiltered(urlId: string, filter: ScheduleFilterOptions, options?: ReadOptions): Promise<FlattenedScheduleItem[]>;
     // (undocumented)
-    getGroup(groupNumber: string, options: ReadOptions & {
-        raw: true;
-    }): Promise<ScheduleResponse>;
+    getEmployeeRaw(urlId: string, options?: ReadOptions): Promise<ScheduleResponse>;
     // (undocumented)
-    getGroup(groupNumber: string, options: ReadOptions & {
-        raw: false;
-    }): Promise<NormalizedScheduleResponse>;
-    // Warning: (ae-forgotten-export) The symbol "DefaultScheduleResponse" needs to be exported by the entry point index.d.ts
-    //
-    // (undocumented)
-    getGroup(groupNumber: string, options?: ReadOptions & {
-        raw?: undefined;
-    }): Promise<DefaultScheduleResponse<TRawDefault>>;
-    // (undocumented)
-    getGroup(groupNumber: string, options: ReadOptions & {
-        raw: boolean;
-    }): Promise<ScheduleResponse | NormalizedScheduleResponse>;
+    getGroup(groupNumber: string, options?: ReadOptions): Promise<NormalizedScheduleResponse>;
     // (undocumented)
     getGroupBySubgroup(groupNumber: string, subgroup: number, options: ReadOptions & {
         rawEnvelope: true;
@@ -653,9 +614,13 @@ export interface ScheduleModule<TRawDefault extends boolean> {
         rawEnvelope?: false | undefined;
     }): Promise<FlattenedScheduleItem[]>;
     // (undocumented)
+    getGroupEnvelope(groupNumber: string, subgroup: number, options?: ReadOptions): Promise<ScheduleResponse>;
+    // (undocumented)
     getGroupExams(groupNumber: string, options?: ReadOptions): Promise<FlattenedScheduleItem[]>;
     // (undocumented)
     getGroupFiltered(groupNumber: string, filter: ScheduleFilterOptions, options?: ReadOptions): Promise<FlattenedScheduleItem[]>;
+    // (undocumented)
+    getGroupRaw(groupNumber: string, options?: ReadOptions): Promise<ScheduleResponse>;
     // (undocumented)
     getLastUpdateByEmployee(params: {
         urlId: string;
@@ -764,7 +729,7 @@ export type WeekScheduleMap = Partial<Record<Weekday, ScheduleItem[]>>;
 
 // Warnings were encountered during analysis:
 //
-// dist/_tsup-dts-rollup.d.ts:886:5 - (ae-forgotten-export) The symbol "InvalidLessonTimeHook" needs to be exported by the entry point index.d.ts
+// dist/_tsup-dts-rollup.d.ts:798:5 - (ae-forgotten-export) The symbol "InvalidLessonTimeHook" needs to be exported by the entry point index.d.ts
 
 // (No @packageDocumentation comment for this package)
 

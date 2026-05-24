@@ -16,7 +16,7 @@ npm install bsuir-iis-api
 
 ## Quick start
 
-Default schedule calls return a **normalized** payload (`defaultRaw: false`). That shape includes `lessons`, `lessonsByDay`, `scheduleLessons`, and `examLessons` (see types). With `{ raw: true }` you get the API’s raw `ScheduleResponse` instead—no `lessons` field; use `schedules` / `exams` and match examples to the option you use.
+Default schedule calls return a **normalized** payload. That shape includes `lessons`, `lessonsByDay`, `scheduleLessons`, and `examLessons` (see types). Use explicit raw helpers such as `client.schedule.getGroupRaw()` / `getEmployeeRaw()` to obtain the API’s raw `ScheduleResponse` (which has `schedules` / `exams` and may omit `lessons`).
 
 ```ts
 import { createBsuirClient } from "bsuir-iis-api";
@@ -50,8 +50,7 @@ const client = createBsuirClient({
     onRetry: ({ endpoint, delayMs, reason }) => {
       console.log("retry", endpoint, delayMs, reason);
     }
-  },
-  defaultRaw: false
+  }
 });
 ```
 
@@ -60,10 +59,10 @@ const client = createBsuirClient({
 - `allowedBaseUrlHosts` controls which hosts are allowed for `baseUrl` (defaults to `["iis.bsuir.by"]`).
 - `allowInsecureHttp` enables `http://` only for trusted local/test endpoints.
 - `signal` in `createBsuirClient({ signal })` acts as a global cancellation signal for all requests made by that client.
-- `cache` stores successful GET responses in-memory for the configured TTL.
-- `dedupeInFlight` reuses the same in-flight GET request for concurrent callers (when no per-request signal is passed).
+- `cache` stores successful GET responses in-memory for the configured TTL. A live `AbortSignal` can still use cache; an already-aborted signal skips cache.
+- `dedupeInFlight` reuses the same in-flight GET request for concurrent callers. It is disabled for per-request signals, non-default cache modes, private credential headers, and already-aborted signals.
 - `maxResponseBytes` limits body size per response to protect against memory spikes.
-- `validateResponses` enables runtime payload-shape checks for key endpoints (enabled by default).
+- `validateResponses` enables opt-in runtime payload-shape checks for key endpoints.
 - `hooks` provides lifecycle callbacks (`onRequest`, `onRetry`, `onResponse`, `onError`) for observability.
 - `AbortSignal` is supported by all read methods.
 
@@ -106,7 +105,7 @@ When IIS responds with HTTP `404` or `400` (no list, missing resource, or endpoi
 - Core runtime API: `createBsuirClient`, `BsuirClient`
 - Client/runtime option types: `BsuirClientOptions`, `CacheOptions`, `ClientHooks`, `RequestOptions`, `ReadOptions`, `RequestHookContext`, `RetryHookContext`, `ResponseHookContext`, `ErrorHookContext`
 - Schedule utilities: `normalizeSchedule`, `filterLessons`, `getLessonsForDate`, `getTodayLessons`, `getTomorrowLessons`, `getLessonsForWeek`, `sortLessonsByTime`, `groupLessonsByDay`, `getCurrentLesson`, `getNextLesson`, `buildScheduleDays`, `ScheduleFilterOptions`
-- Error classes: `BsuirApiError`, `BsuirNetworkError`, `BsuirTimeoutError`, `BsuirValidationError`, `BsuirResponseValidationError`, `BsuirConfigurationError`
+- Error classes: `BsuirApiError`, `BsuirNetworkError`, `BsuirTimeoutError`, `BsuirValidationError`, `BsuirResponseValidationError`, `BsuirResponsePayloadTooLargeError`, `BsuirConfigurationError`
 - Domain types: `Announcement`, `ApiDateResponse`, `Auditory`, `AuditoryDepartment`, `AuditoryType`, `BuildingNumber`, `Department`, `EducationForm`, `Employee`, `EmployeeCatalogItem`, `Faculty`, `FlattenedLessonsByDay`, `FlattenedScheduleItem`, `LessonStudentGroup`, `Maybe`, `NormalizedScheduleResponse`, `ScheduleItem`, `ScheduleResponse`, `Speciality`, `StudentGroupCatalogItem`, `StudentGroupShort`, `Weekday`, `WeekScheduleMap`
 
 ## Errors
@@ -114,7 +113,7 @@ When IIS responds with HTTP `404` or `400` (no list, missing resource, or endpoi
 SDK throws typed errors:
 
 - `BsuirApiError` for HTTP errors (contains `status`, `endpoint`, `body`). **Exception:** `client.announcements.byEmployee` / `byDepartment` resolve to `[]` on IIS HTTP `404` or `400` instead of throwing (see Announcements above).
-- `BsuirApiError` is also used when response body size exceeds configured `maxResponseBytes`.
+- `BsuirResponsePayloadTooLargeError` when response body size exceeds configured `maxResponseBytes`.
 - `BsuirNetworkError` for transport errors (contains `endpoint` and standard `cause`)
 - `BsuirResponseValidationError` for invalid payload shapes when `validateResponses: true`
 - `BsuirTimeoutError` for timeouts (contains `endpoint`, `timeoutMs`)
@@ -142,7 +141,7 @@ For **2xx** responses the client reads the body as text, then applies `JSON.pars
 - Valid JSON is returned even when `Content-Type` does **not** include `application/json` (mislabeled responses still parse).
 - If `Content-Type` indicates **`application/json`** but the body is empty or not valid JSON, the client throws `BsuirApiError` (`Invalid JSON response payload`), same as for a truncated `{` payload.
 - If the body is **empty** and the content type does **not** indicate JSON, the result is an empty string `""` (analogous to reading plain text). Typical IIS catalog JSON endpoints return a non-empty body.
-- If response body size exceeds `maxResponseBytes`, the client throws `BsuirApiError`.
+- If response body size exceeds `maxResponseBytes`, the client throws `BsuirResponsePayloadTooLargeError`.
 
 ## Raw vs normalized schedule response
 
@@ -152,11 +151,10 @@ By default, schedule methods return a **normalized** `NormalizedScheduleResponse
 import { createBsuirClient } from "bsuir-iis-api";
 
 const client = createBsuirClient();
-const raw = await client.schedule.getGroup("053503", { raw: true });
+const raw = await client.schedule.getGroupRaw("053503");
 ```
 
-Use `defaultRaw: true` in `createBsuirClient` to change global behavior.
-When `raw` is omitted, `getGroup()` and `getEmployee()` follow client `defaultRaw` (`false` by default, so normalized unless explicitly changed to `true`).
+Use explicit helpers `getGroupRaw` / `getEmployeeRaw` to obtain raw envelopes. `getGroup()` / `getEmployee()` return normalized payloads by default.
 In raw mode API may return `schedules: null`; normalized mode always converts it to `{}`.
 In raw mode some lesson fields may also be nullable (`weekNumber`, `lessonTypeAbbrev`), so keep null checks if you consume raw payload directly.
 README examples match the installed package version; if types and docs ever diverge, rely on `NormalizedScheduleResponse` / `ScheduleResponse` from the same release.
@@ -229,9 +227,11 @@ CI has a manual `workflow_dispatch` path that also runs live contracts (`live-co
 ## Release checklist
 
 1. Run `npm run check:full`.
-2. Update version and `CHANGELOG.md` in the same release commit.
-3. Push to `main` to trigger GitHub Actions release workflow.
-4. Verify published package in a clean project:
+2. Add or update a `.changeset/*.md` entry for user-visible changes.
+3. Run `npx changeset version` to bump `package.json`, update `CHANGELOG.md`, and consume changesets.
+4. Run `npm run api:report:check` and `npm run release:dry`.
+5. Push to `main` to trigger GitHub Actions release workflow.
+6. Verify published package in a clean project:
 
 ```bash
 mkdir bsuir-iis-smoke && cd bsuir-iis-smoke
@@ -240,7 +240,7 @@ npm install bsuir-iis-api@latest
 node -e "import('bsuir-iis-api').then(m=>console.log(typeof m.createBsuirClient))"
 ```
 
-The project keeps `CHANGELOG.md` manually curated for stable release notes.
+The project uses Changesets for version bumps and changelog generation; edit pending changeset text before versioning when release notes need refinement.
 
 ## License
 

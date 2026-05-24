@@ -147,9 +147,9 @@ export interface BsuirClientOptions {
    * Global `AbortSignal` that cancels **all** requests made by this client
    * instance. Per-call signals are combined with this one.
    *
-   * Note: caching and in-flight deduplication are disabled only when the
-   * signal is already aborted at the time the request is made. A live
-   * (non-aborted) signal is fine — caching and dedup remain enabled.
+   * Note: caching is disabled only when the signal is already aborted at the
+   * time the request is made. A live (non-aborted) global signal is fine:
+   * caching remains enabled and in-flight deduplication can still be used.
    */
   signal?: AbortSignal;
   /**
@@ -236,8 +236,8 @@ export interface BsuirClientOptions {
    * duplicate API calls in scenarios like parallel component rendering.
    *
    * Disabled automatically when the relevant `AbortSignal` is already aborted.
-   * Also disabled for non-default cache modes and requests with private
-   * credential headers.
+   * Also disabled for per-call signals, non-default cache modes, and requests
+   * with private credential headers.
    *
    * @defaultValue false
    */
@@ -292,37 +292,9 @@ export interface BsuirClientOptions {
    * ```
    */
   hooks?: ClientHooks;
-  /**
-   * Controls the default return type of `schedule.getGroup` and
-   * `schedule.getEmployee` when the per-call `raw` option is omitted.
-   *
-   * - `false` (default) — returns `NormalizedScheduleResponse` with flattened
-   *   `lessons`, `lessonsByDay`, `scheduleLessons`, and `examLessons` arrays.
-   * - `true` — returns the raw `ScheduleResponse` exactly as received from the
-   *   BSUIR IIS API.
-   *
-   * A per-call `raw` option always takes precedence over this default.
-   *
-   * @defaultValue false
-   *
-   * @example
-   * ```ts
-   * // Normalized (default):
-   * const client = createBsuirClient();
-   * const norm = await client.schedule.getGroup("053503"); // NormalizedScheduleResponse
-   *
-   * // Raw by default:
-   * const rawClient = createBsuirClient({ defaultRaw: true });
-   * const raw = await rawClient.schedule.getGroup("053503"); // ScheduleResponse
-   *
-   * // Per-call override (always wins):
-   * const override = await client.schedule.getGroup("053503", { raw: true }); // ScheduleResponse
-   * ```
-   */
-  defaultRaw?: boolean;
 }
 
-export interface InternalClientConfig<TRawDefault extends boolean = boolean> {
+export interface InternalClientConfig {
   baseUrl: string;
   fetchImpl: typeof globalThis.fetch;
   signal: AbortSignal | undefined;
@@ -340,5 +312,4 @@ export interface InternalClientConfig<TRawDefault extends boolean = boolean> {
   hooks: ClientHooks;
   responseCache: Map<string, { expiresAt: number; value: unknown }>;
   inFlightRequests: Map<string, Promise<unknown>>;
-  defaultRaw: TRawDefault;
 }

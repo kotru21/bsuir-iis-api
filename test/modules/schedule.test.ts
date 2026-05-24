@@ -142,7 +142,7 @@ describe("schedule module", () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildScheduleResponse() })]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
 
-    const response = await client.schedule.getGroup("053503", { raw: true });
+    const response = await client.schedule.getGroupRaw("053503");
 
     expect("lessons" in response).toBe(false);
     expect(response.exams).toHaveLength(1);
@@ -166,6 +166,16 @@ describe("schedule module", () => {
     await expect(client.schedule.getGroup("05350A")).rejects.toBeInstanceOf(BsuirValidationError);
   });
 
+  it("throws on invalid group number in raw helper", async () => {
+    const fetchImpl = mockFetchSequence([]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+
+    await expect(client.schedule.getGroupRaw("05350A")).rejects.toBeInstanceOf(
+      BsuirValidationError
+    );
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
   it("throws on invalid employee urlId format", async () => {
     const client = createBsuirClient({ fetch: mockFetchSequence([]) });
 
@@ -173,6 +183,16 @@ describe("schedule module", () => {
     await expect(client.schedule.getEmployee("s/nesterenkov")).rejects.toBeInstanceOf(
       BsuirValidationError
     );
+  });
+
+  it("throws on invalid employee urlId in raw helper", async () => {
+    const fetchImpl = mockFetchSequence([]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+
+    await expect(client.schedule.getEmployeeRaw("s/nesterenkov")).rejects.toBeInstanceOf(
+      BsuirValidationError
+    );
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it("throws on invalid subgroup in subgroup helpers", async () => {
@@ -231,7 +251,7 @@ describe("schedule module", () => {
     ]);
     const client = createBsuirClient({ fetch: fetchImpl });
 
-    const raw = await client.schedule.getGroup("053503", { raw: true });
+    const raw = await client.schedule.getGroupRaw("053503");
     const normalized = await client.schedule.getGroup("053503");
 
     expect(raw.schedules).toBeNull();

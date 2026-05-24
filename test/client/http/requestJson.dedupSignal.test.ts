@@ -18,7 +18,9 @@ describe("requestJson — dedup + per-call signal", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
 
     // Resolve both requests to avoid unhandled promises
-    resolves.forEach((r) => r(new Response(JSON.stringify([]), { headers: { "Content-Type": "application/json" } })));
+    for (const resolve of resolves) {
+      resolve(Response.json([]));
+    }
 
     await Promise.all([p1, p2]);
   });

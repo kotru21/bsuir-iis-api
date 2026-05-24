@@ -1,6 +1,7 @@
 node_modules
 dist
 coverage
+temp
 .DS_Store
 .github/agents
 .github/instructions

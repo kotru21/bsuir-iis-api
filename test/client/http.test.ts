@@ -26,7 +26,6 @@ const BASE_CONFIG: Omit<InternalClientConfig, "fetchImpl"> = {
   hooks: {},
   responseCache: new Map(),
   inFlightRequests: new Map(),
-  defaultRaw: false
 };
 
 function createConfig(
@@ -137,7 +136,7 @@ describe("requestJson", () => {
     });
   });
 
-  it("throws BsuirApiError when response body exceeds configured maxResponseBytes", async () => {
+  it("throws BsuirResponsePayloadTooLargeError when response body exceeds configured maxResponseBytes", async () => {
     const fetchImpl = mockFetchSequence([
       new Response("payload-that-is-way-too-large", {
         status: 200,
@@ -450,8 +449,9 @@ describe("requestJson", () => {
     expect(second.ok).toBe(true);
   });
 
-  it("deduplicates GET requests even when caller passes a non-aborted AbortSignal", async () => {
-    // Non-aborted signals are fine for cache/dedup — only an already-aborted signal disables them.
+  it("does not deduplicate GET requests when caller passes a per-call AbortSignal", async () => {
+    // Non-aborted per-call signals may still use cache, but not shared in-flight
+    // deduplication because cancellation semantics would leak across callers.
     const fetchImpl = mockFetchSequence([
       createJsonResponse({ body: { ok: true } }),
       createJsonResponse({ body: { ok: true } })
@@ -465,7 +465,10 @@ describe("requestJson", () => {
       requestJson<{ ok: boolean }>(config, "/faculties", { signal: signalB })
     ]);
 
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    // Per-call signals disable shared in-flight deduplication (to avoid
+    // cross-cancellation semantics). Both callers supplied signals, so
+    // requests should not be deduplicated.
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
   it("disables cache write when per-call signal is already aborted before request", async () => {

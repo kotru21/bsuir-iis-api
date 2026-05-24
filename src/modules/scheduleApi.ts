@@ -15,44 +15,9 @@ import { filterLessons } from "./scheduleFilter";
 import { normalizeSchedule } from "./scheduleNormalize";
 import type { ReadOptions } from "./types";
 
-type DefaultScheduleResponse<TRawDefault extends boolean> = TRawDefault extends true
-  ? ScheduleResponse
-  : NormalizedScheduleResponse;
-
-export interface ScheduleModule<TRawDefault extends boolean> {
-  getGroup(
-    groupNumber: string,
-    options: ReadOptions & { raw: true }
-  ): Promise<ScheduleResponse>;
-  getGroup(
-    groupNumber: string,
-    options: ReadOptions & { raw: false }
-  ): Promise<NormalizedScheduleResponse>;
-  getGroup(
-    groupNumber: string,
-    options?: ReadOptions & { raw?: undefined }
-  ): Promise<DefaultScheduleResponse<TRawDefault>>;
-  getGroup(
-    groupNumber: string,
-    options: ReadOptions & { raw: boolean }
-  ): Promise<ScheduleResponse | NormalizedScheduleResponse>;
-
-  getEmployee(
-    urlId: string,
-    options: ReadOptions & { raw: true }
-  ): Promise<ScheduleResponse>;
-  getEmployee(
-    urlId: string,
-    options: ReadOptions & { raw: false }
-  ): Promise<NormalizedScheduleResponse>;
-  getEmployee(
-    urlId: string,
-    options?: ReadOptions & { raw?: undefined }
-  ): Promise<DefaultScheduleResponse<TRawDefault>>;
-  getEmployee(
-    urlId: string,
-    options: ReadOptions & { raw: boolean }
-  ): Promise<ScheduleResponse | NormalizedScheduleResponse>;
+export interface ScheduleModule {
+  getGroup(groupNumber: string, options?: ReadOptions): Promise<NormalizedScheduleResponse>;
+  getEmployee(urlId: string, options?: ReadOptions): Promise<NormalizedScheduleResponse>;
 
   getGroupFiltered(
     groupNumber: string,
@@ -163,20 +128,16 @@ function filterRawSubgroupEnvelope(
 /**
  * Creates schedule API module with raw/normalized response support.
  */
-export function createScheduleModule<TRawDefault extends boolean>(
-  config: Readonly<InternalClientConfig<TRawDefault>>
-): ScheduleModule<TRawDefault> {
+export function createScheduleModule(
+  config: Readonly<InternalClientConfig>
+): ScheduleModule {
   /**
    * Returns schedule for a student group.
-   * By default returns normalized payload unless `raw: true` is passed.
+   * Returns a normalized payload. Use `getGroupRaw` for the raw API envelope.
    */
-  async function getGroup(
-    groupNumber: string,
-    options?: ReadOptions & { raw?: boolean }
-  ): Promise<ScheduleResponse | NormalizedScheduleResponse> {
-    const resolvedOptions = options ?? {};
+  async function getGroup(groupNumber: string, options: ReadOptions = {}): Promise<NormalizedScheduleResponse> {
+    const resolvedOptions = options;
     assertGroupNumber(groupNumber, "groupNumber");
-    const returnRaw = resolvedOptions.raw ?? config.defaultRaw;
     const payload = await requestJson<unknown>(config, "/schedule", {
       query: { studentGroup: groupNumber },
       signal: resolvedOptions.signal,
@@ -188,9 +149,6 @@ export function createScheduleModule<TRawDefault extends boolean>(
         : undefined
     });
     const response = payload as ScheduleResponse;
-    if (returnRaw) {
-      return response;
-    }
     return normalizeSchedule(response, {
       validate: false,
       endpoint: "/schedule"
@@ -199,16 +157,12 @@ export function createScheduleModule<TRawDefault extends boolean>(
 
   /**
    * Returns schedule for an employee.
-   * By default returns normalized payload unless `raw: true` is passed.
+   * Returns a normalized payload. Use `getEmployeeRaw` for the raw API envelope.
    */
-  async function getEmployee(
-    urlId: string,
-    options?: ReadOptions & { raw?: boolean }
-  ): Promise<ScheduleResponse | NormalizedScheduleResponse> {
-    const resolvedOptions = options ?? {};
+  async function getEmployee(urlId: string, options: ReadOptions = {}): Promise<NormalizedScheduleResponse> {
+    const resolvedOptions = options;
     assertEmployeeUrlId(urlId, "urlId");
     const endpoint = `/employees/schedule/${encodeURIComponent(urlId)}`;
-    const returnRaw = resolvedOptions.raw ?? config.defaultRaw;
     const payload = await requestJson<unknown>(config, endpoint, {
       signal: resolvedOptions.signal,
       cache: resolvedOptions.cache,
@@ -219,9 +173,6 @@ export function createScheduleModule<TRawDefault extends boolean>(
         : undefined
     });
     const response = payload as ScheduleResponse;
-    if (returnRaw) {
-      return response;
-    }
     return normalizeSchedule(response, {
       validate: false,
       endpoint
@@ -238,9 +189,8 @@ export function createScheduleModule<TRawDefault extends boolean>(
   ): Promise<FlattenedScheduleItem[]> {
     const normalized = await getGroup(groupNumber, {
       signal: options.signal,
-      cache: options.cache,
-      raw: false
-    }) as NormalizedScheduleResponse;
+      cache: options.cache
+    });
     return filterLessons(normalized, filter);
   }
 
@@ -254,9 +204,8 @@ export function createScheduleModule<TRawDefault extends boolean>(
   ): Promise<FlattenedScheduleItem[]> {
     const normalized = await getEmployee(urlId, {
       signal: options.signal,
-      cache: options.cache,
-      raw: false
-    }) as NormalizedScheduleResponse;
+      cache: options.cache
+    });
     return filterLessons(normalized, filter);
   }
 
@@ -281,26 +230,44 @@ export function createScheduleModule<TRawDefault extends boolean>(
    * - `raw: true` (without `rawEnvelope`) → returns `ScheduleItem[]` only.
    * - default → returns flattened `FlattenedScheduleItem[]` with day/source metadata.
    */
+  function getGroupBySubgroup(
+    groupNumber: string,
+    subgroup: number,
+    options: ReadOptions & { rawEnvelope: true }
+  ): Promise<ScheduleResponse>;
+  function getGroupBySubgroup(
+    groupNumber: string,
+    subgroup: number,
+    options: ReadOptions & { raw: true; rawEnvelope?: false | undefined }
+  ): Promise<ScheduleItem[]>;
+  function getGroupBySubgroup(
+    groupNumber: string,
+    subgroup: number,
+    options: ReadOptions & { raw: boolean; rawEnvelope?: false | undefined }
+  ): Promise<ScheduleItem[] | FlattenedScheduleItem[]>;
+  function getGroupBySubgroup(
+    groupNumber: string,
+    subgroup: number,
+    options?: ReadOptions & { raw?: false | undefined; rawEnvelope?: false | undefined }
+  ): Promise<FlattenedScheduleItem[]>;
   async function getGroupBySubgroup(
     groupNumber: string,
     subgroup: number,
-    options?: ReadOptions & { raw?: boolean; rawEnvelope?: boolean }
+    options?: ReadOptions & { raw?: boolean | undefined; rawEnvelope?: boolean | undefined }
   ): Promise<FlattenedScheduleItem[] | ScheduleItem[] | ScheduleResponse> {
     const resolvedOptions = options ?? {};
     assertPositiveInt(subgroup, "subgroup");
     if (resolvedOptions.rawEnvelope === true) {
-      const raw = await getGroup(groupNumber, {
+      const raw = await getGroupRaw(groupNumber, {
         signal: resolvedOptions.signal,
-        cache: resolvedOptions.cache,
-        raw: true
+        cache: resolvedOptions.cache
       });
       return filterRawSubgroupEnvelope(raw, subgroup);
     }
     if (resolvedOptions.raw === true) {
-      const raw = await getGroup(groupNumber, {
+      const raw = await getGroupRaw(groupNumber, {
         signal: resolvedOptions.signal,
-        cache: resolvedOptions.cache,
-        raw: true
+        cache: resolvedOptions.cache
       });
       return filterRawSubgroupLessons(raw, subgroup);
     }
@@ -317,26 +284,44 @@ export function createScheduleModule<TRawDefault extends boolean>(
    * - `raw: true` (without `rawEnvelope`) → returns `ScheduleItem[]` only.
    * - default → returns flattened `FlattenedScheduleItem[]` with day/source metadata.
    */
+  function getEmployeeBySubgroup(
+    urlId: string,
+    subgroup: number,
+    options: ReadOptions & { rawEnvelope: true }
+  ): Promise<ScheduleResponse>;
+  function getEmployeeBySubgroup(
+    urlId: string,
+    subgroup: number,
+    options: ReadOptions & { raw: true; rawEnvelope?: false | undefined }
+  ): Promise<ScheduleItem[]>;
+  function getEmployeeBySubgroup(
+    urlId: string,
+    subgroup: number,
+    options: ReadOptions & { raw: boolean; rawEnvelope?: false | undefined }
+  ): Promise<ScheduleItem[] | FlattenedScheduleItem[]>;
+  function getEmployeeBySubgroup(
+    urlId: string,
+    subgroup: number,
+    options?: ReadOptions & { raw?: false | undefined; rawEnvelope?: false | undefined }
+  ): Promise<FlattenedScheduleItem[]>;
   async function getEmployeeBySubgroup(
     urlId: string,
     subgroup: number,
-    options?: ReadOptions & { raw?: boolean; rawEnvelope?: boolean }
+    options?: ReadOptions & { raw?: boolean | undefined; rawEnvelope?: boolean | undefined }
   ): Promise<FlattenedScheduleItem[] | ScheduleItem[] | ScheduleResponse> {
     const resolvedOptions = options ?? {};
     assertPositiveInt(subgroup, "subgroup");
     if (resolvedOptions.rawEnvelope === true) {
-      const raw = await getEmployee(urlId, {
+      const raw = await getEmployeeRaw(urlId, {
         signal: resolvedOptions.signal,
-        cache: resolvedOptions.cache,
-        raw: true
+        cache: resolvedOptions.cache
       });
       return filterRawSubgroupEnvelope(raw, subgroup);
     }
     if (resolvedOptions.raw === true) {
-      const raw = await getEmployee(urlId, {
+      const raw = await getEmployeeRaw(urlId, {
         signal: resolvedOptions.signal,
-        cache: resolvedOptions.cache,
-        raw: true
+        cache: resolvedOptions.cache
       });
       return filterRawSubgroupLessons(raw, subgroup);
     }
@@ -348,35 +333,56 @@ export function createScheduleModule<TRawDefault extends boolean>(
     groupNumber: string,
     options: ReadOptions = {}
   ): Promise<ScheduleResponse> {
-    return getGroup(groupNumber, { ...options, raw: true }) as Promise<ScheduleResponse>;
+    assertGroupNumber(groupNumber, "groupNumber");
+    const payload = await requestJson<unknown>(config, "/schedule", {
+      query: { studentGroup: groupNumber },
+      signal: options.signal,
+      cache: options.cache,
+      responseValidator: config.validateResponses
+        ? (value) => {
+            assertScheduleResponse(value, "/schedule");
+          }
+        : undefined
+    });
+    return payload as ScheduleResponse;
   }
 
   async function getGroupEnvelope(groupNumber: string, subgroup: number, options: ReadOptions = {}) {
-    const raw = await getGroup(groupNumber, { ...options, raw: true });
+    const raw = await getGroupRaw(groupNumber, options);
     return filterRawSubgroupEnvelope(raw, subgroup);
   }
 
   async function getEmployeeRaw(urlId: string, options: ReadOptions = {}) {
-    return getEmployee(urlId, { ...options, raw: true }) as Promise<ScheduleResponse>;
+    assertEmployeeUrlId(urlId, "urlId");
+    const endpoint = `/employees/schedule/${encodeURIComponent(urlId)}`;
+    const payload = await requestJson<unknown>(config, endpoint, {
+      signal: options.signal,
+      cache: options.cache,
+      responseValidator: config.validateResponses
+        ? (value) => {
+            assertScheduleResponse(value, endpoint);
+          }
+        : undefined
+    });
+    return payload as ScheduleResponse;
   }
 
   async function getEmployeeEnvelope(urlId: string, subgroup: number, options: ReadOptions = {}) {
-    const raw = await getEmployee(urlId, { ...options, raw: true });
+    const raw = await getEmployeeRaw(urlId, options);
     return filterRawSubgroupEnvelope(raw, subgroup);
   }
 
   return {
-    getGroup: getGroup as ScheduleModule<TRawDefault>["getGroup"],
-    getEmployee: getEmployee as ScheduleModule<TRawDefault>["getEmployee"],
-      getGroupRaw,
-      getGroupEnvelope,
-      getEmployeeRaw,
-      getEmployeeEnvelope,
+    getGroup,
+    getEmployee,
+    getGroupRaw,
+    getGroupEnvelope,
+    getEmployeeRaw,
+    getEmployeeEnvelope,
     getGroupFiltered,
     getEmployeeFiltered,
-    getGroupBySubgroup: getGroupBySubgroup as ScheduleModule<TRawDefault>["getGroupBySubgroup"],
-    getEmployeeBySubgroup:
-      getEmployeeBySubgroup as ScheduleModule<TRawDefault>["getEmployeeBySubgroup"],
+    getGroupBySubgroup,
+    getEmployeeBySubgroup,
     getCurrentWeek,
 
     /**

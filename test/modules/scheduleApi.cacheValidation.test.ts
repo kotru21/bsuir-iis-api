@@ -26,15 +26,14 @@ describe("scheduleApi cache validation", () => {
     const client = createBsuirClient({
       fetch: fetchImpl,
       validateResponses: true,
-      defaultRaw: true,
       cache: {
         ttlMs: 60_000,
         maxEntries: 10
       }
     });
 
-    await client.schedule.getGroup("053503");
-    await client.schedule.getGroup("053503");
+    await client.schedule.getGroupRaw("053503");
+    await client.schedule.getGroupRaw("053503");
 
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     expect(spy).toHaveBeenCalledTimes(1);

@@ -8,6 +8,14 @@ const AbortSignalCtor = AbortSignal as AbortSignalConstructor;
 // of attaching properties to the signal object.
 const mergedSignalCleanupMap = new WeakMap<AbortSignal, () => void>();
 
+function getOnlySignal(signals: readonly AbortSignal[]): AbortSignal {
+  const signal = signals[0];
+  if (signal === undefined) {
+    throw new Error("Expected at least one abort signal");
+  }
+  return signal;
+}
+
 /**
  * Returns a cleanup callback for manually merged signals, when available.
  */
@@ -37,7 +45,7 @@ export function mergeSignals(
   }
 
   if (parts.length === 1 && timeoutMs === undefined) {
-    return parts[0]!;
+    return getOnlySignal(parts);
   }
 
   if (typeof AbortSignalCtor.any === "function") {
@@ -54,7 +62,7 @@ export function mergeSignalsManual(signals: AbortSignal[], timeoutMs?: number): 
     return new AbortController().signal;
   }
   if (signals.length === 1 && timeoutMs === undefined) {
-    return signals[0]!;
+    return getOnlySignal(signals);
   }
 
   const combined = new AbortController();

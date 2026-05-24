@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.11.0] - 2026-05-24
+
+### Added
+
+- `schedule.getGroupBySubgroup()` and `schedule.getEmployeeBySubgroup()` accept `rawEnvelope: true` for envelope-preserving raw subgroup output.
+- `announcements.byEmployee()` / `byDepartment()` accept `treat404AsEmpty` (default `true`) to opt out of mapping IIS `404`/`400` empty-announcement responses to `[]`.
+- Optional `onInvalidTime` hook for `sortLessonsByTime()`, `getCurrentLesson()`, `getNextLesson()`, and `buildScheduleDays()`.
+
+### Changed
+
+- `schedule.getGroup()` / `getEmployee()` now always return normalized payloads; use `getGroupRaw()`, `getEmployeeRaw()`, `getGroupEnvelope()`, or `getEmployeeEnvelope()` for raw API envelopes.
+- Response cache stores deep-frozen JSON values, returns the cached frozen reference on hits, and rejects non-JSON cache writes with `BsuirConfigurationError`.
+- `requestJson` keeps response caching enabled for non-aborted `AbortSignal`s; in-flight deduplication remains disabled for per-call signals to avoid cross-caller cancellation semantics.
+- Query keys are sorted deterministically for stable cache keys, query key validation is relaxed for safe non-structural characters, and private-header detection now uses an explicit denylist.
+- Request bodies pass through native `BodyInit` shapes (`FormData`, `URLSearchParams`, `Blob`, `ArrayBuffer`, `ReadableStream`) instead of being JSON-stringified.
+- `Retry-After` numeric values now use the same internal cap as date-based values.
+- `allowInsecureHttp: true` rejects non-loopback hosts in `allowedBaseUrlHosts`.
+- `normalizeSchedule` clones lessons once, always performs a minimal envelope check, and delegates full validation to `assertScheduleResponse`.
+- `mergeSignalsManual` cleanup is idempotent and records listeners before registration to avoid leaks.
+
+### Documentation
+
+- README now documents explicit raw schedule helpers, `validateResponses` as opt-in, `BsuirResponsePayloadTooLargeError` for oversized payloads, and the Changesets release flow.
+
+### Potentially Breaking
+
+- Removed `defaultRaw` and per-call `raw` selection from `schedule.getGroup()` / `getEmployee()`; callers should use explicit raw helpers instead.
+- Cached responses are frozen shared references; callers that need mutation should clone returned values first.
+- Native `BodyInit` request bodies are no longer JSON-stringified.
+- `allowInsecureHttp: true` is limited to loopback hosts.
+
 ## [0.10.1] - 2026-05-13
 
 ### Documentation

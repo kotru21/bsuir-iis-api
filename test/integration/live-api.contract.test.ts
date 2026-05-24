@@ -13,7 +13,7 @@ async function findWorkingGroupNumber(
   const groups = await client.groups.listAll();
   for (const group of groups.slice(0, 50)) {
     try {
-      await client.schedule.getGroup(group.name, { raw: true });
+      await client.schedule.getGroupRaw(group.name);
       return group.name;
     } catch (error) {
       if (error instanceof BsuirApiError && error.status === 404) {
@@ -32,7 +32,7 @@ async function findWorkingEmployeeUrlId(
   const employees = await client.employees.listAll();
   for (const employee of employees.slice(0, 50)) {
     try {
-      await client.schedule.getEmployee(employee.urlId, { raw: true });
+      await client.schedule.getEmployeeRaw(employee.urlId);
       return employee.urlId;
     } catch (error) {
       if (error instanceof BsuirApiError && error.status === 404) {

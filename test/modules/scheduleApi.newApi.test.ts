@@ -29,7 +29,7 @@ describe("schedule module — explicit raw/envelope API", () => {
       employeeDto: null,
       studentGroupDto: null,
       schedules: {
-        "2026-05-24": [
+        Понедельник: [
           { numSubgroup: 1, name: "A" },
           { numSubgroup: 2, name: "B" }
         ]
@@ -45,7 +45,7 @@ describe("schedule module — explicit raw/envelope API", () => {
 
     const envelope = await client.schedule.getGroupEnvelope("053503", 2);
     expect(envelope).toHaveProperty("schedules");
-    expect((envelope as any).schedules["2026-05-24"]).toHaveLength(1);
-    expect((envelope as any).schedules["2026-05-24"][0].numSubgroup).toBe(2);
+    expect(envelope.schedules?.Понедельник).toHaveLength(1);
+    expect(envelope.schedules?.Понедельник?.[0]?.numSubgroup).toBe(2);
   });
 });

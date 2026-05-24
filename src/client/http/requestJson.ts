@@ -167,11 +167,10 @@ export async function requestJson<T>(
   const body = serializeRequestBody(options.body, headers);
 
   const cacheMode = options.cache ?? "default";
-  // Caching and dedup are disabled only when a relevant signal is already aborted.
-  // A non-aborted signal is fine — its job is to cancel the network request, not to
-  // signal "this caller has private data." The previous behavior disabled caching
-  // whenever any signal was passed in, which silently defeated the cache for any
-  // caller using cancellation. We now allow caching/dedup with an unaborted signal.
+  // Caching is disabled only when a relevant signal is already aborted. A live
+  // signal is fine — its job is to cancel the network request, not to signal
+  // "this caller has private data." In-flight dedup is still disabled for
+  // per-call signals so callers do not inherit each other's cancellation semantics.
   const signalAborted = options.signal?.aborted === true || config.signal?.aborted === true;
   const hasPrivateRequestHeaders = hasPrivateHeaders(headers);
   const canUseCaching =
