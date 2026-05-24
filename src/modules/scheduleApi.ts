@@ -69,6 +69,13 @@ export interface ScheduleModule<TRawDefault extends boolean> {
   getGroupExams(groupNumber: string, options?: ReadOptions): Promise<FlattenedScheduleItem[]>;
   getEmployeeExams(urlId: string, options?: ReadOptions): Promise<FlattenedScheduleItem[]>;
 
+  // Explicit raw/envelope helpers (new explicit API)
+  getGroupRaw(groupNumber: string, options?: ReadOptions): Promise<ScheduleResponse>;
+  getGroupEnvelope(groupNumber: string, subgroup: number, options?: ReadOptions): Promise<ScheduleResponse>;
+
+  getEmployeeRaw(urlId: string, options?: ReadOptions): Promise<ScheduleResponse>;
+  getEmployeeEnvelope(urlId: string, subgroup: number, options?: ReadOptions): Promise<ScheduleResponse>;
+
   getGroupBySubgroup(
     groupNumber: string,
     subgroup: number,
@@ -336,9 +343,35 @@ export function createScheduleModule<TRawDefault extends boolean>(
     return getEmployeeFiltered(urlId, { source: "schedules", subgroup }, resolvedOptions);
   }
 
+  // Explicit helpers: raw/envelope variants to make API shape explicit.
+  async function getGroupRaw(
+    groupNumber: string,
+    options: ReadOptions = {}
+  ): Promise<ScheduleResponse> {
+    return getGroup(groupNumber, { ...options, raw: true }) as Promise<ScheduleResponse>;
+  }
+
+  async function getGroupEnvelope(groupNumber: string, subgroup: number, options: ReadOptions = {}) {
+    const raw = await getGroup(groupNumber, { ...options, raw: true });
+    return filterRawSubgroupEnvelope(raw, subgroup);
+  }
+
+  async function getEmployeeRaw(urlId: string, options: ReadOptions = {}) {
+    return getEmployee(urlId, { ...options, raw: true }) as Promise<ScheduleResponse>;
+  }
+
+  async function getEmployeeEnvelope(urlId: string, subgroup: number, options: ReadOptions = {}) {
+    const raw = await getEmployee(urlId, { ...options, raw: true });
+    return filterRawSubgroupEnvelope(raw, subgroup);
+  }
+
   return {
     getGroup: getGroup as ScheduleModule<TRawDefault>["getGroup"],
     getEmployee: getEmployee as ScheduleModule<TRawDefault>["getEmployee"],
+      getGroupRaw,
+      getGroupEnvelope,
+      getEmployeeRaw,
+      getEmployeeEnvelope,
     getGroupFiltered,
     getEmployeeFiltered,
     getGroupBySubgroup: getGroupBySubgroup as ScheduleModule<TRawDefault>["getGroupBySubgroup"],
