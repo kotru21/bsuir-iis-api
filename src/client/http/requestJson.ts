@@ -181,12 +181,14 @@ export async function requestJson<T>(
     !hasPrivateRequestHeaders;
   const canReadFromCache = canUseCaching && cacheMode === "default";
   const canWriteToCache = canUseCaching && cacheMode !== "no-store";
+  const perCallSignalProvided = options.signal !== undefined;
   const canUseDedup =
     config.dedupeInFlight &&
     method === "GET" &&
     !signalAborted &&
     !hasPrivateRequestHeaders &&
-    cacheMode === "default";
+    cacheMode === "default" &&
+    !perCallSignalProvided;
   let requestKey: string | undefined;
   const ensureRequestKey = (): string => {
     requestKey ??= buildRequestKey(method, endpoint, headers);
