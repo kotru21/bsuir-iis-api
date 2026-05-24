@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.12.0
+
+### Minor Changes
+
+- b77c694: Code review follow-ups across HTTP client, cache, schedule modules, and helpers.
+  - normalizeSchedule clones each lesson once instead of re-cloning during flattening.
+  - Response cache stores deep-frozen JSON values; reads return the frozen reference instead of cloning on every hit. setCache now rejects non-JSON values with `BsuirConfigurationError`.
+  - `requestJson` no longer disables response caching when a non-aborted `AbortSignal` is passed; only an already-aborted signal skips cache. In-flight deduplication remains disabled for per-call signals to avoid cross-caller cancellation semantics.
+  - README now documents `validateResponses` as opt-in and oversized payloads as `BsuirResponsePayloadTooLargeError`.
+  - Query keys are sorted deterministically in `buildUrl` for stable cache keys.
+  - Relaxed query key validation: any non-control, non-whitespace, non-URL-structural character is allowed.
+  - Private-header detection switched from substring sniffing to an explicit denylist.
+  - Request body now passes through `BodyInit` shapes (`FormData`/`URLSearchParams`/`Blob`/`ArrayBuffer`/`ReadableStream`) instead of being JSON-stringified.
+  - `Retry-After` numeric branch now applies the same internal cap as the date branch.
+  - `allowInsecureHttp: true` rejects any non-loopback host in `allowedBaseUrlHosts`.
+  - `mergeSignalsManual` cleanup is idempotent and listeners are recorded before registration to avoid leaks.
+  - `normalizeSchedule` always performs a minimal envelope check; full validation delegates to the single `assertScheduleResponse` source of truth.
+  - `schedule.getGroupBySubgroup` and `schedule.getEmployeeBySubgroup` accept `rawEnvelope: true` for envelope-preserving raw output (existing `raw` and default behaviors unchanged).
+  - `schedule.getGroup` / `getEmployee` now always return normalized payloads; explicit raw helpers (`getGroupRaw`, `getEmployeeRaw`, `getGroupEnvelope`, `getEmployeeEnvelope`) provide raw API envelopes.
+  - Removed `defaultRaw` and per-call `raw` selection from `getGroup` / `getEmployee` to make response shapes explicit.
+  - `announcements.byEmployee` / `byDepartment` accept `treat404AsEmpty` (default `true`) instead of relying on a body-marker heuristic to detect "no announcements" 404 responses.
+  - Added optional `onInvalidTime` hook to `sortLessonsByTime` / `getCurrentLesson` / `getNextLesson` / `buildScheduleDays` for surfacing malformed `HH:MM` lesson times.
+
 ## [0.11.0] - 2026-05-24
 
 ### Added
