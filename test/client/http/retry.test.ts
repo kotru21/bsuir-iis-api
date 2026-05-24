@@ -43,4 +43,12 @@ describe("retry parsing — Retry-After header", () => {
     // When rejected, getRetryDelayMs falls back to backoff
     expect(delay).toBe(baseConfig.retryDelayMs);
   });
+
+  it("treats invalid Retry-After header as absent and uses backoff", () => {
+    const decision = getRetryDecision(baseConfig as any, 0, "not-a-date-or-number");
+    expect(decision.retryable).toBe(true);
+    if (decision.retryable) {
+      expect(decision.delayMs).toBe(baseConfig.retryDelayMs);
+    }
+  });
 });
