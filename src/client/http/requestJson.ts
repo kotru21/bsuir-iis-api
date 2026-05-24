@@ -290,6 +290,12 @@ export async function requestJson<T>(
         }
 
         if (error instanceof BsuirResponsePayloadTooLargeError) {
+          const payloadTooLargeCtx: ErrorHookContext = {
+            ...hookCtx,
+            durationMs: Date.now() - startedAt,
+            error
+          };
+          config.hooks.onError?.(payloadTooLargeCtx);
           throw error;
         }
 
