@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { BsuirValidationError } from "../../src/client/errors";
 import { filterLessons } from "../../src/modules/scheduleFilter";
 import { normalizeSchedule } from "../../src/modules/scheduleNormalize";
 import type { ScheduleItem, ScheduleResponse } from "../../src/types/schedule";
@@ -64,9 +65,17 @@ describe("scheduleFilter", () => {
   });
 
   it("filters by subgroup", () => {
-    const schedule = makeSchedule();
-    expect(filterLessons(schedule, { subgroup: 0 })).toHaveLength(1);
+    const schedule = makeSchedule({
+      schedules: { Понедельник: [makeItem({ numSubgroup: 2 })] }
+    });
+    expect(filterLessons(schedule, { subgroup: 2 })).toHaveLength(1);
     expect(filterLessons(schedule, { subgroup: 1 })).toHaveLength(0);
+  });
+
+  it("rejects non-positive subgroup filter values", () => {
+    const schedule = makeSchedule();
+    expect(() => filterLessons(schedule, { subgroup: 0 })).toThrow(BsuirValidationError);
+    expect(() => filterLessons(schedule, { subgroup: -1 })).toThrow(BsuirValidationError);
   });
 
   it("filters by lessonTypeAbbrev string", () => {

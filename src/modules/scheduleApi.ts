@@ -36,10 +36,18 @@ export interface ScheduleModule {
 
   // Explicit raw/envelope helpers (new explicit API)
   getGroupRaw(groupNumber: string, options?: ReadOptions): Promise<ScheduleResponse>;
-  getGroupEnvelope(groupNumber: string, subgroup: number, options?: ReadOptions): Promise<ScheduleResponse>;
+  getGroupEnvelope(
+    groupNumber: string,
+    subgroup: number,
+    options?: ReadOptions
+  ): Promise<ScheduleResponse>;
 
   getEmployeeRaw(urlId: string, options?: ReadOptions): Promise<ScheduleResponse>;
-  getEmployeeEnvelope(urlId: string, subgroup: number, options?: ReadOptions): Promise<ScheduleResponse>;
+  getEmployeeEnvelope(
+    urlId: string,
+    subgroup: number,
+    options?: ReadOptions
+  ): Promise<ScheduleResponse>;
 
   getGroupBySubgroup(
     groupNumber: string,
@@ -96,10 +104,7 @@ export interface ScheduleModule {
   ): Promise<ApiDateResponse>;
 }
 
-function filterRawSubgroupLessons(
-  response: ScheduleResponse,
-  subgroup: number
-): ScheduleItem[] {
+function filterRawSubgroupLessons(response: ScheduleResponse, subgroup: number): ScheduleItem[] {
   const items: ScheduleItem[] = [];
   const schedules = response.schedules ?? {};
   for (const dayItems of Object.values(schedules)) {
@@ -112,10 +117,7 @@ function filterRawSubgroupLessons(
   return items;
 }
 
-function filterRawSubgroupEnvelope(
-  response: ScheduleResponse,
-  subgroup: number
-): ScheduleResponse {
+function filterRawSubgroupEnvelope(response: ScheduleResponse, subgroup: number): ScheduleResponse {
   const cloned = structuredClone(response);
   const schedules = cloned.schedules ?? {};
   for (const day of Object.keys(schedules) as (keyof typeof schedules)[]) {
@@ -128,14 +130,15 @@ function filterRawSubgroupEnvelope(
 /**
  * Creates schedule API module with raw/normalized response support.
  */
-export function createScheduleModule(
-  config: Readonly<InternalClientConfig>
-): ScheduleModule {
+export function createScheduleModule(config: Readonly<InternalClientConfig>): ScheduleModule {
   /**
    * Returns schedule for a student group.
    * Returns a normalized payload. Use `getGroupRaw` for the raw API envelope.
    */
-  async function getGroup(groupNumber: string, options: ReadOptions = {}): Promise<NormalizedScheduleResponse> {
+  async function getGroup(
+    groupNumber: string,
+    options: ReadOptions = {}
+  ): Promise<NormalizedScheduleResponse> {
     const resolvedOptions = options;
     assertGroupNumber(groupNumber, "groupNumber");
     const payload = await requestJson<unknown>(config, "/schedule", {
@@ -159,7 +162,10 @@ export function createScheduleModule(
    * Returns schedule for an employee.
    * Returns a normalized payload. Use `getEmployeeRaw` for the raw API envelope.
    */
-  async function getEmployee(urlId: string, options: ReadOptions = {}): Promise<NormalizedScheduleResponse> {
+  async function getEmployee(
+    urlId: string,
+    options: ReadOptions = {}
+  ): Promise<NormalizedScheduleResponse> {
     const resolvedOptions = options;
     assertEmployeeUrlId(urlId, "urlId");
     const endpoint = `/employees/schedule/${encodeURIComponent(urlId)}`;
@@ -347,7 +353,11 @@ export function createScheduleModule(
     return payload as ScheduleResponse;
   }
 
-  async function getGroupEnvelope(groupNumber: string, subgroup: number, options: ReadOptions = {}) {
+  async function getGroupEnvelope(
+    groupNumber: string,
+    subgroup: number,
+    options: ReadOptions = {}
+  ) {
     const raw = await getGroupRaw(groupNumber, options);
     return filterRawSubgroupEnvelope(raw, subgroup);
   }
@@ -423,11 +433,13 @@ export function createScheduleModule(
       const payload = await requestJson<unknown>(config, "/last-update-date/student-group", {
         query,
         signal: options.signal,
-        cache: options.cache
+        cache: options.cache,
+        responseValidator: config.validateResponses
+          ? (value) => {
+              assertApiDateResponse(value, "/last-update-date/student-group");
+            }
+          : undefined
       });
-      if (config.validateResponses) {
-        assertApiDateResponse(payload, "/last-update-date/student-group");
-      }
       return payload as ApiDateResponse;
     },
 
@@ -449,11 +461,13 @@ export function createScheduleModule(
       const payload = await requestJson<unknown>(config, "/last-update-date/employee", {
         query,
         signal: options.signal,
-        cache: options.cache
+        cache: options.cache,
+        responseValidator: config.validateResponses
+          ? (value) => {
+              assertApiDateResponse(value, "/last-update-date/employee");
+            }
+          : undefined
       });
-      if (config.validateResponses) {
-        assertApiDateResponse(payload, "/last-update-date/employee");
-      }
       return payload as ApiDateResponse;
     }
   };

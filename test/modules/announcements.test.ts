@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createBsuirClient } from "../../src";
 import { BsuirApiError } from "../../src/client/errors";
 import { createJsonResponse, mockFetchSequence } from "../helpers/fetchMock";
@@ -71,6 +71,32 @@ describe("announcements module", () => {
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
     const result = await client.announcements.byEmployee("v-petrov");
     expect(result).toEqual({ not: "array" });
+  });
+
+  it("returns empty array for department 404 when treat404AsEmpty is default", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ status: 404, body: { message: "No announcements" } })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl, retries: 0 });
+    await expect(client.announcements.byDepartment(5)).resolves.toEqual([]);
+  });
+
+  it("invokes onError for 404 before treat404AsEmpty maps to empty array", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ status: 404, body: { message: "not found" } })
+    ]);
+    const onError = vi.fn();
+    const client = createBsuirClient({
+      fetch: fetchImpl,
+      validateResponses: true,
+      retries: 0,
+      hooks: { onError }
+    });
+    await expect(client.announcements.byEmployee("v-petrov")).resolves.toEqual([]);
+    expect(onError).toHaveBeenCalledOnce();
+    const ctx = onError.mock.calls[0]?.[0] as { error: unknown } | undefined;
+    expect(ctx?.error).toBeInstanceOf(BsuirApiError);
+    expect((ctx?.error as BsuirApiError).status).toBe(404);
   });
 
   it("returns announcements for department", async () => {

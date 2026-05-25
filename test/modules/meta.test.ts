@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createBsuirClient } from "../../src";
-import { BsuirValidationError } from "../../src/client/errors";
+import { BsuirResponseValidationError, BsuirValidationError } from "../../src/client/errors";
 import { createJsonResponse, mockFetchSequence } from "../helpers/fetchMock";
 
 describe("meta modules", () => {
@@ -31,6 +31,21 @@ describe("meta modules", () => {
     expect(week).toBe(2);
     expect(groupUpdate.lastUpdateDate).toBe("23.02.2022");
     expect(employeeUpdate.lastUpdateDate).toBe("24.02.2022");
+  });
+
+  it("validates last update response shape when validateResponses=true", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ body: { lastUpdateDate: "" } }),
+      createJsonResponse({ body: { wrong: true } })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
+
+    await expect(client.schedule.getLastUpdateByGroup({ id: 123 })).rejects.toBeInstanceOf(
+      BsuirResponseValidationError
+    );
+    await expect(
+      client.schedule.getLastUpdateByEmployee({ urlId: "s-nesterenkov" })
+    ).rejects.toBeInstanceOf(BsuirResponseValidationError);
   });
 
   it("validates last update params", async () => {

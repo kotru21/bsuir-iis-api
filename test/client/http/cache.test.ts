@@ -58,7 +58,10 @@ describe("tryReadCache", () => {
     expect(Object.isFrozen(cached.nested)).toBe(true);
     expect(Object.isFrozen(cached.items)).toBe(true);
 
-    const cachedAgain = tryReadCache(config, "k1") as { nested: { value: number }; items: number[] };
+    const cachedAgain = tryReadCache(config, "k1") as {
+      nested: { value: number };
+      items: number[];
+    };
     expect(cachedAgain).toEqual({ nested: { value: 1 }, items: [1, 2] });
   });
 
@@ -134,9 +137,7 @@ describe("setCache", () => {
     }
     expect(() => setCache(config, "k", new Foo())).toThrow(BsuirConfigurationError);
     expect(() => setCache(config, "k", Number.NaN)).toThrow(BsuirConfigurationError);
-    expect(() => setCache(config, "k", Number.POSITIVE_INFINITY)).toThrow(
-      BsuirConfigurationError
-    );
+    expect(() => setCache(config, "k", Number.POSITIVE_INFINITY)).toThrow(BsuirConfigurationError);
   });
 
   it("evicts least-recently-used entries when cache exceeds maxEntries", () => {

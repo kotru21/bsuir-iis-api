@@ -21,9 +21,13 @@ export function createListModule<T>(
     async listAll(options: ReadOptions = {}): Promise<T[]> {
       const payload = await requestJson<unknown>(config, endpoint, {
         signal: options.signal,
-        cache: options.cache
+        cache: options.cache,
+        responseValidator: config.validateResponses
+          ? (value) => {
+              assertArrayResponse(value, endpoint);
+            }
+          : undefined
       });
-      assertArrayResponse(payload, endpoint);
       return payload as T[];
     }
   };

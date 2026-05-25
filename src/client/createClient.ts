@@ -75,9 +75,7 @@ function assertSafeHeaderValue(value: string | undefined, optionName: string): s
     return undefined;
   }
   if (INVALID_HEADER_LINE_BREAK.test(value) || value.includes("\0")) {
-    throw new BsuirConfigurationError(
-      `'${optionName}' must not contain CR, LF or NUL characters`
-    );
+    throw new BsuirConfigurationError(`'${optionName}' must not contain CR, LF or NUL characters`);
   }
   return value;
 }

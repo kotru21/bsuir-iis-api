@@ -11,7 +11,11 @@ describe("requestJson — payload-too-large should trigger onError", () => {
     ) as unknown as typeof fetch;
 
     const onError = vi.fn<(context: ErrorHookContext) => void>();
-    const client = createBsuirClient({ fetch: fetchImpl, maxResponseBytes: 10, hooks: { onError } });
+    const client = createBsuirClient({
+      fetch: fetchImpl,
+      maxResponseBytes: 10,
+      hooks: { onError }
+    });
 
     await expect(client.groups.listAll()).rejects.toBeInstanceOf(BsuirResponsePayloadTooLargeError);
 

@@ -220,6 +220,34 @@ describe("schedule module", () => {
     expect(byEmployee.lastUpdateDate).toBe("24.02.2022");
   });
 
+  it("rejects non-positive subgroup in getGroupFiltered", async () => {
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildScheduleResponse() })]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+
+    await expect(
+      client.schedule.getGroupFiltered("053503", { subgroup: 0 })
+    ).rejects.toBeInstanceOf(BsuirValidationError);
+  });
+
+  it("supports getEmployeeFiltered and getEmployeeExams", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ body: buildScheduleResponse() }),
+      createJsonResponse({ body: buildScheduleResponse() })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+
+    const filtered = await client.schedule.getEmployeeFiltered("s-nesterenkov", {
+      source: "schedules",
+      weekday: "Понедельник"
+    });
+    const exams = await client.schedule.getEmployeeExams("s-nesterenkov");
+
+    expect(filtered.length).toBeGreaterThan(0);
+    expect(filtered[0]?.day).toBe("Понедельник");
+    expect(exams.length).toBeGreaterThan(0);
+    expect(exams[0]?.source).toBe("exams");
+  });
+
   it("supports filtered schedule queries", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildScheduleResponse() })]);
     const client = createBsuirClient({ fetch: fetchImpl });

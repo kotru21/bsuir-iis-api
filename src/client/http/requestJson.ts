@@ -208,6 +208,8 @@ export async function requestJson<T>(
     }
   }
 
+  let lastSuccessResponse: { hookCtx: RequestHookContext; durationMs: number } | undefined;
+
   const performRequest = async (): Promise<T> => {
     for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
       const attemptNumber = attempt + 1;
@@ -241,7 +243,11 @@ export async function requestJson<T>(
         if (!response.ok) {
           const errorBody = await parseBody(response, config.maxResponseBytes);
           if (attempt < maxRetries && RETRIABLE_STATUS_CODES.has(response.status)) {
-            const retryDecision = getRetryDecision(config, attempt, response.headers.get("retry-after"));
+            const retryDecision = getRetryDecision(
+              config,
+              attempt,
+              response.headers.get("retry-after")
+            );
             if (retryDecision.retryable) {
               const retryCtx: RetryHookContext = {
                 ...hookCtx,
@@ -277,13 +283,15 @@ export async function requestJson<T>(
         }
 
         const parsed = (await parseBody(response, config.maxResponseBytes)) as T;
+        const durationMs = Date.now() - startedAt;
         const responseCtx: ResponseHookContext = {
           ...hookCtx,
           status: response.status,
-          durationMs: Date.now() - startedAt,
+          durationMs,
           fromCache: false
         };
         config.hooks.onResponse?.(responseCtx);
+        lastSuccessResponse = { hookCtx, durationMs };
         return parsed;
       } catch (error: unknown) {
         if (error instanceof BsuirApiError) {
@@ -358,9 +366,30 @@ export async function requestJson<T>(
     throw new BsuirNetworkError(`Unexpected retry loop termination for ${path}`, endpoint, null);
   };
 
+  const runResponseValidator = (payload: T): void => {
+    if (!options.responseValidator) {
+      return;
+    }
+    const responseMeta = lastSuccessResponse ?? {
+      hookCtx: baseHookContext(method, path, endpoint, maxAttempts, maxAttempts, options.query),
+      durationMs: 0
+    };
+    try {
+      options.responseValidator(payload);
+    } catch (error: unknown) {
+      const errorCtx: ErrorHookContext = {
+        ...responseMeta.hookCtx,
+        durationMs: responseMeta.durationMs,
+        error
+      };
+      config.hooks.onError?.(errorCtx);
+      throw error;
+    }
+  };
+
   const requestAndMaybeCache = (): Promise<T> =>
     performRequest().then((payload) => {
-      options.responseValidator?.(payload);
+      runResponseValidator(payload);
       if (canWriteToCache) {
         const cached = setCache(config, ensureRequestKey(), payload);
         if (cached !== undefined) {
@@ -377,10 +406,9 @@ export async function requestJson<T>(
       return (await inFlight) as T;
     }
 
-    const inFlightPromise: Promise<T> = requestAndMaybeCache()
-      .finally(() => {
-        config.inFlightRequests.delete(key);
-      });
+    const inFlightPromise: Promise<T> = requestAndMaybeCache().finally(() => {
+      config.inFlightRequests.delete(key);
+    });
     config.inFlightRequests.set(key, inFlightPromise);
     return await inFlightPromise;
   }

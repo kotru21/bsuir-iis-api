@@ -52,15 +52,15 @@ describe("buildUrl", () => {
   });
 
   it("rejects empty query key", () => {
-    expect(() =>
-      buildUrl("https://iis.bsuir.by/api/v1", "/items", { " ": "1" })
-    ).toThrow(BsuirValidationError);
+    expect(() => buildUrl("https://iis.bsuir.by/api/v1", "/items", { " ": "1" })).toThrow(
+      BsuirValidationError
+    );
   });
 
   it("rejects unsafe query key characters", () => {
-    expect(() =>
-      buildUrl("https://iis.bsuir.by/api/v1", "/items", { "a&b": "1" })
-    ).toThrow(BsuirValidationError);
+    expect(() => buildUrl("https://iis.bsuir.by/api/v1", "/items", { "a&b": "1" })).toThrow(
+      BsuirValidationError
+    );
   });
 
   it("rejects path traversal segments", () => {
@@ -94,8 +94,6 @@ describe("buildUrl", () => {
 
   it("allows printable non-structural characters in query keys (e.g. dot, bracket)", () => {
     expect(buildUrl("https://iis.bsuir.by/api/v1", "/x", { "a.b": "1" })).toContain("a.b=1");
-    expect(buildUrl("https://iis.bsuir.by/api/v1", "/x", { "filter[id]": "1" })).toContain(
-      "id"
-    );
+    expect(buildUrl("https://iis.bsuir.by/api/v1", "/x", { "filter[id]": "1" })).toContain("id");
   });
 });

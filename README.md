@@ -59,10 +59,10 @@ const client = createBsuirClient({
 - `allowedBaseUrlHosts` controls which hosts are allowed for `baseUrl` (defaults to `["iis.bsuir.by"]`).
 - `allowInsecureHttp` enables `http://` only for trusted local/test endpoints.
 - `signal` in `createBsuirClient({ signal })` acts as a global cancellation signal for all requests made by that client.
-- `cache` stores successful GET responses in-memory for the configured TTL. A live `AbortSignal` can still use cache; an already-aborted signal skips cache.
+- `cache` stores successful GET responses in-memory for the configured TTL. A live `AbortSignal` can still use cache; an already-aborted signal skips cache. Cache hits return **deep-frozen** JSON (same reference on repeat reads); clone the payload if you need to mutate it. Use a separate client instance per identity in multi-tenant apps.
 - `dedupeInFlight` reuses the same in-flight GET request for concurrent callers. It is disabled for per-request signals, non-default cache modes, private credential headers, and already-aborted signals.
 - `maxResponseBytes` limits body size per response to protect against memory spikes.
-- `validateResponses` enables opt-in runtime payload-shape checks for key endpoints.
+- `validateResponses` enables runtime payload-shape checks for list, schedule, announcement, and last-update endpoints when set to `true` (default: `false`). Normalized schedule calls still apply a minimal envelope check so normalization cannot crash on non-objects.
 - `hooks` provides lifecycle callbacks (`onRequest`, `onRetry`, `onResponse`, `onError`) for observability.
 - `AbortSignal` is supported by all read methods.
 

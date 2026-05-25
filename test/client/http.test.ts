@@ -25,7 +25,7 @@ const BASE_CONFIG: Omit<InternalClientConfig, "fetchImpl"> = {
   validateResponses: false,
   hooks: {},
   responseCache: new Map(),
-  inFlightRequests: new Map(),
+  inFlightRequests: new Map()
 };
 
 function createConfig(
@@ -359,7 +359,9 @@ describe("requestJson", () => {
     });
 
     const firstPromise = requestJson<{ value: number }>(config, "/faculties");
-    const secondPromise = requestJson<{ value: number }>(config, "/faculties", { cache: "no-store" });
+    const secondPromise = requestJson<{ value: number }>(config, "/faculties", {
+      cache: "no-store"
+    });
     expect(fetchImpl).toHaveBeenCalledTimes(2);
 
     const firstResolve = resolvers[0];
@@ -472,15 +474,51 @@ describe("requestJson", () => {
   });
 
   it("disables cache write when per-call signal is already aborted before request", async () => {
-    const fetchImpl = mockFetchSequence([
-      createJsonResponse({ body: { value: 1 } })
-    ]);
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: { value: 1 } })]);
     const config = createConfig(fetchImpl, { cacheTtlMs: 60_000 });
     const ctrl = new AbortController();
     ctrl.abort();
     await requestJson(config, "/faculties", { signal: ctrl.signal });
     // Aborted signal must prevent the response from being stored.
     expect(config.responseCache.size).toBe(0);
+  });
+
+  it("disables cache and dedup when Cookie header is present", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ body: { value: 1 } }),
+      createJsonResponse({ body: { value: 2 } })
+    ]);
+    const config = createConfig(fetchImpl, {
+      cacheTtlMs: 60_000,
+      dedupeInFlight: true
+    });
+
+    const first = await requestJson<{ value: number }>(config, "/faculties", {
+      headers: { Cookie: "session=a" }
+    });
+    const second = await requestJson<{ value: number }>(config, "/faculties", {
+      headers: { Cookie: "session=a" }
+    });
+
+    expect(first.value).toBe(1);
+    expect(second.value).toBe(2);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(config.responseCache.size).toBe(0);
+  });
+
+  it("throws BsuirNetworkError with cause after retries are exhausted", async () => {
+    const first = new Error("ECONNRESET");
+    const second = new Error("ETIMEDOUT");
+    const fetchImpl = mockFetchSequence([first, second, second]);
+    const config = createConfig(fetchImpl, { retries: 2 });
+
+    const error = await requestJson(config, "/faculties").catch((error_: unknown) => error_);
+    expect(error).toBeInstanceOf(BsuirNetworkError);
+    expect(error).toMatchObject({
+      endpoint: "https://iis.bsuir.by/api/v1/faculties",
+      cause: second
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
   });
 
   it("disables cache and dedup when Authorization header is present", async () => {

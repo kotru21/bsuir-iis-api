@@ -54,10 +54,14 @@ async function requestAnnouncementList(
 ): Promise<Announcement[]> {
   const treat404AsEmpty = options.treat404AsEmpty ?? true;
   try {
-    const payload = await requestJson<unknown>(config, path, options);
-    if (config.validateResponses) {
-      assertArrayResponse(payload, path);
-    }
+    const payload = await requestJson<unknown>(config, path, {
+      ...options,
+      responseValidator: config.validateResponses
+        ? (value) => {
+            assertArrayResponse(value, path);
+          }
+        : undefined
+    });
     return payload as Announcement[];
   } catch (error) {
     if (
@@ -73,7 +77,7 @@ async function requestAnnouncementList(
 }
 
 /**
- *
+ * Creates the announcements module (`byEmployee`, `byDepartment`).
  */
 export function createAnnouncementsModule(config: Readonly<InternalClientConfig>): {
   byEmployee(urlId: string, options?: AnnouncementReadOptions): Promise<Announcement[]>;
@@ -105,10 +109,7 @@ export function createAnnouncementsModule(config: Readonly<InternalClientConfig>
      * the SDK maps that to `[]`; pass `treat404AsEmpty: false` to receive the
      * underlying `BsuirApiError` instead.
      */
-    async byDepartment(
-      id: number,
-      options: AnnouncementReadOptions = {}
-    ): Promise<Announcement[]> {
+    async byDepartment(id: number, options: AnnouncementReadOptions = {}): Promise<Announcement[]> {
       assertPositiveInt(id, "id");
       return requestAnnouncementList(config, "/announcements/departments", {
         ...options,

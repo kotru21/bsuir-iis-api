@@ -7,8 +7,9 @@ Thank you for your interest! Below is everything you need to get started.
 ```bash
 npm install
 npm run build        # compile TypeScript
-npm test             # run unit + integration tests
-npm run check        # type-check + lint + format check
+npm test             # run unit tests (live contract: BSUIR_LIVE_TESTS=1 npm run test:live)
+npm run check        # lint + typecheck + unit tests
+npm run check:full   # lint + typecheck + format:check + coverage (matches CI)
 ```
 
 ## Project Structure
@@ -25,7 +26,7 @@ utils/ — shared guards, date helpers, week parser
 
 1. Fork the repo and create a branch from `main`.
 2. Add or update tests for any logic you change.
-3. Run `npm run check` — all checks must pass before submitting.
+3. Run `npm run check:full` before submitting (or at minimum `npm run check`).
 4. Run `npm test` — all tests must pass.
 
 ## Commits & Pull Requests

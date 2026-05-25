@@ -147,15 +147,25 @@ describe("scheduleApi — explicit raw/envelope behavior", () => {
     expect(response.schedules?.Вторник?.map((item) => item.numSubgroup)).toEqual([1]);
   });
 
+  it("getGroupBySubgroup with raw: true returns filtered ScheduleItem array", async () => {
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildSubgroupPayload() })]);
+    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
+
+    const lessons = await client.schedule.getGroupBySubgroup("053503", 2, { raw: true });
+    expect(Array.isArray(lessons)).toBe(true);
+    expect(lessons).toHaveLength(1);
+    expect(lessons[0]?.numSubgroup).toBe(2);
+    expect(lessons[0]?.subject).toBe("Physics");
+  });
+
   it("rawEnvelope takes precedence over raw: true in subgroup helpers", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildSubgroupPayload() })]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
 
-    const response = await client.schedule.getGroupBySubgroup(
-      "053503",
-      1,
-      { raw: true, rawEnvelope: true } as unknown as { rawEnvelope: true }
-    );
+    const response = await client.schedule.getGroupBySubgroup("053503", 1, {
+      raw: true,
+      rawEnvelope: true
+    } as unknown as { rawEnvelope: true });
 
     expect("schedules" in response).toBe(true);
     expect(Array.isArray(response)).toBe(false);

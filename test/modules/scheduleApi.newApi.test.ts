@@ -48,4 +48,29 @@ describe("schedule module — explicit raw/envelope API", () => {
     expect(envelope.schedules?.Понедельник).toHaveLength(1);
     expect(envelope.schedules?.Понедельник?.[0]?.numSubgroup).toBe(2);
   });
+
+  it("getEmployeeEnvelope filters subgroup and returns ScheduleResponse envelope", async () => {
+    const body = {
+      employeeDto: null,
+      studentGroupDto: null,
+      schedules: {
+        Вторник: [
+          { numSubgroup: 1, name: "A" },
+          { numSubgroup: 2, name: "B" }
+        ]
+      },
+      exams: [],
+      startDate: null,
+      endDate: null,
+      startExamsDate: null,
+      endExamsDate: null
+    };
+    const fetchImpl = vi.fn(async () => createJsonResponse({ body })) as unknown as typeof fetch;
+    const client = createBsuirClient({ fetch: fetchImpl });
+
+    const envelope = await client.schedule.getEmployeeEnvelope("s-nesterenkov", 2);
+    expect(envelope).toHaveProperty("schedules");
+    expect(envelope.schedules?.Вторник).toHaveLength(1);
+    expect(envelope.schedules?.Вторник?.[0]?.numSubgroup).toBe(2);
+  });
 });

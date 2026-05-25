@@ -112,7 +112,9 @@ describe("createBsuirClient", () => {
   });
 
   it("does not deduplicate in-flight requests by default", async () => {
-    const fetchImpl = vi.fn(async () => createJsonResponse({ body: [] })) as unknown as typeof fetch;
+    const fetchImpl = vi.fn(async () =>
+      createJsonResponse({ body: [] })
+    ) as unknown as typeof fetch;
     const client = createBsuirClient({ fetch: fetchImpl });
 
     await Promise.all([client.groups.listAll(), client.groups.listAll()]);

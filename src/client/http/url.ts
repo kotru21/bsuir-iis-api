@@ -10,11 +10,7 @@ const SCHEME_PREFIX = /^[A-Za-z][A-Za-z\d+.-]*:/;
 
 function assertSafeQueryKey(key: string): void {
   if (key.length === 0) {
-    throw new BsuirValidationError(
-      "Query parameter key must not be empty",
-      "queryKey",
-      key
-    );
+    throw new BsuirValidationError("Query parameter key must not be empty", "queryKey", key);
   }
   if (UNSAFE_QUERY_KEY.test(key)) {
     throw new BsuirValidationError(
@@ -56,7 +52,11 @@ function assertSafePath(path: string): void {
       throw new BsuirValidationError("Path contains malformed escape sequence", "path", path);
     }
     if (decodedSegment === "." || decodedSegment === "..") {
-      throw new BsuirValidationError("Path must not contain relative traversal segments", "path", path);
+      throw new BsuirValidationError(
+        "Path must not contain relative traversal segments",
+        "path",
+        path
+      );
     }
   }
 }

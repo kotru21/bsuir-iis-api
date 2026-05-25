@@ -74,5 +74,8 @@ export function filterLessons(
   if (typeof filter.weekNumber === "number") {
     assertPositiveInt(filter.weekNumber, "filter.weekNumber");
   }
+  if (typeof filter.subgroup === "number") {
+    assertPositiveInt(filter.subgroup, "filter.subgroup");
+  }
   return response.lessons.filter((item) => matchesFilter(item, filter));
 }

@@ -28,4 +28,16 @@ describe("catalog modules", () => {
     expect(specialities[0]?.name).toBe("ИиТП");
     expect(auditories[0]?.name).toBe("104");
   });
+
+  it("returns an empty list when API responds with []", async () => {
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: [] })]);
+    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
+    await expect(client.groups.listAll()).resolves.toEqual([]);
+  });
+
+  it("rejects non-array catalog payloads when validateResponses is true", async () => {
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: {} })]);
+    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
+    await expect(client.departments.listAll()).rejects.toThrow();
+  });
 });

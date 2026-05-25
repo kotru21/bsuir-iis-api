@@ -66,9 +66,16 @@ describe("requestJson — additional branches", () => {
     expect(result).toEqual([]);
   });
 
-  it("always validates list shape even when validateResponses=false", async () => {
+  it("skips list array validation when validateResponses=false", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: { not: "array" } })]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
+    const result = await client.groups.listAll();
+    expect(result).toEqual({ not: "array" });
+  });
+
+  it("rejects non-array catalog payloads when validateResponses=true", async () => {
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: { not: "array" } })]);
+    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
     await expect(client.groups.listAll()).rejects.toBeInstanceOf(BsuirResponseValidationError);
   });
 
@@ -87,13 +94,45 @@ describe("requestJson — additional branches", () => {
     expect(Object.isFrozen(first ?? {})).toBe(true);
   });
 
+  it("returns the same frozen reference on cache hit", async () => {
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: [{ id: 1 }] })]);
+    const client = createBsuirClient({
+      fetch: fetchImpl,
+      validateResponses: false,
+      cache: { ttlMs: 60_000 }
+    });
+
+    const first = await client.groups.listAll();
+    const second = await client.groups.listAll();
+
+    expect(second).toBe(first);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("prevents mutating cached list payloads in strict mode", async () => {
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: [{ id: 1 }] })]);
+    const client = createBsuirClient({
+      fetch: fetchImpl,
+      validateResponses: false,
+      cache: { ttlMs: 60_000 }
+    });
+
+    const cached = await client.groups.listAll();
+    const push = (): number => cached.push({ id: 2 } as (typeof cached)[number]);
+    expect(push).toThrow();
+    expect(cached).toHaveLength(1);
+  });
+
   it("detaches manual merge listeners after successful request when AbortSignal.any is unavailable", async () => {
     vi.useFakeTimers();
     const controller = new AbortController();
     let added = 0;
     let removed = 0;
     const originalDescriptor = Object.getOwnPropertyDescriptor(AbortSignal, "any");
-    const addDescriptor = Object.getOwnPropertyDescriptor(AbortSignal.prototype, "addEventListener");
+    const addDescriptor = Object.getOwnPropertyDescriptor(
+      AbortSignal.prototype,
+      "addEventListener"
+    );
     const removeDescriptor = Object.getOwnPropertyDescriptor(
       AbortSignal.prototype,
       "removeEventListener"
