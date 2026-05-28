@@ -4,8 +4,8 @@
  * the compiled function lacks Error.prototype in its chain. This restores it.
  * See: https://github.com/microsoft/TypeScript/wiki/Breaking-Changes#extending-built-ins
  */
-function fixErrorPrototype(instance: Error, prototype: object): void {
-  Object.setPrototypeOf(instance, prototype);
+function fixErrorPrototype(_instance: Error, _prototype: object): void {
+  // No-op: target in this project is ES2015+ so Error subclassing is correct.
 }
 
 export class BsuirApiError extends Error {
