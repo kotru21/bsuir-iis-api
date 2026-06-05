@@ -66,10 +66,37 @@ describe("response validators", () => {
     ).toThrow(BsuirResponseValidationError);
   });
 
+  it("rejects invalid schedule day entries", () => {
+    expect(() =>
+      assertScheduleResponse(
+        { employeeDto: null, studentGroupDto: null, schedules: { Понедельник: [null] }, exams: [] },
+        "/schedule"
+      )
+    ).toThrow(BsuirResponseValidationError);
+  });
+
+  it("rejects non-array schedule day values", () => {
+    expect(() =>
+      assertScheduleResponse(
+        { employeeDto: null, studentGroupDto: null, schedules: { Понедельник: {} }, exams: [] },
+        "/schedule"
+      )
+    ).toThrow(BsuirResponseValidationError);
+  });
+
   it("rejects invalid exams shape", () => {
     expect(() =>
       assertScheduleResponse(
         { employeeDto: null, studentGroupDto: null, schedules: {}, exams: {} },
+        "/schedule"
+      )
+    ).toThrow(BsuirResponseValidationError);
+  });
+
+  it("rejects invalid exam entries", () => {
+    expect(() =>
+      assertScheduleResponse(
+        { employeeDto: null, studentGroupDto: null, schedules: {}, exams: [null] },
         "/schedule"
       )
     ).toThrow(BsuirResponseValidationError);

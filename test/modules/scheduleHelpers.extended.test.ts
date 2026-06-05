@@ -3,6 +3,7 @@ import {
   buildScheduleDays,
   getCurrentLesson,
   getLessonsForDate,
+  getLessonsForWeek,
   getNextLesson,
   sortLessonsByTime
 } from "../../src";
@@ -102,23 +103,42 @@ describe("usesFourWeekCycle (line 137)", () => {
 });
 
 describe("inferWeekNumberForDate edge cases (lines 150, 153)", () => {
-  it("skips weekNumber check when startDate is null — returns lesson (line 150)", () => {
+  it("fails closed when startDate is null by default", () => {
     const schedule = makeSchedule({
       schedules: { Понедельник: [makeLesson()] },
       startDate: null,
       endDate: null
     });
-    // inferredWeekNumber → null (parseDdMmYyyyParts(null) → null) → check skipped → matches
-    expect(getLessonsForDate(schedule, new Date(2025, 4, 12))).toHaveLength(1);
+    expect(getLessonsForDate(schedule, new Date(2025, 4, 12))).toHaveLength(0);
   });
 
-  it("skips weekNumber check when date is before startDate (diffDays < 0, line 153)", () => {
+  it("keeps previous permissive behavior when requested", () => {
+    const schedule = makeSchedule({
+      schedules: { Понедельник: [makeLesson()] },
+      startDate: null,
+      endDate: null
+    });
+    expect(
+      getLessonsForDate(schedule, new Date(2025, 4, 12), {
+        unknownWeekBehavior: "include"
+      })
+    ).toHaveLength(1);
+  });
+
+  it("fails closed when date is before startDate by default", () => {
     const schedule = makeSchedule({
       schedules: { Понедельник: [makeLesson()] },
       startDate: "19.05.2025"
     });
-    // 12.05.2025 < startDate 19.05.2025 → diffDays < 0 → null → check skipped → matches by weekday
-    expect(getLessonsForDate(schedule, new Date(2025, 4, 12))).toHaveLength(1);
+    expect(getLessonsForDate(schedule, new Date(2025, 4, 12))).toHaveLength(0);
+  });
+
+  it("normalizes getLessonsForWeek input for four-week cycle schedules", () => {
+    const schedule = makeSchedule({
+      schedules: { Понедельник: [makeLesson({ weekNumber: [1] })] }
+    });
+
+    expect(getLessonsForWeek(schedule, 5)).toHaveLength(1);
   });
 });
 
