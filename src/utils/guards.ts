@@ -54,8 +54,11 @@ export function assertEmployeeUrlId(value: unknown, fieldName = "urlId"): assert
  * Returns `true` if the error object represents an abort/cancellation.
  */
 export function isAbortError(error: unknown): boolean {
-  // Browser: DOMException with name "AbortError"
-  if (error instanceof DOMException && error.name === "AbortError") {
+  // Browser: DOMException with name "AbortError" or "TimeoutError" (AbortSignal.timeout reason)
+  if (
+    error instanceof DOMException &&
+    (error.name === "AbortError" || error.name === "TimeoutError")
+  ) {
     return true;
   }
 

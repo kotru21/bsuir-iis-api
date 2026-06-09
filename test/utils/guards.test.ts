@@ -51,6 +51,10 @@ describe("guards", () => {
     expect(isAbortError(new Error("aborted"))).toBe(false);
   });
 
+  it("detects TimeoutError DOMException as abort (browser AbortSignal.timeout reason)", () => {
+    expect(isAbortError(new DOMException("timed out", "TimeoutError"))).toBe(true);
+  });
+
   // line 48 — Node.js abort style: error object with code === "ABORT_ERR"
   it("detects abort error via code ABORT_ERR (line 48)", () => {
     expect(isAbortError({ code: "ABORT_ERR" })).toBe(true);
