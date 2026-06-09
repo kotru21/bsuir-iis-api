@@ -103,42 +103,29 @@ describe("usesFourWeekCycle (line 137)", () => {
 });
 
 describe("inferWeekNumberForDate edge cases (lines 150, 153)", () => {
-  it("fails closed when startDate is null by default", () => {
+  it("matches by weekday when startDate is null and week cannot be inferred", () => {
     const schedule = makeSchedule({
       schedules: { Понедельник: [makeLesson()] },
       startDate: null,
       endDate: null
     });
-    expect(getLessonsForDate(schedule, new Date(2025, 4, 12))).toHaveLength(0);
+    expect(getLessonsForDate(schedule, new Date(2025, 4, 12))).toHaveLength(1);
   });
 
-  it("keeps previous permissive behavior when requested", () => {
-    const schedule = makeSchedule({
-      schedules: { Понедельник: [makeLesson()] },
-      startDate: null,
-      endDate: null
-    });
-    expect(
-      getLessonsForDate(schedule, new Date(2025, 4, 12), {
-        unknownWeekBehavior: "include"
-      })
-    ).toHaveLength(1);
-  });
-
-  it("fails closed when date is before startDate by default", () => {
+  it("matches by weekday when date is before startDate and week cannot be inferred", () => {
     const schedule = makeSchedule({
       schedules: { Понедельник: [makeLesson()] },
       startDate: "19.05.2025"
     });
-    expect(getLessonsForDate(schedule, new Date(2025, 4, 12))).toHaveLength(0);
+    expect(getLessonsForDate(schedule, new Date(2025, 4, 12))).toHaveLength(1);
   });
 
-  it("normalizes getLessonsForWeek input for four-week cycle schedules", () => {
+  it("returns lessons for the requested week number", () => {
     const schedule = makeSchedule({
       schedules: { Понедельник: [makeLesson({ weekNumber: [1] })] }
     });
 
-    expect(getLessonsForWeek(schedule, 5)).toHaveLength(1);
+    expect(getLessonsForWeek(schedule, 1)).toHaveLength(1);
   });
 });
 

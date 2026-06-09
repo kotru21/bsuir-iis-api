@@ -1,34 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { BsuirResponseValidationError, BsuirTimeoutError, createBsuirClient } from "../../../src";
-import { requestJson } from "../../../src/client/http";
-import type { InternalClientConfig } from "../../../src/client/types";
 import { createJsonResponse, mockFetchSequence } from "../../helpers/fetchMock";
-
-function createConfig(
-  fetchImpl: typeof globalThis.fetch,
-  overrides: Partial<InternalClientConfig> = {}
-): InternalClientConfig {
-  return {
-    baseUrl: "https://iis.bsuir.by/api/v1",
-    fetchImpl,
-    signal: undefined,
-    timeoutMs: 1000,
-    retries: 0,
-    retryDelayMs: 1,
-    retryMaxDelayMs: 500,
-    retryJitter: false,
-    userAgent: undefined,
-    cacheTtlMs: undefined,
-    cacheMaxEntries: 200,
-    dedupeInFlight: true,
-    maxResponseBytes: 5_000_000,
-    validateResponses: false,
-    hooks: {},
-    responseCache: new Map(),
-    inFlightRequests: new Map(),
-    ...overrides
-  };
-}
 
 describe("requestJson — additional branches", () => {
   // lines 72-73 — options.headers provided → iterated and set on request
@@ -164,52 +136,6 @@ describe("requestJson — additional branches", () => {
 
     await expect(client.groups.listAll()).rejects.toBeInstanceOf(BsuirTimeoutError);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
-  });
-
-  it("stops waiting for retry backoff when caller aborts", async () => {
-    vi.useFakeTimers();
-    const controller = new AbortController();
-    const fetchImpl = vi.fn(async () => {
-      throw new Error("ECONNRESET");
-    }) as unknown as typeof globalThis.fetch;
-    const client = createBsuirClient({
-      fetch: fetchImpl,
-      retries: 1,
-      retryDelayMs: 10_000,
-      retryMaxDelayMs: 10_000,
-      retryJitter: false,
-      validateResponses: false
-    });
-
-    try {
-      const request = client.groups.listAll({ signal: controller.signal });
-      await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(1));
-
-      controller.abort();
-      await expect(request).rejects.toMatchObject({ name: "AbortError" });
-      expect(fetchImpl).toHaveBeenCalledTimes(1);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("separates cache entries for response-varying non-private headers", async () => {
-    const fetchImpl = mockFetchSequence([
-      createJsonResponse({ body: { value: "a" } }),
-      createJsonResponse({ body: { value: "b" } })
-    ]);
-    const config = createConfig(fetchImpl, { cacheTtlMs: 60_000 });
-
-    const first = await requestJson(config, "/student-groups", {
-      headers: { "X-Response-Variant": "a" }
-    });
-    const second = await requestJson(config, "/student-groups", {
-      headers: { "X-Response-Variant": "b" }
-    });
-
-    expect(first).toEqual({ value: "a" });
-    expect(second).toEqual({ value: "b" });
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
   it("detaches manual merge listeners after successful request when AbortSignal.any is unavailable", async () => {

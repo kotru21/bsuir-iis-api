@@ -1,16 +1,14 @@
 /**
  * Fetch stub that rejects when the request AbortSignal fires — same contract as browser fetch.
  */
-export function createSignalAwareFetch(
-  onAbort?: (signal: AbortSignal) => void
-): typeof fetch {
+export function createSignalAwareFetch(onAbort?: (signal: AbortSignal) => void): typeof fetch {
   return (async (_input, init) => {
     const signal = init?.signal;
     if (!signal) {
       throw new Error("expected AbortSignal on request init");
     }
     if (signal.aborted) {
-      const reason = signal.reason;
+      const reason: unknown = signal.reason;
       if (reason instanceof DOMException) {
         throw reason;
       }
@@ -19,7 +17,7 @@ export function createSignalAwareFetch(
     await new Promise<never>((_resolve, reject) => {
       const onAbortEvent = (): void => {
         onAbort?.(signal);
-        const reason = signal.reason;
+        const reason: unknown = signal.reason;
         if (reason instanceof DOMException) {
           reject(reason);
           return;
@@ -28,9 +26,6 @@ export function createSignalAwareFetch(
       };
       signal.addEventListener("abort", onAbortEvent, { once: true });
     });
-    return new Response(JSON.stringify([]), {
-      status: 200,
-      headers: { "content-type": "application/json" }
-    });
+    return Response.json([]);
   }) as typeof fetch;
 }

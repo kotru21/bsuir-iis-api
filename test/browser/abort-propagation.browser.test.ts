@@ -20,12 +20,12 @@ describe("browser — caller abort propagation", () => {
       validateResponses: false
     });
 
-    await expect(
-      client.groups.listAll({ signal: controller.signal })
-    ).rejects.toBeInstanceOf(DOMException);
-    await expect(
-      client.groups.listAll({ signal: controller.signal })
-    ).rejects.not.toBeInstanceOf(BsuirTimeoutError);
+    await expect(client.groups.listAll({ signal: controller.signal })).rejects.toBeInstanceOf(
+      DOMException
+    );
+    await expect(client.groups.listAll({ signal: controller.signal })).rejects.not.toBeInstanceOf(
+      BsuirTimeoutError
+    );
   });
 
   it("rethrows native DOMException when global client signal is aborted", async () => {

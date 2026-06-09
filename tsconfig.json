@@ -17,5 +17,12 @@
     "outDir": "dist",
     "rootDir": "."
   },
-  "include": ["src", "test", "examples", "tsup.config.ts", "vitest.config.ts"]
+  "include": [
+    "src",
+    "test",
+    "examples",
+    "tsup.config.ts",
+    "vitest.config.ts",
+    "vitest.browser.config.ts"
+  ]
 }
