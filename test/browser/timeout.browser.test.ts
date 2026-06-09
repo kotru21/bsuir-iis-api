@@ -18,7 +18,7 @@ describe("browser — request timeout", () => {
   it("passes a real AbortSignal to fetch", async () => {
     let receivedSignal: AbortSignal | undefined;
     const fetchImpl = (async (_input, init) => {
-      receivedSignal = init?.signal;
+      receivedSignal = init?.signal ?? undefined;
       throw new DOMException("The operation timed out", "TimeoutError");
     }) as typeof fetch;
 
