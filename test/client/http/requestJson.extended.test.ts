@@ -144,13 +144,9 @@ describe("requestJson — additional branches", () => {
     let added = 0;
     let removed = 0;
     const originalDescriptor = Object.getOwnPropertyDescriptor(AbortSignal, "any");
-    const addDescriptor = Object.getOwnPropertyDescriptor(
-      AbortSignal.prototype,
-      "addEventListener"
-    );
-    const removeDescriptor = Object.getOwnPropertyDescriptor(
-      AbortSignal.prototype,
-      "removeEventListener"
+    const originalAddEventListener = controller.signal.addEventListener.bind(controller.signal);
+    const originalRemoveEventListener = controller.signal.removeEventListener.bind(
+      controller.signal
     );
 
     try {
@@ -162,26 +158,26 @@ describe("requestJson — additional branches", () => {
         configurable: true
       });
 
-      AbortSignal.prototype.addEventListener = function (
+      controller.signal.addEventListener = (
         type: string,
         listener: EventListenerOrEventListenerObject,
         options?: boolean | AddEventListenerOptions
-      ) {
-        if (this === controller.signal && type === "abort") {
+      ) => {
+        if (type === "abort") {
           added += 1;
         }
-        return EventTarget.prototype.addEventListener.call(this, type, listener, options);
+        return originalAddEventListener(type, listener, options);
       };
 
-      AbortSignal.prototype.removeEventListener = function (
+      controller.signal.removeEventListener = (
         type: string,
         listener: EventListenerOrEventListenerObject,
         options?: boolean | EventListenerOptions
-      ) {
-        if (this === controller.signal && type === "abort") {
+      ) => {
+        if (type === "abort") {
           removed += 1;
         }
-        return EventTarget.prototype.removeEventListener.call(this, type, listener, options);
+        return originalRemoveEventListener(type, listener, options);
       };
 
       const fetchImpl = mockFetchSequence([createJsonResponse({ body: [] })]);
@@ -197,16 +193,8 @@ describe("requestJson — additional branches", () => {
       expect(added).toBeGreaterThan(0);
       expect(removed).toBeGreaterThan(0);
     } finally {
-      if (addDescriptor) {
-        Object.defineProperty(AbortSignal.prototype, "addEventListener", addDescriptor);
-      } else {
-        delete (AbortSignal.prototype as { addEventListener?: unknown }).addEventListener;
-      }
-      if (removeDescriptor) {
-        Object.defineProperty(AbortSignal.prototype, "removeEventListener", removeDescriptor);
-      } else {
-        delete (AbortSignal.prototype as { removeEventListener?: unknown }).removeEventListener;
-      }
+      controller.signal.addEventListener = originalAddEventListener;
+      controller.signal.removeEventListener = originalRemoveEventListener;
       if (originalDescriptor) {
         Object.defineProperty(AbortSignal, "any", originalDescriptor);
       }

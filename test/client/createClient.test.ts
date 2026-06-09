@@ -45,6 +45,7 @@ describe("createBsuirClient", () => {
   });
 
   it("rejects HTTP baseUrl by default", () => {
+    // eslint-disable-next-line unicorn/prefer-https -- testing insecure HTTP rejection
     expect(() => createBsuirClient({ baseUrl: "http://iis.bsuir.by/api/v1" })).toThrow(
       BsuirConfigurationError
     );

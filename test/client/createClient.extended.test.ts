@@ -24,6 +24,7 @@ describe("createBsuirClient — baseUrl validation (lines 61, 65, 69, 82)", () =
   it("throws when baseUrl uses http:// without allowInsecureHttp (line 69)", () => {
     expect(() =>
       createBsuirClient({
+        // eslint-disable-next-line unicorn/prefer-https -- testing insecure HTTP rejection
         baseUrl: "http://iis.bsuir.by/api/v1",
         allowedBaseUrlHosts: ["iis.bsuir.by"]
       })
@@ -33,6 +34,7 @@ describe("createBsuirClient — baseUrl validation (lines 61, 65, 69, 82)", () =
   it("rejects non-loopback http:// even when allowInsecureHttp: true", () => {
     expect(() =>
       createBsuirClient({
+        // eslint-disable-next-line unicorn/prefer-https -- testing insecure HTTP rejection
         baseUrl: "http://iis.bsuir.by/api/v1",
         allowInsecureHttp: true,
         allowedBaseUrlHosts: ["iis.bsuir.by"]

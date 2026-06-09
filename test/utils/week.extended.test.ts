@@ -20,7 +20,7 @@ describe("parseCurrentWeek — edge cases", () => {
   });
 
   it("throws for empty string (line 28)", () => {
-    expect(() => parseCurrentWeek("   ")).toThrow(BsuirValidationError);
+    expect(() => parseCurrentWeek(" ".repeat(3))).toThrow(BsuirValidationError);
   });
 
   it("throws for non-positive integer string", () => {

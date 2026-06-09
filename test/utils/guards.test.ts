@@ -12,7 +12,7 @@ describe("guards", () => {
   it("validates non-empty string values", () => {
     expect(() => assertNonEmptyString("abc", "field")).not.toThrow();
     expect(() => assertNonEmptyString("", "field")).toThrow(BsuirValidationError);
-    expect(() => assertNonEmptyString("   ", "field")).toThrow(BsuirValidationError);
+    expect(() => assertNonEmptyString(" ".repeat(3), "field")).toThrow(BsuirValidationError);
     expect(() => assertNonEmptyString(null, "field")).toThrow(BsuirValidationError);
     expect(() => assertNonEmptyString(123, "field")).toThrow(BsuirValidationError);
   });
