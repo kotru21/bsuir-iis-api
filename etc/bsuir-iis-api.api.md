@@ -383,6 +383,13 @@ export function getTomorrowLessons(normalizedSchedule: NormalizedScheduleRespons
 // @public
 export function groupLessonsByDay(lessons: readonly FlattenedScheduleItem[]): FlattenedLessonsByDay;
 
+// @public
+export type InvalidLessonTimeHook = (info: {
+    field: "startLessonTime" | "endLessonTime";
+    value: string;
+    lesson: LessonWithTime;
+}) => void;
+
 // @public (undocumented)
 export interface LessonStudentGroup {
     // (undocumented)
@@ -726,10 +733,6 @@ export const WEEKDAYS: readonly ["Понедельник", "Вторник", "С
 
 // @public (undocumented)
 export type WeekScheduleMap = Partial<Record<Weekday, ScheduleItem[]>>;
-
-// Warnings were encountered during analysis:
-//
-// dist/_tsup-dts-rollup.d.ts:798:5 - (ae-forgotten-export) The symbol "InvalidLessonTimeHook" needs to be exported by the entry point index.d.ts
 
 // (No @packageDocumentation comment for this package)
 

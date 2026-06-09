@@ -11,7 +11,7 @@ import {
   normalizeSchedule,
   sortLessonsByTime
 } from "../../src";
-import type { InvalidLessonTimeHook } from "../../src/helpers/schedule";
+import type { InvalidLessonTimeHook } from "../../src";
 import type {
   FlattenedScheduleItem,
   ScheduleItem,

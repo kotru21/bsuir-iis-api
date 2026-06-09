@@ -17,6 +17,7 @@ export type {
 } from "./client/types";
 export type { ReadOptions } from "./modules/types";
 export type { ScheduleModule } from "./modules/scheduleApi";
+export type { InvalidLessonTimeHook } from "./helpers/schedule";
 export {
   buildScheduleDays,
   filterLessons,

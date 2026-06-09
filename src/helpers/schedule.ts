@@ -8,47 +8,16 @@ import type {
   NormalizedScheduleResponse,
   ScheduleDay
 } from "../types/schedule";
+import { parseDdMmYyyyParts, type DdMmYyyyParts } from "../utils/date";
 import { assertPositiveInt } from "../utils/guards";
 
 const SUNDAY_LABEL = "Воскресенье";
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
-interface DdMmYyyyParts {
-  day: number;
-  month: number;
-  year: number;
-}
-
 function createEmptyLessonsByDay(): FlattenedLessonsByDay {
   return Object.fromEntries(
     WEEKDAYS.map((day) => [day, [] as FlattenedScheduleItem[]])
   ) as FlattenedLessonsByDay;
-}
-
-function parseDdMmYyyyParts(value: string | null): DdMmYyyyParts | null {
-  if (!value) {
-    return null;
-  }
-  const matched = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(value);
-  if (!matched) {
-    return null;
-  }
-  const [, dayPart, monthPart, yearPart] = matched;
-  const day = Number(dayPart);
-  const month = Number(monthPart);
-  const year = Number(yearPart);
-  if (!Number.isInteger(day) || !Number.isInteger(month) || !Number.isInteger(year)) {
-    return null;
-  }
-  const utcDate = new Date(Date.UTC(year, month - 1, day));
-  if (
-    utcDate.getUTCFullYear() !== year ||
-    utcDate.getUTCMonth() !== month - 1 ||
-    utcDate.getUTCDate() !== day
-  ) {
-    return null;
-  }
-  return { day, month, year };
 }
 
 function toDayOrdinal(parts: DdMmYyyyParts): number {

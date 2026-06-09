@@ -98,13 +98,13 @@ const client = createBsuirClient({
 - `client.announcements.byEmployee(urlId, options?)`
 - `client.announcements.byDepartment(id, options?)`
 
-When IIS responds with HTTP `404` or `400` (no list, missing resource, or endpoint quirks), these methods resolve to an empty array `[]` instead of throwing `BsuirApiError`. Client-side validation still runs first (`urlId`, department `id`). If IIS later returns a meaningful `400` for bad parameters, it will also map to `[]`; other HTTP errors are unchanged.
+When IIS responds with HTTP `404` (the employee or department has no announcements), these methods resolve to an empty array `[]` instead of throwing `BsuirApiError`. Pass `treat404AsEmpty: false` to receive the underlying `BsuirApiError` instead. Client-side validation still runs first (`urlId`, department `id`); all other HTTP errors (including `400`) are always thrown so malformed-request bugs are not silently masked.
 
 ### Public exports (runtime utilities and types)
 
 - Core runtime API: `createBsuirClient`, `BsuirClient`
 - Client/runtime option types: `BsuirClientOptions`, `CacheOptions`, `ClientHooks`, `RequestOptions`, `ReadOptions`, `RequestHookContext`, `RetryHookContext`, `ResponseHookContext`, `ErrorHookContext`
-- Schedule utilities: `normalizeSchedule`, `filterLessons`, `getLessonsForDate`, `getTodayLessons`, `getTomorrowLessons`, `getLessonsForWeek`, `sortLessonsByTime`, `groupLessonsByDay`, `getCurrentLesson`, `getNextLesson`, `buildScheduleDays`, `ScheduleFilterOptions`
+- Schedule utilities: `normalizeSchedule`, `filterLessons`, `getLessonsForDate`, `getTodayLessons`, `getTomorrowLessons`, `getLessonsForWeek`, `sortLessonsByTime`, `groupLessonsByDay`, `getCurrentLesson`, `getNextLesson`, `buildScheduleDays`, `ScheduleFilterOptions`, `InvalidLessonTimeHook`
 - Error classes: `BsuirApiError`, `BsuirNetworkError`, `BsuirTimeoutError`, `BsuirValidationError`, `BsuirResponseValidationError`, `BsuirResponsePayloadTooLargeError`, `BsuirConfigurationError`
 - Domain types: `Announcement`, `ApiDateResponse`, `Auditory`, `AuditoryDepartment`, `AuditoryType`, `BuildingNumber`, `Department`, `EducationForm`, `Employee`, `EmployeeCatalogItem`, `Faculty`, `FlattenedLessonsByDay`, `FlattenedScheduleItem`, `LessonStudentGroup`, `Maybe`, `NormalizedScheduleResponse`, `ScheduleItem`, `ScheduleResponse`, `Speciality`, `StudentGroupCatalogItem`, `StudentGroupShort`, `Weekday`, `WeekScheduleMap`
 
@@ -112,7 +112,7 @@ When IIS responds with HTTP `404` or `400` (no list, missing resource, or endpoi
 
 SDK throws typed errors:
 
-- `BsuirApiError` for HTTP errors (contains `status`, `endpoint`, `body`). **Exception:** `client.announcements.byEmployee` / `byDepartment` resolve to `[]` on IIS HTTP `404` or `400` instead of throwing (see Announcements above).
+- `BsuirApiError` for HTTP errors (contains `status`, `endpoint`, `body`). **Exception:** `client.announcements.byEmployee` / `byDepartment` resolve to `[]` on IIS HTTP `404` (unless `treat404AsEmpty: false`) instead of throwing (see Announcements above).
 - `BsuirResponsePayloadTooLargeError` when response body size exceeds configured `maxResponseBytes`.
 - `BsuirNetworkError` for transport errors (contains `endpoint` and standard `cause`)
 - `BsuirResponseValidationError` for invalid payload shapes when `validateResponses: true`
@@ -222,7 +222,8 @@ PowerShell:
 $env:BSUIR_LIVE_TESTS="1"; npm run test:live
 ```
 
-CI has a manual `workflow_dispatch` path that also runs live contracts (`live-contract` job).
+GitHub Actions runs live contracts weekly (Mondays 06:00 UTC) and on demand via the
+**Live contract** workflow (`workflow_dispatch`).
 
 ## Release checklist
 
