@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.13.0
+
+### Minor Changes
+
+- Browser runtime compatibility, hook coverage, and public type exports.
+  - Export `InvalidLessonTimeHook` from the package entry point for typed `onInvalidTime` handlers.
+  - Map browser `DOMException` with `name: "TimeoutError"` to abort/timeout handling so `AbortSignal.timeout()` surfaces as `BsuirTimeoutError` in Chromium and other browser runtimes.
+  - Invoke `onError` when a per-request `responseValidator` throws (e.g. `validateResponses` array checks on announcements).
+  - Reject impossible `dd.mm.yyyy` calendar dates during schedule date parsing.
+
 ## 0.12.0
 
 ### Minor Changes
