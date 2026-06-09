@@ -8,6 +8,7 @@ Thank you for your interest! Below is everything you need to get started.
 npm install
 npm run build        # compile TypeScript
 npm test             # run unit tests (live contract: BSUIR_LIVE_TESTS=1 npm run test:live)
+npm run test:browser  # Chromium runtime tests (requires: npx playwright install chromium)
 npm run check        # lint + typecheck + unit tests
 npm run check:full   # lint + typecheck + format:check + coverage (matches CI)
 ```
@@ -21,6 +22,17 @@ modules/ — per-resource API modules (schedule, groups, employees…)
 types/ — public TypeScript types (schedule, common, etc.)
 utils/ — shared guards, date helpers, week parser
 ```
+
+## Browser Tests
+
+Browser tests live in `test/browser/` and run in real Chromium via Vitest Browser Mode.
+
+```bash
+npx playwright install chromium   # first-time setup
+npm run test:browser
+```
+
+They verify platform APIs (`AbortSignal.any`, `AbortSignal.timeout`, native `DOMException`) that the SDK relies on in browser apps. They are excluded from `npm test` and run separately in CI.
 
 ## Making Changes
 
