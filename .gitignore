@@ -7,3 +7,4 @@ temp
 .github/instructions
 *.log
 .changeset/pre.json
+.worktrees
