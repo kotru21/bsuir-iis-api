@@ -46,6 +46,28 @@ export function assertArrayResponse(
 }
 
 /**
+ * Asserts announcements payload: a plain array or a paginated envelope with `content`.
+ */
+export function assertAnnouncementListResponse(
+  payload: unknown,
+  endpoint: string
+): asserts payload is unknown[] | { content: unknown[] } {
+  if (Array.isArray(payload)) {
+    return;
+  }
+
+  const record = asRecord(payload);
+  if (record && Array.isArray(record.content)) {
+    return;
+  }
+
+  throw new BsuirResponseValidationError(
+    `Invalid response payload for ${endpoint}: expected array or paginated envelope with content`,
+    endpoint
+  );
+}
+
+/**
  * Asserts that payload matches `{ lastUpdateDate: string }`.
  */
 export function assertApiDateResponse(

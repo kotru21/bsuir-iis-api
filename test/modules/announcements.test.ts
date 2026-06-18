@@ -12,6 +12,21 @@ describe("announcements module", () => {
     expect(result).toHaveLength(1);
   });
 
+  it("unwraps paginated envelope with content array", async () => {
+    const announcements = [{ id: 1, content: "Объявление" }];
+    const body = {
+      content: announcements,
+      pageable: { pageNumber: 0, pageSize: 20 },
+      totalElements: 1,
+      totalPages: 1,
+      last: true
+    };
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body })]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+    const result = await client.announcements.byEmployee("v-petrov");
+    expect(result).toEqual(announcements);
+  });
+
   it("returns empty array when API returns 404 no-announcements envelope", async () => {
     const fetchImpl = mockFetchSequence([
       createJsonResponse({ status: 404, body: { message: "No announcements found" } })

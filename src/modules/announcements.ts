@@ -1,6 +1,6 @@
 import { BsuirApiError } from "../client/errors";
 import { requestJson } from "../client/http";
-import { assertArrayResponse } from "../client/responseValidators";
+import { assertAnnouncementListResponse } from "../client/responseValidators";
 import type { InternalClientConfig } from "../client/types";
 import type { Announcement } from "../types/announcement";
 import { assertEmployeeUrlId, assertPositiveInt } from "../utils/guards";
@@ -35,6 +35,24 @@ function endpointMatchesPath(endpoint: string, path: string): boolean {
 }
 
 /**
+ * IIS announcements may be a plain array (legacy) or a Spring page `{ content: [...] }`.
+ */
+function normalizeAnnouncementList(payload: unknown): unknown {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (typeof payload === "object" && payload !== null) {
+    const content = (payload as Record<string, unknown>).content;
+    if (Array.isArray(content)) {
+      return content;
+    }
+  }
+
+  return payload;
+}
+
+/**
  * Fetches an announcement list, optionally converting 404 to empty array.
  *
  * The previous implementation inspected response bodies for marker strings like
@@ -42,7 +60,7 @@ function endpointMatchesPath(endpoint: string, path: string): boolean {
  * masked genuine errors with similar wording and was fragile across API versions.
  * We now rely on the endpoint-scoped 404 status alone, with an opt-out.
  *
- * @returns The announcement list, or empty array for 404 when `treat404AsEmpty` is `true`
+ * @returns The announcement list (plain array or first page from a paginated envelope), or empty array for 404 when `treat404AsEmpty` is `true`
  * @throws {BsuirApiError} For non-404 errors, or any 404 when `treat404AsEmpty` is `false`
  * @throws {BsuirNetworkError} On transport failures
  * @throws {BsuirTimeoutError} When request times out
@@ -58,11 +76,11 @@ async function requestAnnouncementList(
       ...options,
       responseValidator: config.validateResponses
         ? (value) => {
-            assertArrayResponse(value, path);
+            assertAnnouncementListResponse(value, path);
           }
         : undefined
     });
-    return payload as Announcement[];
+    return normalizeAnnouncementList(payload) as Announcement[];
   } catch (error) {
     if (
       treat404AsEmpty &&
@@ -90,6 +108,9 @@ export function createAnnouncementsModule(config: Readonly<InternalClientConfig>
      * IIS responds with HTTP 404 when the employee has no announcements. By default
      * the SDK maps that to `[]`; pass `treat404AsEmpty: false` to receive the
      * underlying `BsuirApiError` instead.
+     *
+     * When IIS returns a paginated envelope, only the `content` array from the first
+     * page is returned.
      */
     async byEmployee(
       urlId: string,
@@ -108,6 +129,9 @@ export function createAnnouncementsModule(config: Readonly<InternalClientConfig>
      * IIS responds with HTTP 404 when the department has no announcements. By default
      * the SDK maps that to `[]`; pass `treat404AsEmpty: false` to receive the
      * underlying `BsuirApiError` instead.
+     *
+     * When IIS returns a paginated envelope, only the `content` array from the first
+     * page is returned.
      */
     async byDepartment(id: number, options: AnnouncementReadOptions = {}): Promise<Announcement[]> {
       assertPositiveInt(id, "id");

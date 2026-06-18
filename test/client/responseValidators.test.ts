@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  assertAnnouncementListResponse,
   assertApiDateResponse,
   assertArrayResponse,
   assertScheduleResponse
@@ -20,6 +21,25 @@ describe("response validators", () => {
     expect(() => assertArrayResponse(null, "/x")).toThrow(BsuirResponseValidationError);
     expect(() => assertArrayResponse("string", "/x")).toThrow(BsuirResponseValidationError);
     expect(() => assertArrayResponse(42, "/x")).toThrow(BsuirResponseValidationError);
+  });
+
+  it("accepts announcement list array payloads", () => {
+    expect(() => assertAnnouncementListResponse([], "/announcements")).not.toThrow();
+  });
+
+  it("accepts paginated announcement envelope", () => {
+    expect(() =>
+      assertAnnouncementListResponse({ content: [{ id: 1 }], totalElements: 1 }, "/announcements")
+    ).not.toThrow();
+  });
+
+  it("rejects invalid announcement list payloads", () => {
+    expect(() => assertAnnouncementListResponse({}, "/announcements")).toThrow(
+      BsuirResponseValidationError
+    );
+    expect(() => assertAnnouncementListResponse({ content: "nope" }, "/announcements")).toThrow(
+      BsuirResponseValidationError
+    );
   });
 
   it("accepts valid api date payload", () => {

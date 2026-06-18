@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.13.1
+
+### Patch Changes
+
+- Fix announcements when IIS returns a paginated Spring Data envelope instead of a plain array.
+  - Unwrap `{ content: [...] }` in `announcements.byEmployee` / `byDepartment` so callers always receive `Announcement[]`.
+  - Accept the paginated envelope in `validateResponses` checks via `assertAnnouncementListResponse`.
+
 ## 0.13.0
 
 ### Minor Changes

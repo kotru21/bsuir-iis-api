@@ -98,7 +98,11 @@ const client = createBsuirClient({
 - `client.announcements.byEmployee(urlId, options?)`
 - `client.announcements.byDepartment(id, options?)`
 
+Both methods always resolve to `Announcement[]`. IIS may respond with a plain JSON array (legacy) or a Spring Data page envelope (`{ content: [...], pageable, totalElements, ... }`); the SDK unwraps `content` automatically so callers do not need to handle the envelope.
+
 When IIS responds with HTTP `404` (the employee or department has no announcements), these methods resolve to an empty array `[]` instead of throwing `BsuirApiError`. Pass `treat404AsEmpty: false` to receive the underlying `BsuirApiError` instead. Client-side validation still runs first (`urlId`, department `id`); all other HTTP errors (including `400`) are always thrown so malformed-request bugs are not silently masked.
+
+**Pagination note:** IIS currently serves announcements in pages (default `pageSize: 20`). The SDK returns the items from the first page only; automatic multi-page fetching is not implemented yet.
 
 ### Public exports (runtime utilities and types)
 
