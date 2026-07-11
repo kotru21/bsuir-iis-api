@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.0
+
+### Minor Changes
+
+- 69e12c8: Additive Wave 5 APIs and DX: `includeNextSchedules` opt-in for normalize/schedule reads, catalog `listAllPages`, `sideEffects: false`, JSDoc/eslint improvements, and regression/smoke coverage for catalog paging and public helpers.
+
+### Patch Changes
+
+- 5631ced: Internal foundation cleanups and DX: shared Spring page fetcher, shared freeze/auditory helpers, move schedule filter into helpers, export `AnnouncementReadOptions`, and README corrections (empty non-JSON body is `null`; last-update removal targeted at 2.0).
+
 ## 1.0.5
 
 ### Patch Changes
