@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-11  
 **Package:** `bsuir-iis-api` (v0.13.x)  
-**Status:** approved in brainstorm; not yet implemented
+**Status:** Waves 0–3 shipped (package **1.0.1**). Later items: see `2026-07-11-quality-later-wave4-design.md`.
 
 ## Goal
 
@@ -63,22 +63,22 @@ Full audit of quality improvements and refactoring for the SDK, with an explicit
 
 ### P2 — internal refactor
 
-| ID   | Item                                                                                             | Axis     | E   | I   | Break | Decision  | Why                                                              |
-| ---- | ------------------------------------------------------------------------------------------------ | -------- | --- | --- | ----- | --------- | ---------------------------------------------------------------- |
-| P2-1 | Split `requestJson.ts` (~385): cache key / private headers / body serialize / perform+retry loop | refactor | M   | M   | no    | **do**    | Multiple responsibilities; tests already partly split by concern |
-| P2-2 | Split `helpers/schedule.ts` (~489): date keys / current-next / `buildScheduleDays`               | refactor | M   | M   | no    | **do**    | Largest source file; hard to review                              |
-| P2-3 | Dedup group/employee in `scheduleApi` via shared factory after P1-1                              | refactor | M   | M   | no    | **do**    | Near-duplicate method pairs                                      |
-| P2-4 | Clarify `modules/schedule.ts` vs `helpers` export boundary                                       | refactor | S   | L   | no    | **later** | Cosmetic; not blocking                                           |
-| P2-5 | Split large tests (`http.test.ts` ~559, `schedule.test.ts` ~392) by scenario                     | tooling  | M   | L   | no    | **later** | Navigation only                                                  |
+| ID   | Item                                                                                             | Axis     | E   | I   | Break | Decision        | Why                                                              |
+| ---- | ------------------------------------------------------------------------------------------------ | -------- | --- | --- | ----- | --------------- | ---------------------------------------------------------------- |
+| P2-1 | Split `requestJson.ts` (~385): cache key / private headers / body serialize / perform+retry loop | refactor | M   | M   | no    | **do**          | Multiple responsibilities; tests already partly split by concern |
+| P2-2 | Split `helpers/schedule.ts` (~489): date keys / current-next / `buildScheduleDays`               | refactor | M   | M   | no    | **do**          | Largest source file; hard to review                              |
+| P2-3 | Dedup group/employee in `scheduleApi` via shared factory after P1-1                              | refactor | M   | M   | no    | **do**          | Near-duplicate method pairs                                      |
+| P2-4 | Clarify `modules/schedule.ts` vs `helpers` export boundary                                       | refactor | S   | L   | no    | **do** (Wave 4) | Cosmetic; not blocking; shipped in Later wave                    |
+| P2-5 | Split large tests (`http.test.ts` ~559, `schedule.test.ts` ~392) by scenario                     | tooling  | M   | L   | no    | **do** (Wave 4) | Navigation only                                                  |
 
 ### P3 — nice-to-have
 
-| ID   | Item                                                        | Axis        | E   | I   | Break | Decision  | Why                                                         |
-| ---- | ----------------------------------------------------------- | ----------- | --- | --- | ----- | --------- | ----------------------------------------------------------- |
-| P3-1 | Coverage thresholds in Vitest + CI enforce                  | tooling     | S   | L   | no    | **later** | `check:full` already runs coverage                          |
-| P3-2 | Public API surface trim / api-extractor unused-export audit | dx          | S   | L   | maybe | **later** | Only after usage scan                                       |
-| P3-3 | Deeper per-field schedule validation (beyond envelope)      | reliability | L   | M   | no    | **later** | Expensive; envelope + normalize already protect crash paths |
-| P3-4 | Migration-guide template for majors                         | tooling     | S   | M   | no    | **do**    | Cheap; required for P1-1                                    |
+| ID   | Item                                                        | Axis        | E   | I   | Break | Decision              | Why                                                         |
+| ---- | ----------------------------------------------------------- | ----------- | --- | --- | ----- | --------------------- | ----------------------------------------------------------- |
+| P3-1 | Coverage thresholds in Vitest + CI enforce                  | tooling     | S   | L   | no    | **done** (pre-Wave 4) | Thresholds already in Vitest; CI via `check:full`           |
+| P3-2 | Public API surface trim / api-extractor unused-export audit | dx          | S   | L   | maybe | **skip** (Wave 4)     | Usage scan found no clear dead exports; YAGNI               |
+| P3-3 | Deeper per-field schedule validation (beyond envelope)      | reliability | L   | M   | no    | **skip** (Wave 4)     | Expensive; envelope + normalize already protect crash paths |
+| P3-4 | Migration-guide template for majors                         | tooling     | S   | M   | no    | **do**                | Cheap; required for P1-1                                    |
 
 ### Don't
 

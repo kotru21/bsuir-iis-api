@@ -20,14 +20,6 @@ export type { ScheduleModule } from "./modules/scheduleApi";
 export type { InvalidLessonTimeHook } from "./helpers/schedule";
 export {
   buildScheduleDays,
-  filterLessons,
-  formatEmployeeShortName,
-  formatLessonAuditories,
-  formatLessonEmployees,
-  formatLessonSubgroup,
-  formatLessonTimeRange,
-  formatLessonType,
-  formatLessonWeekNumbers,
   getCurrentLesson,
   getLessonsForDate,
   getLessonsForWeek,
@@ -35,9 +27,18 @@ export {
   getTodayLessons,
   getTomorrowLessons,
   groupLessonsByDay,
-  normalizeSchedule,
   sortLessonsByTime
-} from "./modules/schedule";
+} from "./helpers/schedule";
+export {
+  formatEmployeeShortName,
+  formatLessonAuditories,
+  formatLessonEmployees,
+  formatLessonSubgroup,
+  formatLessonTimeRange,
+  formatLessonType,
+  formatLessonWeekNumbers
+} from "./helpers/scheduleFormat";
+export { filterLessons, normalizeSchedule } from "./modules/schedule";
 export {
   BsuirApiError,
   BsuirConfigurationError,
