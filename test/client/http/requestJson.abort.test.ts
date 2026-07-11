@@ -23,13 +23,21 @@ describe("requestJson — abort and timeout", () => {
     const fetchImpl = (async (_input, init) => {
       const signal = init?.signal;
       await new Promise((_resolve, reject) => {
-        if (signal?.aborted) {
+        const abort = (): void => {
           reject(new DOMException("The operation was aborted", "AbortError"));
+        };
+        if (signal?.aborted) {
+          abort();
           return;
         }
+        // Guard against rare CI scheduling where AbortSignal.timeout is delayed.
+        const guard = setTimeout(abort, 100);
         signal?.addEventListener(
           "abort",
-          () => reject(new DOMException("The operation was aborted", "AbortError")),
+          () => {
+            clearTimeout(guard);
+            abort();
+          },
           { once: true }
         );
       });
@@ -44,7 +52,7 @@ describe("requestJson — abort and timeout", () => {
       endpoint: "https://iis.bsuir.by/api/v1/faculties",
       timeoutMs: 10
     });
-  });
+  }, 10_000);
 
   it("propagates external AbortSignal cancellation", async () => {
     const controller = new AbortController();

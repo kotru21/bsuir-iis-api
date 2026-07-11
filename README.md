@@ -1,5 +1,10 @@
 # bsuir-iis-api
 
+[![npm version](https://img.shields.io/npm/v/bsuir-iis-api)](https://www.npmjs.com/package/bsuir-iis-api)
+[![CI](https://img.shields.io/github/actions/workflow/status/kotru21/bsuir-iis-api/ci.yml?branch=main&label=CI)](https://github.com/kotru21/bsuir-iis-api/actions/workflows/ci.yml)
+[![node](https://img.shields.io/node/v/bsuir-iis-api)](https://www.npmjs.com/package/bsuir-iis-api)
+[![license](https://img.shields.io/npm/l/bsuir-iis-api)](./LICENSE)
+
 Type-safe ESM SDK for [BSUIR IIS API](https://iis.bsuir.by/api/) with support for Node.js and browser runtimes. Example project exist in [this repo](https://github.com/kotru21/BsuirRasp).
 
 ## Runtime requirements

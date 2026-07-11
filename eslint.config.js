@@ -19,7 +19,14 @@ const typedConfigs = [
 
 export default defineConfig(
   {
-    ignores: ["**/dist/**", "**/coverage/**", "**/node_modules/**", "**/*.d.ts"]
+    ignores: [
+      "**/dist/**",
+      "**/coverage/**",
+      "**/node_modules/**",
+      "**/*.d.ts",
+      "**/.worktrees/**",
+      "**/.cursor/**"
+    ]
   },
   {
     linterOptions: {
@@ -114,6 +121,14 @@ export default defineConfig(
       // В тестах unicorn тоже менее строгий
       "unicorn/no-array-callback-reference": "off",
       "unicorn/consistent-function-scoping": "off"
+    }
+  },
+  {
+    files: ["test/integration/live/**/*.ts"],
+    rules: {
+      "no-console": "off",
+      "@typescript-eslint/explicit-module-boundary-types": "off",
+      "@typescript-eslint/no-unsafe-assignment": "off"
     }
   },
   eslintConfigPrettier

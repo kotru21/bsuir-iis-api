@@ -1,0 +1,2 @@
+# Enforce LF in the repo so Prettier (end_of_line=lf) and Windows autocrlf agree.
+* text=auto eol=lf
