@@ -34,6 +34,9 @@ export interface ScheduleSubjectMethods {
   ): Promise<ScheduleResponse>;
 }
 
+/**
+ *
+ */
 export function filterRawSubgroupLessons(
   response: ScheduleResponse,
   subgroup: number
@@ -50,6 +53,9 @@ export function filterRawSubgroupLessons(
   return items;
 }
 
+/**
+ *
+ */
 export function filterRawSubgroupEnvelope(
   response: ScheduleResponse,
   subgroup: number

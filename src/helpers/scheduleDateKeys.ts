@@ -4,14 +4,23 @@ import { parseDdMmYyyyParts, type DdMmYyyyParts } from "../utils/date";
 export const SUNDAY_LABEL = "Воскресенье";
 export const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
+/**
+ *
+ */
 export function toDayOrdinal(parts: DdMmYyyyParts): number {
   return Math.floor(Date.UTC(parts.year, parts.month - 1, parts.day) / MS_PER_DAY);
 }
 
+/**
+ *
+ */
 export function toDateDayOrdinal(date: Date): number {
   return Math.floor(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / MS_PER_DAY);
 }
 
+/**
+ *
+ */
 export function toDateKey(date: Date): string {
   const year = String(date.getFullYear());
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -19,6 +28,9 @@ export function toDateKey(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+/**
+ *
+ */
 export function toLessonDateKey(value: string | null): string | null {
   const parts = parseDdMmYyyyParts(value);
   if (!parts) {
@@ -27,11 +39,17 @@ export function toLessonDateKey(value: string | null): string | null {
   return `${String(parts.year)}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`;
 }
 
+/**
+ *
+ */
 export function toLessonDayOrdinal(value: string | null): number | null {
   const parts = parseDdMmYyyyParts(value);
   return parts ? toDayOrdinal(parts) : null;
 }
 
+/**
+ *
+ */
 export function toWeekday(date: Date): Weekday | null {
   const dayIndex = date.getDay();
   if (dayIndex < 1 || dayIndex > 6) {
@@ -56,6 +74,9 @@ export function toDateOrThrow(value: Date, fieldName: string): Date {
   return cloned;
 }
 
+/**
+ *
+ */
 export function isWithinLessonDateRange(
   targetOrdinal: number,
   startDate: string | null,

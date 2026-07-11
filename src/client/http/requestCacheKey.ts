@@ -19,6 +19,9 @@ function normalizeHeadersForRequestKey(headers: Headers): string {
     .join("\n");
 }
 
+/**
+ *
+ */
 export function buildRequestKey(method: RequestMethod, endpoint: string, headers: Headers): string {
   return `${method}\n${endpoint}\n${normalizeHeadersForRequestKey(headers)}`;
 }

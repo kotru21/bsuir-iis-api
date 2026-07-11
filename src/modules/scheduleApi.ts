@@ -215,47 +215,53 @@ export function createScheduleModule(config: Readonly<InternalClientConfig>): Sc
     getEmployee,
     getGroupRaw,
     getEmployeeRaw,
-    getGroupFiltered: groupMethods.getFiltered,
-    getEmployeeFiltered: employeeMethods.getFiltered,
+    getGroupFiltered: (id, filter, options) => groupMethods.getFiltered(id, filter, options),
+    getEmployeeFiltered: (id, filter, options) => employeeMethods.getFiltered(id, filter, options),
     /**
      * Returns flattened regular schedule lessons for a subgroup.
      * Use `getGroupBySubgroupRaw` / `getGroupBySubgroupEnvelope` for raw shapes.
      */
-    getGroupBySubgroup: groupMethods.getBySubgroup,
+    getGroupBySubgroup: (id, subgroup, options) =>
+      groupMethods.getBySubgroup(id, subgroup, options),
     /**
      * Returns raw `ScheduleItem[]` for a group subgroup (no day/source metadata).
      */
-    getGroupBySubgroupRaw: groupMethods.getBySubgroupRaw,
+    getGroupBySubgroupRaw: (id, subgroup, options) =>
+      groupMethods.getBySubgroupRaw(id, subgroup, options),
     /**
      * Returns the full `ScheduleResponse` with `schedules` arrays filtered to the subgroup.
      * Preserves envelope fields (`employeeDto`, exams, date ranges).
      */
-    getGroupBySubgroupEnvelope: groupMethods.getBySubgroupEnvelope,
+    getGroupBySubgroupEnvelope: (id, subgroup, options) =>
+      groupMethods.getBySubgroupEnvelope(id, subgroup, options),
     /**
      * Returns flattened regular schedule lessons for an employee filtered by subgroup.
      * Use `getEmployeeBySubgroupRaw` / `getEmployeeBySubgroupEnvelope` for raw shapes.
      */
-    getEmployeeBySubgroup: employeeMethods.getBySubgroup,
+    getEmployeeBySubgroup: (id, subgroup, options) =>
+      employeeMethods.getBySubgroup(id, subgroup, options),
     /**
      * Returns raw `ScheduleItem[]` for an employee subgroup filter.
      */
-    getEmployeeBySubgroupRaw: employeeMethods.getBySubgroupRaw,
+    getEmployeeBySubgroupRaw: (id, subgroup, options) =>
+      employeeMethods.getBySubgroupRaw(id, subgroup, options),
     /**
      * Returns the full `ScheduleResponse` with `schedules` arrays filtered to the subgroup.
      * Preserves envelope fields (`employeeDto`, exams, date ranges).
      */
-    getEmployeeBySubgroupEnvelope: employeeMethods.getBySubgroupEnvelope,
+    getEmployeeBySubgroupEnvelope: (id, subgroup, options) =>
+      employeeMethods.getBySubgroupEnvelope(id, subgroup, options),
     getCurrentWeek,
 
     /**
      * Returns exams for a group.
      */
-    getGroupExams: groupMethods.getExams,
+    getGroupExams: (id, options) => groupMethods.getExams(id, options),
 
     /**
      * Returns exams for an employee.
      */
-    getEmployeeExams: employeeMethods.getExams,
+    getEmployeeExams: (id, options) => employeeMethods.getExams(id, options),
 
     /**
      * Calls IIS `/last-update-date/student-group`.

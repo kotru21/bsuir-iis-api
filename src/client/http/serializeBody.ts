@@ -26,6 +26,9 @@ function isBodyInit(value: unknown): value is BodyInit {
   return false;
 }
 
+/**
+ *
+ */
 export function serializeRequestBody(rawBody: unknown, headers: Headers): BodyInit | undefined {
   if (rawBody === undefined) {
     return undefined;

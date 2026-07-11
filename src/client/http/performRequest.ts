@@ -19,6 +19,9 @@ import { isAbortError } from "../../utils/guards";
 import { parseBody } from "./response";
 import { getRetryDecision, getRetryDelayMs, RETRIABLE_STATUS_CODES, sleep } from "./retry";
 
+/**
+ *
+ */
 export function baseHookContext(
   method: RequestMethod,
   path: string,
@@ -37,7 +40,7 @@ export function baseHookContext(
   };
 }
 
-export interface PerformRequestParams<T> {
+export interface PerformRequestParams {
   config: Readonly<InternalClientConfig>;
   path: string;
   endpoint: string;
@@ -53,7 +56,7 @@ export interface PerformRequestParams<T> {
 /**
  * Executes a single HTTP request with retry/backoff and lifecycle hooks.
  */
-export async function performRequestWithRetry<T>(params: PerformRequestParams<T>): Promise<T> {
+export async function performRequestWithRetry<T>(params: PerformRequestParams): Promise<T> {
   const {
     config,
     path,
