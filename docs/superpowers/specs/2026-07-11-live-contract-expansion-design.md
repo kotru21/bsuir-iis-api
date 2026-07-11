@@ -9,24 +9,24 @@
 
 Expand opt-in live contracts so that they serve two purposes:
 
-| Goal | Meaning |
-| ---- | ------- |
-| **(A) IIS drift detection** | Catch upstream envelope/shape/status changes before consumers hit them |
+| Goal                                 | Meaning                                                                         |
+| ------------------------------------ | ------------------------------------------------------------------------------- |
+| **(A) IIS drift detection**          | Catch upstream envelope/shape/status changes before consumers hit them          |
 | **(B) SDK regressions on real data** | Catch normalize / multi-page / subgroup / helper breakage against live payloads |
 
 This is not coverage-for-coverage: every assertion maps to A, B, or both.
 
 ## Locked decisions (from brainstorm)
 
-| Topic | Choice | Why |
-| ----- | ------ | --- |
-| Why expand | **A + B** (drift + SDK regressions) | CI stability alone is not the driver |
-| Scope intensity | **Broad (C)** — almost all public **read** API live | Plus strict/`validateResponses` smoke and helper smoke |
-| IIS instability | **Soft-skip schedule-dependent tests** with `console.warn` when no working group/employee | Catalogs + announcements **must** pass |
-| Broad extras | **Strict smoke + helpers** (`getTodayLessons`, `buildScheduleDays`) | Unit alone misses real envelope quirks |
-| Approach | **Domain suites under `test/integration/live/`** | Not a monolith; not a CI parallel matrix |
-| Old monolith | **Delete** `test/integration/live-api.contract.test.ts` | Prefer delete over thin re-export |
-| Semver | **Patch** changeset (docs/tests only) | No public API change |
+| Topic           | Choice                                                                                    | Why                                                    |
+| --------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| Why expand      | **A + B** (drift + SDK regressions)                                                       | CI stability alone is not the driver                   |
+| Scope intensity | **Broad (C)** — almost all public **read** API live                                       | Plus strict/`validateResponses` smoke and helper smoke |
+| IIS instability | **Soft-skip schedule-dependent tests** with `console.warn` when no working group/employee | Catalogs + announcements **must** pass                 |
+| Broad extras    | **Strict smoke + helpers** (`getTodayLessons`, `buildScheduleDays`)                       | Unit alone misses real envelope quirks                 |
+| Approach        | **Domain suites under `test/integration/live/`**                                          | Not a monolith; not a CI parallel matrix               |
+| Old monolith    | **Delete** `test/integration/live-api.contract.test.ts`                                   | Prefer delete over thin re-export                      |
+| Semver          | **Patch** changeset (docs/tests only)                                                     | No public API change                                   |
 
 ## Constraints
 
@@ -58,11 +58,11 @@ This is not coverage-for-coverage: every assertion maps to A, B, or both.
 
 ## Approach (rejected alternatives)
 
-| Approach | Verdict |
-| -------- | ------- |
-| 1. Grow monolithic `live-api.contract.test.ts` | Rejected — hard to review; soft-skip mixes with canaries |
-| **2. Domain suites under `test/integration/live/`** | **Accepted** — broad C without chaos; A/B split by file |
-| 3. Same as 2 + CI matrix of parallel jobs | Rejected — overkill for weekly; more YAML / flake coordination |
+| Approach                                            | Verdict                                                        |
+| --------------------------------------------------- | -------------------------------------------------------------- |
+| 1. Grow monolithic `live-api.contract.test.ts`      | Rejected — hard to review; soft-skip mixes with canaries       |
+| **2. Domain suites under `test/integration/live/`** | **Accepted** — broad C without chaos; A/B split by file        |
+| 3. Same as 2 + CI matrix of parallel jobs           | Rejected — overkill for weekly; more YAML / flake coordination |
 
 ## File layout
 
@@ -81,10 +81,10 @@ test/integration/
 
 ### Shared helpers
 
-| File | Responsibility |
-| ---- | -------------- |
-| `gate.ts` | Export `runLiveTests` (`process.env.BSUIR_LIVE_TESTS === "1"`) and `describeLive` (`describe` vs `describe.skip`) |
-| `client.ts` | One shared client factory matching today’s live defaults (`timeoutMs: 15_000`, `retries: 2`, retry delay/jitter) |
+| File          | Responsibility                                                                                                                                                                                                                                      |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gate.ts`     | Export `runLiveTests` (`process.env.BSUIR_LIVE_TESTS === "1"`) and `describeLive` (`describe` vs `describe.skip`)                                                                                                                                   |
+| `client.ts`   | One shared client factory matching today’s live defaults (`timeoutMs: 15_000`, `retries: 2`, retry delay/jitter)                                                                                                                                    |
 | `fixtures.ts` | Hardcoded fixtures: employee `urlId: "s-nesterenkov"`, department id `20027` (same as today’s monolith) plus `findWorkingGroupNumber` / `findWorkingEmployeeUrlId` (probe first 50 catalog entries via `get*Raw`; continue on 404/503/Invalid JSON) |
 
 ### Wiring
@@ -106,16 +106,16 @@ test/integration/
 
 When both probes succeed, assert for the found entities:
 
-| Call | Expectation |
-| ---- | ----------- |
-| `getGroup` / `getEmployee` | Has `lessons` + `schedules` |
-| `getGroupRaw` / `getEmployeeRaw` | Envelope with `schedules` object or `null` |
-| `getGroupExams` / `getEmployeeExams` | `Array.isArray` |
-| `getGroupFiltered` / `getEmployeeFiltered` with `{ source: "schedules" }` | `Array.isArray` |
-| `get*BySubgroup(..., 1)` default | `Array.isArray` |
-| `get*BySubgroupRaw(..., 1)` | `Array.isArray` |
-| `get*BySubgroupEnvelope(..., 1)` | Envelope shape (`ScheduleResponse`) |
-| `getCurrentWeek` | `number` |
+| Call                                                                      | Expectation                                |
+| ------------------------------------------------------------------------- | ------------------------------------------ |
+| `getGroup` / `getEmployee`                                                | Has `lessons` + `schedules`                |
+| `getGroupRaw` / `getEmployeeRaw`                                          | Envelope with `schedules` object or `null` |
+| `getGroupExams` / `getEmployeeExams`                                      | `Array.isArray`                            |
+| `getGroupFiltered` / `getEmployeeFiltered` with `{ source: "schedules" }` | `Array.isArray`                            |
+| `get*BySubgroup(..., 1)` default                                          | `Array.isArray`                            |
+| `get*BySubgroupRaw(..., 1)`                                               | `Array.isArray`                            |
+| `get*BySubgroupEnvelope(..., 1)`                                          | Envelope shape (`ScheduleResponse`)        |
+| `getCurrentWeek`                                                          | `number`                                   |
 
 Last-update (optional soft):
 
@@ -135,11 +135,11 @@ If either probe fails after scanning: `console.warn` once and soft-skip this sui
 
 Prefer `createBsuirClient.strict()` when available; otherwise `createBsuirClient({ validateResponses: true, ...same timeouts/retries })`.
 
-| Check | Expectation |
-| ----- | ----------- |
-| Strict client | `groups.listAll()` and `schedule.getGroup(workingGroup)` do **not** throw on live payload |
-| `getTodayLessons(normalizedGroupSchedule, new Date())` | `Array.isArray` (`FlattenedScheduleItem[]`) |
-| `buildScheduleDays(normalizedGroupSchedule, { days: 7 })` | `Array.isArray` of length ≤ 7; each item has `dateKey` (and is a `ScheduleDay`) |
+| Check                                                     | Expectation                                                                               |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Strict client                                             | `groups.listAll()` and `schedule.getGroup(workingGroup)` do **not** throw on live payload |
+| `getTodayLessons(normalizedGroupSchedule, new Date())`    | `Array.isArray` (`FlattenedScheduleItem[]`)                                               |
+| `buildScheduleDays(normalizedGroupSchedule, { days: 7 })` | `Array.isArray` of length ≤ 7; each item has `dateKey` (and is a `ScheduleDay`)           |
 
 Soft-skip the **entire** suite when schedule probes fail (do not invent a second probe; do not run partial catalog-only strict here — catalogs suite already covers non-strict `listAll`).
 
@@ -170,12 +170,12 @@ Rationale: schedule IIS flakiness must not hide catalog unwrap regressions or an
 
 ## Risks and mitigations
 
-| Risk | Mitigation |
-| ---- | ---------- |
-| Weekly longer / noisier (subgroup × group × employee) | Single subgroup `1`; short asserts; shared probe once per run |
-| `treat404AsEmpty: false` unstable on live | Assert only if reproducible; else documented skip |
-| Strict client fails on real IIS quirk | Treat as **signal** (goal A): fix SDK or consciously loosen assert — do not silence |
-| Soft-skip masks prolonged schedule outage | Keep warn visible; catalogs/announcements remain fail-fast |
+| Risk                                                  | Mitigation                                                                          |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Weekly longer / noisier (subgroup × group × employee) | Single subgroup `1`; short asserts; shared probe once per run                       |
+| `treat404AsEmpty: false` unstable on live             | Assert only if reproducible; else documented skip                                   |
+| Strict client fails on real IIS quirk                 | Treat as **signal** (goal A): fix SDK or consciously loosen assert — do not silence |
+| Soft-skip masks prolonged schedule outage             | Keep warn visible; catalogs/announcements remain fail-fast                          |
 
 ## Docs / release
 

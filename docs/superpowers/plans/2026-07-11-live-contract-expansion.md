@@ -14,21 +14,21 @@
 
 ## File map
 
-| File | Responsibility |
-| ---- | -------------- |
-| Create: `test/integration/live/gate.ts` | `runLiveTests` + `describeLive` (`describe` vs `describe.skip`) |
-| Create: `test/integration/live/client.ts` | Shared live client factory (timeout/retries matching today’s monolith) |
-| Create: `test/integration/live/fixtures.ts` | Hardcoded `urlId` / `departmentId` + cached `findWorkingGroupNumber` / `findWorkingEmployeeUrlId` |
-| Create: `test/integration/live/catalogs.live.test.ts` | Six `listAll` shape canaries (must pass) |
-| Create: `test/integration/live/schedule.live.test.ts` | Normalized/raw/exams/filtered/subgroup/`getCurrentWeek`/soft last-update; soft-skip if probe empty |
-| Create: `test/integration/live/announcements.live.test.ts` | Wave 1 multipage canary + `byDepartment` 400/422 → `[]`; optional `treat404AsEmpty: false` |
-| Create: `test/integration/live/strict-and-helpers.live.test.ts` | Strict client smoke + `getTodayLessons` / `buildScheduleDays`; same soft-skip gate |
-| Delete: `test/integration/live-api.contract.test.ts` | Prefer delete over thin re-export |
-| Modify: `package.json` | `"test:live": "vitest run test/integration/live"` |
-| Modify: `.github/workflows/live-contract.yml` | Keep cron + `npm run test:live` + `BSUIR_LIVE_TESTS: "1"`; add comment pointing at `live/` |
-| Modify: `README.md` | Mention `test/integration/live/` entrypoint |
-| Modify: `CONTRIBUTING.md` | One-liner still valid; note live folder if helpful |
-| Create: `.changeset/live-contract-expansion.md` | Patch: docs + live tests only |
+| File                                                            | Responsibility                                                                                     |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Create: `test/integration/live/gate.ts`                         | `runLiveTests` + `describeLive` (`describe` vs `describe.skip`)                                    |
+| Create: `test/integration/live/client.ts`                       | Shared live client factory (timeout/retries matching today’s monolith)                             |
+| Create: `test/integration/live/fixtures.ts`                     | Hardcoded `urlId` / `departmentId` + cached `findWorkingGroupNumber` / `findWorkingEmployeeUrlId`  |
+| Create: `test/integration/live/catalogs.live.test.ts`           | Six `listAll` shape canaries (must pass)                                                           |
+| Create: `test/integration/live/schedule.live.test.ts`           | Normalized/raw/exams/filtered/subgroup/`getCurrentWeek`/soft last-update; soft-skip if probe empty |
+| Create: `test/integration/live/announcements.live.test.ts`      | Wave 1 multipage canary + `byDepartment` 400/422 → `[]`; optional `treat404AsEmpty: false`         |
+| Create: `test/integration/live/strict-and-helpers.live.test.ts` | Strict client smoke + `getTodayLessons` / `buildScheduleDays`; same soft-skip gate                 |
+| Delete: `test/integration/live-api.contract.test.ts`            | Prefer delete over thin re-export                                                                  |
+| Modify: `package.json`                                          | `"test:live": "vitest run test/integration/live"`                                                  |
+| Modify: `.github/workflows/live-contract.yml`                   | Keep cron + `npm run test:live` + `BSUIR_LIVE_TESTS: "1"`; add comment pointing at `live/`         |
+| Modify: `README.md`                                             | Mention `test/integration/live/` entrypoint                                                        |
+| Modify: `CONTRIBUTING.md`                                       | One-liner still valid; note live folder if helpful                                                 |
+| Create: `.changeset/live-contract-expansion.md`                 | Patch: docs + live tests only                                                                      |
 
 **Public API:** No production code changes. No `validateResponses` default flip.
 
@@ -135,15 +135,11 @@ let cachedWorkingEmployeeUrlId: string | undefined | null = null;
 function isTransientScheduleMiss(error: unknown): boolean {
   return (
     error instanceof BsuirApiError &&
-    (error.status === 404 ||
-      error.status === 503 ||
-      error.message.includes("Invalid JSON"))
+    (error.status === 404 || error.status === 503 || error.message.includes("Invalid JSON"))
   );
 }
 
-export async function findWorkingGroupNumber(
-  client: LiveClient
-): Promise<string | undefined> {
+export async function findWorkingGroupNumber(client: LiveClient): Promise<string | undefined> {
   if (cachedWorkingGroupNumber !== null) {
     return cachedWorkingGroupNumber ?? undefined;
   }
@@ -166,9 +162,7 @@ export async function findWorkingGroupNumber(
   return undefined;
 }
 
-export async function findWorkingEmployeeUrlId(
-  client: LiveClient
-): Promise<string | undefined> {
+export async function findWorkingEmployeeUrlId(client: LiveClient): Promise<string | undefined> {
   if (cachedWorkingEmployeeUrlId !== null) {
     return cachedWorkingEmployeeUrlId ?? undefined;
   }
@@ -239,15 +233,16 @@ describeLive("live catalogs contract", () => {
   const client = createLiveClient();
 
   it("loads all six listAll catalogs and validates minimal DTO shape", async () => {
-    const [groups, employees, departments, faculties, specialities, auditories] =
-      await Promise.all([
+    const [groups, employees, departments, faculties, specialities, auditories] = await Promise.all(
+      [
         client.groups.listAll(),
         client.employees.listAll(),
         client.departments.listAll(),
         client.faculties.listAll(),
         client.specialities.listAll(),
         client.auditories.listAll()
-      ]);
+      ]
+    );
 
     for (const [label, value] of [
       ["groups", groups],
@@ -257,12 +252,8 @@ describeLive("live catalogs contract", () => {
       ["specialities", specialities],
       ["auditories", auditories]
     ] as const) {
-      expect(Array.isArray(value), `${label} must be an array (not a page object)`).toBe(
-        true
-      );
-      expect(value, `${label} must not look like a raw Spring page`).not.toHaveProperty(
-        "content"
-      );
+      expect(Array.isArray(value), `${label} must be an array (not a page object)`).toBe(true);
+      expect(value, `${label} must not look like a raw Spring page`).not.toHaveProperty("content");
     }
 
     const sampleGroup = groups[0] as StudentGroupCatalogItem | undefined;
@@ -311,25 +302,18 @@ Move Wave 1 multipage canary + `byDepartment` 400/422 → `[]` from the monolith
 import { expect, it } from "vitest";
 import { BsuirApiError } from "../../../src/client/errors";
 import { createLiveClient } from "./client";
-import {
-  LIVE_DEPARTMENT_ID,
-  LIVE_EMPLOYEE_URL_ID
-} from "./fixtures";
+import { LIVE_DEPARTMENT_ID, LIVE_EMPLOYEE_URL_ID } from "./fixtures";
 import { describeLive } from "./gate";
 
 describeLive("live announcements contract", () => {
   const client = createLiveClient();
 
   it("byEmployee / byDepartment return arrays (400/422 department → [])", async () => {
-    const employeeAnnouncements = await client.announcements.byEmployee(
-      LIVE_EMPLOYEE_URL_ID
-    );
+    const employeeAnnouncements = await client.announcements.byEmployee(LIVE_EMPLOYEE_URL_ID);
 
     let departmentAnnouncements: unknown;
     try {
-      departmentAnnouncements = await client.announcements.byDepartment(
-        LIVE_DEPARTMENT_ID
-      );
+      departmentAnnouncements = await client.announcements.byDepartment(LIVE_DEPARTMENT_ID);
     } catch (error) {
       if (error instanceof BsuirApiError && [400, 422].includes(error.status)) {
         departmentAnnouncements = [];
@@ -375,10 +359,7 @@ describeLive("live announcements contract", () => {
         if (typeof page.totalElements === "number") {
           capturedTotalElements = page.totalElements;
         }
-        if (
-          page.last === false ||
-          (typeof page.totalPages === "number" && page.totalPages > 1)
-        ) {
+        if (page.last === false || (typeof page.totalPages === "number" && page.totalPages > 1)) {
           expect(page.content.length).toBeGreaterThan(0);
         }
       } else if (isArray) {
@@ -412,9 +393,7 @@ describeLive("live announcements contract", () => {
           });
           expect(page1Response.ok).toBe(true);
           const page1Payload: unknown = await page1Response.json();
-          expect(
-            Array.isArray((page1Payload as { content?: unknown }).content)
-          ).toBe(true);
+          expect(Array.isArray((page1Payload as { content?: unknown }).content)).toBe(true);
         }
       }
     }
@@ -520,12 +499,8 @@ describeLive("live schedule contract", () => {
       client.schedule.getEmployeeRaw(employeeUrlId)
     ]);
 
-    expect(
-      groupRaw.schedules === null || typeof groupRaw.schedules === "object"
-    ).toBe(true);
-    expect(
-      employeeRaw.schedules === null || typeof employeeRaw.schedules === "object"
-    ).toBe(true);
+    expect(groupRaw.schedules === null || typeof groupRaw.schedules === "object").toBe(true);
+    expect(employeeRaw.schedules === null || typeof employeeRaw.schedules === "object").toBe(true);
   }, 60_000);
 
   it("exams and filtered(source: schedules) return arrays", async ({ skip }) => {
@@ -534,12 +509,7 @@ describeLive("live schedule contract", () => {
       return;
     }
 
-    const [
-      groupExams,
-      employeeExams,
-      groupFiltered,
-      employeeFiltered
-    ] = await Promise.all([
+    const [groupExams, employeeExams, groupFiltered, employeeFiltered] = await Promise.all([
       client.schedule.getGroupExams(groupNumber),
       client.schedule.getEmployeeExams(employeeUrlId),
       client.schedule.getGroupFiltered(groupNumber, { source: "schedules" }),
@@ -651,10 +621,7 @@ Prefer `createBsuirClient.strict(...)` with the same timeout/retries. Soft-skip 
 import { beforeAll, expect, it } from "vitest";
 import { createBsuirClient } from "../../../src";
 import { buildScheduleDays, getTodayLessons } from "../../../src";
-import {
-  resolveWorkingScheduleEntities,
-  SCHEDULE_PROBE_WARN
-} from "./fixtures";
+import { resolveWorkingScheduleEntities, SCHEDULE_PROBE_WARN } from "./fixtures";
 import { describeLive } from "./gate";
 
 describeLive("live strict client and schedule helpers", () => {
@@ -679,9 +646,7 @@ describeLive("live strict client and schedule helpers", () => {
     }
   }, 60_000);
 
-  it("strict client listAll + getGroup do not throw on live payloads", async ({
-    skip
-  }) => {
+  it("strict client listAll + getGroup do not throw on live payloads", async ({ skip }) => {
     if (!scheduleAvailable || !groupNumber) {
       skip();
       return;
@@ -694,9 +659,7 @@ describeLive("live strict client and schedule helpers", () => {
     });
   }, 60_000);
 
-  it("getTodayLessons and buildScheduleDays work on live normalized schedule", async ({
-    skip
-  }) => {
+  it("getTodayLessons and buildScheduleDays work on live normalized schedule", async ({ skip }) => {
     if (!scheduleAvailable || !groupNumber) {
       skip();
       return;
@@ -820,12 +783,13 @@ jobs:
 
 In `README.md`, under the live contract section (~lines 225–238), keep the same commands but mention the folder:
 
-```markdown
+````markdown
 Live contract tests against real BSUIR API are opt-in (`test/integration/live/`):
 
 ```bash
 BSUIR_LIVE_TESTS=1 npm run test:live
 ```
+````
 
 PowerShell:
 
@@ -836,7 +800,8 @@ $env:BSUIR_LIVE_TESTS="1"; npm run test:live
 GitHub Actions runs live contracts weekly (Mondays 06:00 UTC) and on demand via the
 **Live contract** workflow (`workflow_dispatch`). Catalogs and announcements must pass;
 schedule / strict / helpers soft-skip with a warning when IIS probes find no working entities.
-```
+
+````
 
 - [ ] **Step 3: Update CONTRIBUTING one-liner**
 
@@ -844,7 +809,7 @@ Change the setup block line to:
 
 ```bash
 npm test             # unit tests (live: BSUIR_LIVE_TESTS=1 npm run test:live → test/integration/live/)
-```
+````
 
 - [ ] **Step 4: Commit**
 
@@ -931,24 +896,24 @@ If Step 1–3 required tiny fixes, commit those with a focused message (e.g. `te
 
 ## Self-review (against spec)
 
-| Spec requirement | Plan task |
-| ---------------- | --------- |
-| Domain suites under `test/integration/live/` | Tasks 1–7 |
-| `gate.ts` / `client.ts` / `fixtures.ts` | Tasks 1–3 |
-| Catalogs: six `listAll` + no Spring `content` + sample fields | Task 4 |
-| Schedule: normalized/raw/exams/filtered/subgroup×3/`getCurrentWeek`/soft last-update | Task 6 |
-| Soft-skip schedule when probe fails (~50, 404/503/Invalid JSON) | Tasks 3, 6 |
-| Announcements multipage canary + byDepartment 400/422 → `[]` | Task 5 |
-| `treat404AsEmpty: false` only if stable, else documented skip | Task 5 (`it.skip`) |
-| Strict smoke + `getTodayLessons` / `buildScheduleDays`; soft-skip without schedule | Task 7 |
-| Shared probe (no second probe) | Task 3 cache + Tasks 6–7 |
-| Delete monolith | Task 8 |
-| `package.json` `test:live` → `vitest run test/integration/live` | Task 8 |
-| Workflow cron unchanged; still `npm run test:live` + `BSUIR_LIVE_TESTS=1` | Task 9 |
-| README + CONTRIBUTING | Task 9 |
-| Patch changeset | Task 10 |
-| Verify with `BSUIR_LIVE_TESTS=1` + `npm run check` | Task 11 |
-| Out of scope: cache/hooks/retry matrix, deep schema audit, catalog fetch-all pages, CI matrix | Not planned |
+| Spec requirement                                                                              | Plan task                |
+| --------------------------------------------------------------------------------------------- | ------------------------ |
+| Domain suites under `test/integration/live/`                                                  | Tasks 1–7                |
+| `gate.ts` / `client.ts` / `fixtures.ts`                                                       | Tasks 1–3                |
+| Catalogs: six `listAll` + no Spring `content` + sample fields                                 | Task 4                   |
+| Schedule: normalized/raw/exams/filtered/subgroup×3/`getCurrentWeek`/soft last-update          | Task 6                   |
+| Soft-skip schedule when probe fails (~50, 404/503/Invalid JSON)                               | Tasks 3, 6               |
+| Announcements multipage canary + byDepartment 400/422 → `[]`                                  | Task 5                   |
+| `treat404AsEmpty: false` only if stable, else documented skip                                 | Task 5 (`it.skip`)       |
+| Strict smoke + `getTodayLessons` / `buildScheduleDays`; soft-skip without schedule            | Task 7                   |
+| Shared probe (no second probe)                                                                | Task 3 cache + Tasks 6–7 |
+| Delete monolith                                                                               | Task 8                   |
+| `package.json` `test:live` → `vitest run test/integration/live`                               | Task 8                   |
+| Workflow cron unchanged; still `npm run test:live` + `BSUIR_LIVE_TESTS=1`                     | Task 9                   |
+| README + CONTRIBUTING                                                                         | Task 9                   |
+| Patch changeset                                                                               | Task 10                  |
+| Verify with `BSUIR_LIVE_TESTS=1` + `npm run check`                                            | Task 11                  |
+| Out of scope: cache/hooks/retry matrix, deep schema audit, catalog fetch-all pages, CI matrix | Not planned              |
 
 **Placeholder scan:** No TBD/TODO/“similar to Task N” leftovers; every create/modify step includes concrete code or exact edits.
 

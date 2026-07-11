@@ -8,15 +8,16 @@ describeLive("live catalogs contract", () => {
   const client = createLiveClient();
 
   it("loads all six listAll catalogs and validates minimal DTO shape", async () => {
-    const [groups, employees, departments, faculties, specialities, auditories] =
-      await Promise.all([
+    const [groups, employees, departments, faculties, specialities, auditories] = await Promise.all(
+      [
         client.groups.listAll(),
         client.employees.listAll(),
         client.departments.listAll(),
         client.faculties.listAll(),
         client.specialities.listAll(),
         client.auditories.listAll()
-      ]);
+      ]
+    );
 
     for (const [label, value] of [
       ["groups", groups],
@@ -26,12 +27,8 @@ describeLive("live catalogs contract", () => {
       ["specialities", specialities],
       ["auditories", auditories]
     ] as const) {
-      expect(Array.isArray(value), `${label} must be an array (not a page object)`).toBe(
-        true
-      );
-      expect(value, `${label} must not look like a raw Spring page`).not.toHaveProperty(
-        "content"
-      );
+      expect(Array.isArray(value), `${label} must be an array (not a page object)`).toBe(true);
+      expect(value, `${label} must not look like a raw Spring page`).not.toHaveProperty("content");
     }
 
     const sampleGroup = groups[0] as StudentGroupCatalogItem | undefined;

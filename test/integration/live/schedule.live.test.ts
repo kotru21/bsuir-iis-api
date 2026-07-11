@@ -52,12 +52,8 @@ describeLive("live schedule contract", () => {
       client.schedule.getEmployeeRaw(employeeUrlId)
     ]);
 
-    expect(
-      groupRaw.schedules === null || typeof groupRaw.schedules === "object"
-    ).toBe(true);
-    expect(
-      employeeRaw.schedules === null || typeof employeeRaw.schedules === "object"
-    ).toBe(true);
+    expect(groupRaw.schedules === null || typeof groupRaw.schedules === "object").toBe(true);
+    expect(employeeRaw.schedules === null || typeof employeeRaw.schedules === "object").toBe(true);
   }, 60_000);
 
   it("exams and filtered(source: schedules) return arrays", async ({ skip }) => {
@@ -66,12 +62,7 @@ describeLive("live schedule contract", () => {
       return;
     }
 
-    const [
-      groupExams,
-      employeeExams,
-      groupFiltered,
-      employeeFiltered
-    ] = await Promise.all([
+    const [groupExams, employeeExams, groupFiltered, employeeFiltered] = await Promise.all([
       client.schedule.getGroupExams(groupNumber),
       client.schedule.getEmployeeExams(employeeUrlId),
       client.schedule.getGroupFiltered(groupNumber, { source: "schedules" }),

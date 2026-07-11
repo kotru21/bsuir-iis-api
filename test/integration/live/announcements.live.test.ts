@@ -1,25 +1,18 @@
 import { expect, it } from "vitest";
 import { BsuirApiError } from "../../../src/client/errors";
 import { createLiveClient } from "./client";
-import {
-  LIVE_DEPARTMENT_ID,
-  LIVE_EMPLOYEE_URL_ID
-} from "./fixtures";
+import { LIVE_DEPARTMENT_ID, LIVE_EMPLOYEE_URL_ID } from "./fixtures";
 import { describeLive } from "./gate";
 
 describeLive("live announcements contract", () => {
   const client = createLiveClient();
 
   it("byEmployee / byDepartment return arrays (400/422 department → [])", async () => {
-    const employeeAnnouncements = await client.announcements.byEmployee(
-      LIVE_EMPLOYEE_URL_ID
-    );
+    const employeeAnnouncements = await client.announcements.byEmployee(LIVE_EMPLOYEE_URL_ID);
 
     let departmentAnnouncements: unknown;
     try {
-      departmentAnnouncements = await client.announcements.byDepartment(
-        LIVE_DEPARTMENT_ID
-      );
+      departmentAnnouncements = await client.announcements.byDepartment(LIVE_DEPARTMENT_ID);
     } catch (error) {
       if (error instanceof BsuirApiError && [400, 422].includes(error.status)) {
         departmentAnnouncements = [];
@@ -65,10 +58,7 @@ describeLive("live announcements contract", () => {
         if (typeof page.totalElements === "number") {
           capturedTotalElements = page.totalElements;
         }
-        if (
-          page.last === false ||
-          (typeof page.totalPages === "number" && page.totalPages > 1)
-        ) {
+        if (page.last === false || (typeof page.totalPages === "number" && page.totalPages > 1)) {
           expect(page.content.length).toBeGreaterThan(0);
         }
       } else if (isArray) {
@@ -102,9 +92,7 @@ describeLive("live announcements contract", () => {
           });
           expect(page1Response.ok).toBe(true);
           const page1Payload: unknown = await page1Response.json();
-          expect(
-            Array.isArray((page1Payload as { content?: unknown }).content)
-          ).toBe(true);
+          expect(Array.isArray((page1Payload as { content?: unknown }).content)).toBe(true);
         }
       }
     }

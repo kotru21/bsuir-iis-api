@@ -15,15 +15,11 @@ let cachedWorkingEmployeeUrlId: string | undefined | null = null;
 function isTransientScheduleMiss(error: unknown): boolean {
   return (
     error instanceof BsuirApiError &&
-    (error.status === 404 ||
-      error.status === 503 ||
-      error.message.includes("Invalid JSON"))
+    (error.status === 404 || error.status === 503 || error.message.includes("Invalid JSON"))
   );
 }
 
-export async function findWorkingGroupNumber(
-  client: LiveClient
-): Promise<string | undefined> {
+export async function findWorkingGroupNumber(client: LiveClient): Promise<string | undefined> {
   if (cachedWorkingGroupNumber !== null) {
     return cachedWorkingGroupNumber ?? undefined;
   }
@@ -46,9 +42,7 @@ export async function findWorkingGroupNumber(
   return undefined;
 }
 
-export async function findWorkingEmployeeUrlId(
-  client: LiveClient
-): Promise<string | undefined> {
+export async function findWorkingEmployeeUrlId(client: LiveClient): Promise<string | undefined> {
   if (cachedWorkingEmployeeUrlId !== null) {
     return cachedWorkingEmployeeUrlId ?? undefined;
   }

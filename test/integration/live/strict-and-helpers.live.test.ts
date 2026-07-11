@@ -1,10 +1,7 @@
 import { beforeAll, expect, it } from "vitest";
 import { createBsuirClient } from "../../../src";
 import { buildScheduleDays, getTodayLessons } from "../../../src";
-import {
-  resolveWorkingScheduleEntities,
-  SCHEDULE_PROBE_WARN
-} from "./fixtures";
+import { resolveWorkingScheduleEntities, SCHEDULE_PROBE_WARN } from "./fixtures";
 import { describeLive } from "./gate";
 
 describeLive("live strict client and schedule helpers", () => {
@@ -29,9 +26,7 @@ describeLive("live strict client and schedule helpers", () => {
     }
   }, 60_000);
 
-  it("strict client listAll + getGroup do not throw on live payloads", async ({
-    skip
-  }) => {
+  it("strict client listAll + getGroup do not throw on live payloads", async ({ skip }) => {
     if (!scheduleAvailable || !groupNumber) {
       skip();
       return;
@@ -44,9 +39,7 @@ describeLive("live strict client and schedule helpers", () => {
     });
   }, 60_000);
 
-  it("getTodayLessons and buildScheduleDays work on live normalized schedule", async ({
-    skip
-  }) => {
+  it("getTodayLessons and buildScheduleDays work on live normalized schedule", async ({ skip }) => {
     if (!scheduleAvailable || !groupNumber) {
       skip();
       return;
