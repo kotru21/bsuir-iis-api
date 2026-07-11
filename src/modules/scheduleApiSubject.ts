@@ -10,11 +10,13 @@ import { filterLessons } from "../helpers/scheduleFilter";
 import type { ScheduleReadOptions } from "./scheduleApi";
 import type { ReadOptions } from "./types";
 
+/** Normalized/raw fetchers shared by group and employee schedule subject helpers. */
 export interface ScheduleSubjectFetcher {
   getNormalized(id: string, options?: ScheduleReadOptions): Promise<NormalizedScheduleResponse>;
   getRaw(id: string, options?: ReadOptions): Promise<ScheduleResponse>;
 }
 
+/** Filtered / exams / subgroup methods bound to one schedule subject. */
 export interface ScheduleSubjectMethods {
   getFiltered(
     id: string,

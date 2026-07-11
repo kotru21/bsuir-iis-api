@@ -40,6 +40,7 @@ export function baseHookContext(
   };
 }
 
+/** Parameters for a single HTTP attempt inside the request pipeline. */
 export interface PerformRequestParams {
   config: Readonly<InternalClientConfig>;
   path: string;

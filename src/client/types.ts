@@ -311,6 +311,7 @@ export interface BsuirClientOptions {
   hooks?: ClientHooks;
 }
 
+/** Resolved internal client config after `createBsuirClient` option normalization. */
 export interface InternalClientConfig {
   baseUrl: string;
   fetchImpl: typeof globalThis.fetch;
