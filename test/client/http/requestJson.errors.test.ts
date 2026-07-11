@@ -73,6 +73,26 @@ describe("requestJson — response and transport errors", () => {
     });
   });
 
+  it("preserves IIS plain-text body on non-2xx even when Content-Type claims JSON", async () => {
+    const seasonal = "Сервис временно недоступен. Работа ИИС возобновится после 15 августа.";
+    const fetchImpl = mockFetchSequence([
+      new Response(seasonal, {
+        status: 503,
+        headers: { "Content-Type": "application/json" }
+      })
+    ]);
+    const config = createRequestJsonConfig(fetchImpl, { retries: 0 });
+
+    const error = await requestJson(config, "/faculties").catch((error_: unknown) => error_);
+    expect(error).toBeInstanceOf(BsuirApiError);
+    expect(error).toMatchObject({
+      status: 503,
+      body: seasonal
+    });
+    expect((error as BsuirApiError).message).toContain(seasonal);
+    expect((error as BsuirApiError).message).not.toBe("Invalid JSON response payload");
+  });
+
   it("throws BsuirNetworkError on exhausted retries", async () => {
     const transportError = new Error("ECONNRESET");
     const fetchImpl = mockFetchSequence([transportError]);

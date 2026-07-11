@@ -133,7 +133,7 @@ When IIS responds with HTTP `404` (the employee or department has no announcemen
 
 SDK throws typed errors:
 
-- `BsuirApiError` for HTTP errors (contains `status`, `endpoint`, `body`). **Exception:** `client.announcements.byEmployee` / `byDepartment` resolve to `[]` on IIS HTTP `404` (unless `treat404AsEmpty: false`) instead of throwing (see Announcements above).
+- `BsuirApiError` for HTTP errors (contains `status`, `endpoint`, `body`). Non-2xx plain-text bodies are preserved even when IIS mislabels them as JSON. **Exception:** `client.announcements.byEmployee` / `byDepartment` resolve to `[]` on IIS HTTP `404` (unless `treat404AsEmpty: false`) instead of throwing (see Announcements above).
 - `BsuirResponsePayloadTooLargeError` when response body size exceeds configured `maxResponseBytes`.
 - `BsuirNetworkError` for transport errors (contains `endpoint` and standard `cause`)
 - `BsuirResponseValidationError` for invalid payload shapes when `validateResponses: true`
@@ -163,6 +163,14 @@ For **2xx** responses the client reads the body as text, then applies `JSON.pars
 - If `Content-Type` indicates **`application/json`** but the body is empty or not valid JSON, the client throws `BsuirApiError` (`Invalid JSON response payload`), same as for a truncated `{` payload.
 - If the body is **empty** and the content type does **not** indicate JSON, the result is `null`. Typical IIS catalog JSON endpoints return a non-empty body.
 - If response body size exceeds `maxResponseBytes`, the client throws `BsuirResponsePayloadTooLargeError`.
+
+## Error HTTP responses (body parsing)
+
+For **non-2xx** responses the client still attempts `JSON.parse`, but does **not** discard useful plain-text bodies when the server mislabels them as JSON (IIS seasonal/maintenance messages often do this with HTTP `503`):
+
+- Valid JSON error payloads are attached to `BsuirApiError.body` as parsed objects.
+- If `JSON.parse` fails, the raw response text is preserved in `BsuirApiError.body` and appended to `message`.
+- Empty bodies yield `body: null` with the standard HTTP status message.
 
 ## Raw vs normalized schedule response
 

@@ -59,15 +59,16 @@ async function readBodyTextWithLimit(
 
 /**
  * Parses response body as JSON when possible, otherwise returns text.
- * Returns `null` for empty non-JSON bodies.
- * Throws `BsuirApiError` for declared JSON payloads that are empty/invalid.
+ * Returns `null` for empty bodies that are not treated as strict JSON success payloads.
+ * Throws `BsuirApiError` for **2xx** responses that declare JSON but are empty/invalid.
+ * For **non-2xx**, preserves raw text (IIS sometimes labels plain-text errors as JSON).
  */
 export async function parseBody(response: Response, maxResponseBytes: number): Promise<unknown> {
   const contentType = response.headers.get("content-type") ?? "";
   const declaredJson = contentType.includes("application/json");
   const text = await readBodyTextWithLimit(response, maxResponseBytes);
   if (text.length === 0) {
-    if (declaredJson) {
+    if (declaredJson && response.ok) {
       throw new BsuirApiError("Invalid JSON response payload", response.status, response.url, null);
     }
     return null;
@@ -75,7 +76,7 @@ export async function parseBody(response: Response, maxResponseBytes: number): P
   try {
     return JSON.parse(text) as unknown;
   } catch {
-    if (declaredJson) {
+    if (declaredJson && response.ok) {
       throw new BsuirApiError("Invalid JSON response payload", response.status, response.url, null);
     }
     return text;

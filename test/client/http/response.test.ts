@@ -74,6 +74,23 @@ describe("parseBody", () => {
     expect(await parseBody(res, limit)).toBe("{not json}");
   });
 
+  it("preserves raw text for non-2xx when Content-Type claims JSON but body is plain text", async () => {
+    const seasonal = "Сервис временно недоступен. Работа ИИС возобновится после 15 августа.";
+    const res = new Response(seasonal, {
+      status: 503,
+      headers: { "content-type": "application/json" }
+    });
+    expect(await parseBody(res, 10_000)).toBe(seasonal);
+  });
+
+  it("returns null for empty non-2xx body even when Content-Type claims JSON", async () => {
+    const res = new Response("", {
+      status: 503,
+      headers: { "content-type": "application/json" }
+    });
+    expect(await parseBody(res, limit)).toBeNull();
+  });
+
   it("uses text() fallback when response.body is null", async () => {
     const res = makeResponse('{"fallback":true}', { useStream: false });
     expect(await parseBody(res, 1000)).toEqual({ fallback: true });
