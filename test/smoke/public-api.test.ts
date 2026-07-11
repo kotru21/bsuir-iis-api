@@ -1,15 +1,23 @@
 import { describe, expect, it } from "vitest";
-import type { AnnouncementReadOptions } from "../../src";
+import type { AnnouncementReadOptions, ScheduleReadOptions } from "../../src";
 import {
   BsuirApiError,
   BsuirConfigurationError,
   BsuirNetworkError,
+  BsuirResponsePayloadTooLargeError,
   BsuirResponseValidationError,
   BsuirTimeoutError,
   BsuirValidationError,
   buildScheduleDays,
   createBsuirClient,
   filterLessons,
+  formatEmployeeShortName,
+  formatLessonAuditories,
+  formatLessonEmployees,
+  formatLessonSubgroup,
+  formatLessonTimeRange,
+  formatLessonType,
+  formatLessonWeekNumbers,
   getTodayLessons,
   normalizeSchedule
 } from "../../src";
@@ -36,5 +44,34 @@ describe("public api", () => {
   it("exports AnnouncementReadOptions as a public type", () => {
     const options: AnnouncementReadOptions = { treat404AsEmpty: false };
     expect(options.treat404AsEmpty).toBe(false);
+  });
+
+  it("exports ScheduleReadOptions as a public type", () => {
+    const options: ScheduleReadOptions = { includeNextSchedules: true };
+    expect(options.includeNextSchedules).toBe(true);
+  });
+
+  it("exports format helpers", () => {
+    expect(
+      formatEmployeeShortName({ lastName: "Иванов", firstName: "Иван", middleName: "Иванович" })
+    ).toBe("Иванов И.И.");
+    expect(formatLessonTimeRange({ startLessonTime: "09:00", endLessonTime: "10:20" })).toBe(
+      "09:00–10:20"
+    );
+    expect(formatLessonType({ lessonTypeAbbrev: "ЛК" })).toBe("ЛК");
+    expect(formatLessonSubgroup({ numSubgroup: 1 })).toBe("1 подгруппа");
+    expect(formatLessonWeekNumbers({ weekNumber: [1, 2] })).toBe("1, 2 нед.");
+    expect(formatLessonAuditories({ auditories: ["101-1"] })).toBe("101-1");
+    expect(formatLessonEmployees({ employees: null })).toBe("");
+  });
+
+  it("exports createBsuirClient.strict", () => {
+    expect(typeof createBsuirClient.strict).toBe("function");
+  });
+
+  it("exports BsuirResponsePayloadTooLargeError", () => {
+    const err = new BsuirResponsePayloadTooLargeError("too large", 200, "/student-groups", 1024);
+    expect(err).toBeInstanceOf(BsuirResponsePayloadTooLargeError);
+    expect(err.maxResponseBytes).toBe(1024);
   });
 });

@@ -88,7 +88,16 @@ export default defineConfig(
         "warn",
         {
           publicOnly: true,
-          require: { FunctionDeclaration: true, MethodDefinition: false }
+          require: {
+            FunctionDeclaration: true,
+            MethodDefinition: false,
+            ClassDeclaration: true
+          },
+          contexts: [
+            "TSInterfaceDeclaration",
+            "TSTypeAliasDeclaration",
+            "TSEnumDeclaration"
+          ]
         }
       ],
       "jsdoc/check-param-names": "error",

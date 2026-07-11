@@ -3,6 +3,7 @@
   "version": "1.0.5",
   "description": "Type-safe ESM SDK for BSUIR IIS API",
   "type": "module",
+  "sideEffects": false,
   "author": "kotru21",
   "license": "MIT",
   "repository": {
