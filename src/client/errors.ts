@@ -1,3 +1,4 @@
+/** HTTP error returned by IIS (non-2xx) after the SDK parses the body. */
 export class BsuirApiError extends Error {
   readonly status: number;
   readonly endpoint: string;
@@ -12,6 +13,7 @@ export class BsuirApiError extends Error {
   }
 }
 
+/** Thrown when a response body exceeds the configured `maxResponseBytes` limit. */
 export class BsuirResponsePayloadTooLargeError extends Error {
   readonly status: number;
   readonly endpoint: string;
@@ -26,6 +28,7 @@ export class BsuirResponsePayloadTooLargeError extends Error {
   }
 }
 
+/** Transport / network failure while talking to IIS. */
 export class BsuirNetworkError extends Error {
   readonly endpoint: string;
 
@@ -36,6 +39,7 @@ export class BsuirNetworkError extends Error {
   }
 }
 
+/** Request aborted because the client-side timeout elapsed. */
 export class BsuirTimeoutError extends Error {
   readonly endpoint: string;
   readonly timeoutMs: number;
@@ -48,6 +52,7 @@ export class BsuirTimeoutError extends Error {
   }
 }
 
+/** Invalid caller input (group number, urlId, ids, etc.). */
 export class BsuirValidationError extends Error {
   readonly field: string | undefined;
   readonly value: unknown;
@@ -60,6 +65,7 @@ export class BsuirValidationError extends Error {
   }
 }
 
+/** Response shape failed runtime validation when `validateResponses` is enabled. */
 export class BsuirResponseValidationError extends Error {
   readonly endpoint: string;
 
@@ -70,6 +76,7 @@ export class BsuirResponseValidationError extends Error {
   }
 }
 
+/** Misconfigured client or unsafe pagination (missing fetch, page-cap exceeded, etc.). */
 export class BsuirConfigurationError extends Error {
   constructor(message: string) {
     super(message);

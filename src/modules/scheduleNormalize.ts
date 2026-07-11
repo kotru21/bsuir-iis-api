@@ -5,6 +5,7 @@ import type {
   FlattenedLessonsByDay,
   FlattenedScheduleItem,
   LessonStudentGroup,
+  NormalizeScheduleOptions,
   NormalizedScheduleResponse,
   ScheduleItem,
   ScheduleResponse
@@ -51,10 +52,14 @@ function assertMinimalScheduleEnvelope(
 
 /**
  * Transforms raw schedule response into normalized structure with flattened lessons.
+ *
+ * By default only current-term `schedules` and `exams` are flattened. Pass
+ * `includeNextSchedules: true` to also flatten `nextSchedules` with
+ * `source: "nextSchedules"`.
  */
 export function normalizeSchedule(
   response: ScheduleResponse,
-  options?: { validate?: boolean; endpoint?: string }
+  options?: NormalizeScheduleOptions
 ): NormalizedScheduleResponse {
   const endpoint = options?.endpoint ?? "/schedule";
   if (options?.validate) {
@@ -67,6 +72,7 @@ export function normalizeSchedule(
   }
   const scheduleLessons: FlattenedScheduleItem[] = [];
   const examLessons: FlattenedScheduleItem[] = [];
+  const nextScheduleLessons: FlattenedScheduleItem[] = [];
   const lessonsByDay = Object.fromEntries(
     WEEKDAYS.map((day) => [day, [] as FlattenedScheduleItem[]])
   ) as FlattenedLessonsByDay;
@@ -103,7 +109,23 @@ export function normalizeSchedule(
     examLessons.push(flattenedExam);
   }
 
-  const lessons = [...scheduleLessons, ...examLessons];
+  if (options?.includeNextSchedules === true) {
+    const sourceNext = response.nextSchedules ?? {};
+    for (const day of WEEKDAYS) {
+      const dayItems = sourceNext[day] ?? [];
+      const flattenedDayItems: FlattenedScheduleItem[] = dayItems.map((item) =>
+        deepFreezeJson({
+          ...cloneScheduleItem(item),
+          day,
+          source: "nextSchedules" as const
+        })
+      );
+      lessonsByDay[day] = [...lessonsByDay[day], ...flattenedDayItems];
+      nextScheduleLessons.push(...flattenedDayItems);
+    }
+  }
+
+  const lessons = [...scheduleLessons, ...examLessons, ...nextScheduleLessons];
 
   return {
     ...response,

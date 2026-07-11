@@ -15,24 +15,42 @@ import { normalizeSchedule } from "./scheduleNormalize";
 import { createScheduleSubjectMethods } from "./scheduleApiSubject";
 import type { ReadOptions } from "./types";
 
+/**
+ * Read options for schedule methods that return a normalized payload.
+ */
+export interface ScheduleReadOptions extends ReadOptions {
+  /**
+   * When `true`, flatten IIS `nextSchedules` into `lessons` with
+   * `source: "nextSchedules"`. Default `false` = current term only.
+   */
+  includeNextSchedules?: boolean;
+}
+
+/**
+ * Schedule module: raw/normalized fetches, filters, subgroup helpers, current week,
+ * and deprecated last-update endpoints.
+ */
 export interface ScheduleModule {
-  getGroup(groupNumber: string, options?: ReadOptions): Promise<NormalizedScheduleResponse>;
-  getEmployee(urlId: string, options?: ReadOptions): Promise<NormalizedScheduleResponse>;
+  getGroup(groupNumber: string, options?: ScheduleReadOptions): Promise<NormalizedScheduleResponse>;
+  getEmployee(urlId: string, options?: ScheduleReadOptions): Promise<NormalizedScheduleResponse>;
 
   getGroupFiltered(
     groupNumber: string,
     filter: ScheduleFilterOptions,
-    options?: ReadOptions
+    options?: ScheduleReadOptions
   ): Promise<FlattenedScheduleItem[]>;
 
   getEmployeeFiltered(
     urlId: string,
     filter: ScheduleFilterOptions,
-    options?: ReadOptions
+    options?: ScheduleReadOptions
   ): Promise<FlattenedScheduleItem[]>;
 
-  getGroupExams(groupNumber: string, options?: ReadOptions): Promise<FlattenedScheduleItem[]>;
-  getEmployeeExams(urlId: string, options?: ReadOptions): Promise<FlattenedScheduleItem[]>;
+  getGroupExams(
+    groupNumber: string,
+    options?: ScheduleReadOptions
+  ): Promise<FlattenedScheduleItem[]>;
+  getEmployeeExams(urlId: string, options?: ScheduleReadOptions): Promise<FlattenedScheduleItem[]>;
 
   getGroupRaw(groupNumber: string, options?: ReadOptions): Promise<ScheduleResponse>;
   getEmployeeRaw(urlId: string, options?: ReadOptions): Promise<ScheduleResponse>;
@@ -40,7 +58,7 @@ export interface ScheduleModule {
   getGroupBySubgroup(
     groupNumber: string,
     subgroup: number,
-    options?: ReadOptions
+    options?: ScheduleReadOptions
   ): Promise<FlattenedScheduleItem[]>;
   getGroupBySubgroupRaw(
     groupNumber: string,
@@ -56,7 +74,7 @@ export interface ScheduleModule {
   getEmployeeBySubgroup(
     urlId: string,
     subgroup: number,
-    options?: ReadOptions
+    options?: ScheduleReadOptions
   ): Promise<FlattenedScheduleItem[]>;
   getEmployeeBySubgroupRaw(
     urlId: string,
@@ -106,7 +124,7 @@ export function createScheduleModule(config: Readonly<InternalClientConfig>): Sc
    */
   async function getGroup(
     groupNumber: string,
-    options: ReadOptions = {}
+    options: ScheduleReadOptions = {}
   ): Promise<NormalizedScheduleResponse> {
     const resolvedOptions = options;
     assertGroupNumber(groupNumber, "groupNumber");
@@ -123,7 +141,10 @@ export function createScheduleModule(config: Readonly<InternalClientConfig>): Sc
     const response = payload as ScheduleResponse;
     return normalizeSchedule(response, {
       validate: false,
-      endpoint: "/schedule"
+      endpoint: "/schedule",
+      ...(resolvedOptions.includeNextSchedules === undefined
+        ? {}
+        : { includeNextSchedules: resolvedOptions.includeNextSchedules })
     });
   }
 
@@ -133,7 +154,7 @@ export function createScheduleModule(config: Readonly<InternalClientConfig>): Sc
    */
   async function getEmployee(
     urlId: string,
-    options: ReadOptions = {}
+    options: ScheduleReadOptions = {}
   ): Promise<NormalizedScheduleResponse> {
     const resolvedOptions = options;
     assertEmployeeUrlId(urlId, "urlId");
@@ -150,7 +171,10 @@ export function createScheduleModule(config: Readonly<InternalClientConfig>): Sc
     const response = payload as ScheduleResponse;
     return normalizeSchedule(response, {
       validate: false,
-      endpoint
+      endpoint,
+      ...(resolvedOptions.includeNextSchedules === undefined
+        ? {}
+        : { includeNextSchedules: resolvedOptions.includeNextSchedules })
     });
   }
 

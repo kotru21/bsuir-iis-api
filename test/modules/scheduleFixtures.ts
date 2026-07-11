@@ -88,3 +88,29 @@ export function buildScheduleResponse(overrides: Partial<ScheduleResponse> = {})
     ...overrides
   };
 }
+
+/** Minimal next-term Monday map for `nextSchedules` opt-in tests. */
+export function buildNextTermMondayLesson(): NonNullable<ScheduleResponse["nextSchedules"]> {
+  return {
+    Понедельник: [
+      {
+        weekNumber: [1],
+        studentGroups: [],
+        numSubgroup: 0,
+        auditories: ["200-1"],
+        startLessonTime: "08:00",
+        endLessonTime: "09:20",
+        subject: "NEXT",
+        subjectFullName: "Next term subject",
+        note: null,
+        lessonTypeAbbrev: "ЛК",
+        dateLesson: null,
+        startLessonDate: "01.09.2026",
+        endLessonDate: "20.12.2026",
+        announcement: false,
+        split: false,
+        employees: null
+      }
+    ]
+  };
+}

@@ -97,14 +97,17 @@ const client = createBsuirClient({
 
 ### Catalogs
 
-- `client.groups.listAll(options?)`
-- `client.employees.listAll(options?)`
-- `client.faculties.listAll(options?)`
-- `client.departments.listAll(options?)`
-- `client.specialities.listAll(options?)`
-- `client.auditories.listAll(options?)`
+- `client.groups.listAll(options?)` / `client.groups.listAllPages(options?)`
+- `client.employees.listAll(options?)` / `client.employees.listAllPages(options?)`
+- `client.faculties.listAll(options?)` / `client.faculties.listAllPages(options?)`
+- `client.departments.listAll(options?)` / `client.departments.listAllPages(options?)`
+- `client.specialities.listAll(options?)` / `client.specialities.listAllPages(options?)`
+- `client.auditories.listAll(options?)` / `client.auditories.listAllPages(options?)`
 
-Catalog `listAll()` methods always resolve to arrays. If IIS returns a Spring Data page envelope (`{ content: [...] }`), the SDK unwraps `content` (first page only).
+Catalog list methods always resolve to arrays. If IIS returns a Spring Data page envelope (`{ content: [...] }`):
+
+- **`listAll()`** unwraps **first page only** (does not request page 2+). Prefer this when catalogs are small or returned as a plain array.
+- **`listAllPages()`** fetches **all pages** (query `page` / `size`) and concatenates them. If IIS reports more than **50** pages, the SDK throws `BsuirConfigurationError` (same safety cap as announcements).
 
 ### Announcements
 
@@ -115,16 +118,16 @@ Both methods always resolve to `Announcement[]`. IIS may respond with a plain JS
 
 When IIS responds with HTTP `404` (the employee or department has no announcements), these methods resolve to an empty array `[]` instead of throwing `BsuirApiError`. Pass `treat404AsEmpty: false` to receive the underlying `BsuirApiError` instead. Client-side validation still runs first (`urlId`, department `id`); all other HTTP errors (including `400`) are always thrown so malformed-request bugs are not silently masked.
 
-**Pagination note:** IIS serves announcements as Spring Data pages (default `size` 20) using `page` / `size` query params. The SDK fetches **all pages** and returns the concatenated `Announcement[]`. If IIS reports more than **50** pages, the SDK throws `BsuirConfigurationError` (safety cap). Catalog `listAll()` still unwraps the first page only.
+**Pagination note:** IIS serves announcements as Spring Data pages (default `size` 20) using `page` / `size` query params. The SDK fetches **all pages** and returns the concatenated `Announcement[]`. If IIS reports more than **50** pages, the SDK throws `BsuirConfigurationError` (safety cap). Catalog **`listAll()`** still unwraps the first page only; use **`listAllPages()`** to fetch every catalog page under the same 50-page cap.
 
 ### Public exports (runtime utilities and types)
 
 - Core runtime API: `createBsuirClient`, `BsuirClient`
-- Client/runtime option types: `BsuirClientOptions`, `CacheOptions`, `ClientHooks`, `RequestOptions`, `ReadOptions`, `AnnouncementReadOptions`, `RequestHookContext`, `RetryHookContext`, `ResponseHookContext`, `ErrorHookContext`
-- Schedule utilities: `normalizeSchedule`, `filterLessons`, `getLessonsForDate`, `getTodayLessons`, `getTomorrowLessons`, `getLessonsForWeek`, `sortLessonsByTime`, `groupLessonsByDay`, `getCurrentLesson`, `getNextLesson`, `buildScheduleDays`, `ScheduleFilterOptions`, `InvalidLessonTimeHook`
+- Client/runtime option types: `BsuirClientOptions`, `CacheOptions`, `ClientHooks`, `RequestOptions`, `ReadOptions`, `AnnouncementReadOptions`, `ScheduleReadOptions`, `RequestHookContext`, `RetryHookContext`, `ResponseHookContext`, `ErrorHookContext`
+- Schedule utilities: `normalizeSchedule`, `filterLessons`, `getLessonsForDate`, `getTodayLessons`, `getTomorrowLessons`, `getLessonsForWeek`, `sortLessonsByTime`, `groupLessonsByDay`, `getCurrentLesson`, `getNextLesson`, `buildScheduleDays`, `ScheduleFilterOptions`, `NormalizeScheduleOptions`, `InvalidLessonTimeHook`
 - Formatters: `formatEmployeeShortName`, `formatLessonAuditories`, `formatLessonEmployees`, `formatLessonSubgroup`, `formatLessonTimeRange`, `formatLessonType`, `formatLessonWeekNumbers`
 - Error classes: `BsuirApiError`, `BsuirNetworkError`, `BsuirTimeoutError`, `BsuirValidationError`, `BsuirResponseValidationError`, `BsuirResponsePayloadTooLargeError`, `BsuirConfigurationError`
-- Domain types: `Announcement`, `ApiDateResponse`, `Auditory`, `AuditoryDepartment`, `AuditoryType`, `BuildingNumber`, `Department`, `EducationForm`, `Employee`, `EmployeeCatalogItem`, `Faculty`, `FlattenedLessonsByDay`, `FlattenedScheduleItem`, `LessonStudentGroup`, `Maybe`, `NormalizedScheduleResponse`, `ScheduleItem`, `ScheduleResponse`, `Speciality`, `StudentGroupCatalogItem`, `StudentGroupShort`, `Weekday`, `WeekScheduleMap`
+- Domain types: `Announcement`, `ApiDateResponse`, `Auditory`, `AuditoryDepartment`, `AuditoryType`, `BuildingNumber`, `Department`, `EducationForm`, `Employee`, `EmployeeCatalogItem`, `Faculty`, `FlattenedLessonsByDay`, `FlattenedScheduleItem`, `FlattenedScheduleSource`, `LessonStudentGroup`, `Maybe`, `NormalizedScheduleResponse`, `ScheduleItem`, `ScheduleResponse`, `Speciality`, `StudentGroupCatalogItem`, `StudentGroupShort`, `Weekday`, `WeekScheduleMap`
 
 ## Errors
 
@@ -136,7 +139,7 @@ SDK throws typed errors:
 - `BsuirResponseValidationError` for invalid payload shapes when `validateResponses: true`
 - `BsuirTimeoutError` for timeouts (contains `endpoint`, `timeoutMs`)
 - `BsuirValidationError` for invalid input parameters
-- `BsuirConfigurationError` when the runtime has no `fetch` and none was passed to `createBsuirClient({ fetch })`, or when announcements pagination exceeds the 50-page safety cap
+- `BsuirConfigurationError` when the runtime has no `fetch` and none was passed to `createBsuirClient({ fetch })`, or when announcements / catalog `listAllPages` pagination exceeds the 50-page safety cap
 
 Validation rules:
 
@@ -164,6 +167,19 @@ For **2xx** responses the client reads the body as text, then applies `JSON.pars
 ## Raw vs normalized schedule response
 
 By default, schedule methods return a **normalized** `NormalizedScheduleResponse`: `lessons` is all flattened items (weekly + exams), each tagged with `source: "schedules" | "exams"`; `scheduleLessons` / `examLessons` are the same rows split by source; `lessonsByDay` groups by weekday.
+
+**Current term only by default.** IIS may also send `nextSchedules` (next academic term). Normalization and `getGroup` / `getEmployee` **ignore** that map unless you opt in:
+
+```ts
+import { createBsuirClient, normalizeSchedule } from "bsuir-iis-api";
+
+const client = createBsuirClient();
+const withNext = await client.schedule.getGroup("053503", { includeNextSchedules: true });
+// or: normalizeSchedule(raw, { includeNextSchedules: true })
+// Next-term rows appear in `lessons` / `lessonsByDay` with `source: "nextSchedules"`.
+```
+
+Raw helpers (`getGroupRaw` / `getEmployeeRaw`) always preserve `nextSchedules` when present.
 
 ```ts
 import { createBsuirClient } from "bsuir-iis-api";

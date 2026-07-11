@@ -2,6 +2,7 @@ import type { StudentGroupCatalogItem } from "./catalog";
 import type { Maybe, Weekday } from "./common";
 import type { Employee } from "./employee";
 
+/** Student group fragment nested under a schedule lesson. */
 export interface LessonStudentGroup {
   specialityName: string;
   specialityCode: string;
@@ -10,6 +11,7 @@ export interface LessonStudentGroup {
   educationDegree: number;
 }
 
+/** One lesson or exam row as returned inside IIS schedule maps. */
 export interface ScheduleItem {
   weekNumber: number[] | null;
   studentGroups: LessonStudentGroup[];
@@ -29,8 +31,10 @@ export interface ScheduleItem {
   employees: Maybe<Employee[]>;
 }
 
+/** Weekday → lessons map used by `schedules` / `nextSchedules`. */
 export type WeekScheduleMap = Partial<Record<Weekday, ScheduleItem[]>>;
 
+/** Raw IIS schedule envelope for a group or employee. */
 export interface ScheduleResponse {
   employeeDto: Maybe<Employee>;
   studentGroupDto: Maybe<StudentGroupCatalogItem>;
@@ -52,15 +56,21 @@ export interface ScheduleResponse {
   isZaochOrDist?: boolean | null;
 }
 
+/** Where a flattened lesson came from in the IIS schedule envelope. */
+export type FlattenedScheduleSource = "schedules" | "exams" | "nextSchedules";
+
+/** Schedule lesson with weekday / source metadata added by {@link normalizeSchedule}. */
 export interface FlattenedScheduleItem extends ScheduleItem {
   day: Weekday | null;
-  source: "schedules" | "exams";
+  source: FlattenedScheduleSource;
 }
 
+/** Lessons grouped by BSUIR weekday after normalization. */
 export type FlattenedLessonsByDay = Record<Weekday, FlattenedScheduleItem[]>;
 
+/** Criteria for {@link filterLessons} and schedule `get*Filtered` helpers. */
 export interface ScheduleFilterOptions {
-  source?: "schedules" | "exams";
+  source?: FlattenedScheduleSource;
   weekday?: Weekday;
   weekNumber?: number;
   subgroup?: number;
@@ -70,6 +80,25 @@ export interface ScheduleFilterOptions {
   auditory?: string;
 }
 
+/**
+ * Options for {@link normalizeSchedule}.
+ */
+export interface NormalizeScheduleOptions {
+  /** When `true`, run full envelope validation via `assertScheduleResponse`. */
+  validate?: boolean;
+  /** Endpoint label used in validation / minimal-envelope errors. */
+  endpoint?: string;
+  /**
+   * When `true`, flatten `nextSchedules` into `lessons` / `lessonsByDay` with
+   * `source: "nextSchedules"`. Default `false` keeps current-term (`schedules`) only.
+   */
+  includeNextSchedules?: boolean;
+}
+
+/**
+ * Normalized schedule payload: cloned maps plus flattened `lessons` views.
+ * Default flatten covers current-term `schedules` and `exams` only.
+ */
 export interface NormalizedScheduleResponse extends Omit<ScheduleResponse, "schedules" | "exams"> {
   schedules: WeekScheduleMap;
   exams: ScheduleItem[];

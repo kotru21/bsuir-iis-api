@@ -69,4 +69,6 @@ Select the bump type (`patch` / `minor` / `major`), write a short description, a
 - TypeScript strict mode is enabled — no `any` without explicit justification.
 - Prefer named exports over default exports.
 - Keep functions small and single-purpose.
-- Add JSDoc to all exported public API symbols.
+- Add JSDoc to all exported public API symbols (interfaces, types, classes, and functions).
+- After changing public exports, run `npm run api:report` and confirm new symbols are not marked `@public (undocumented)`.
+- Exported interfaces/types need a top-level JSDoc summary (eslint `jsdoc/require-jsdoc` on `src/**`).

@@ -1,3 +1,4 @@
+/** Numeric parts of a BSUIR `dd.mm.yyyy` date string. */
 export interface DdMmYyyyParts {
   day: number;
   month: number;

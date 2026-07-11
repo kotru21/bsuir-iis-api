@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { createBsuirClient } from "../../src";
+import { describe, expect, it, vi } from "vitest";
+import { BsuirConfigurationError, createBsuirClient } from "../../src";
 import { createJsonResponse, mockFetchSequence } from "../helpers/fetchMock";
 
 describe("catalog modules", () => {
@@ -66,5 +66,72 @@ describe("catalog modules", () => {
     ]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
     await expect(client.departments.listAll()).resolves.toEqual(departments);
+  });
+
+  it("listAll returns first page only and does not fetch page 2", async () => {
+    const page0 = [{ name: "A", id: 1 }];
+    const fetchImpl = vi.fn(async () =>
+      createJsonResponse({
+        body: {
+          content: page0,
+          pageable: { pageNumber: 0, pageSize: 1 },
+          totalPages: 2,
+          totalElements: 2,
+          last: false
+        }
+      })
+    );
+    const client = createBsuirClient({
+      fetch: fetchImpl as unknown as typeof fetch,
+      validateResponses: false
+    });
+
+    await expect(client.groups.listAll()).resolves.toEqual(page0);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("listAllPages concatenates all Spring pages", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({
+        body: {
+          content: [{ name: "A", id: 1 }],
+          pageable: { pageNumber: 0, pageSize: 1 },
+          totalPages: 2,
+          totalElements: 2,
+          last: false
+        }
+      }),
+      createJsonResponse({
+        body: {
+          content: [{ name: "B", id: 2 }],
+          pageable: { pageNumber: 1, pageSize: 1 },
+          totalPages: 2,
+          totalElements: 2,
+          last: true
+        }
+      })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
+
+    await expect(client.groups.listAllPages()).resolves.toEqual([
+      { name: "A", id: 1 },
+      { name: "B", id: 2 }
+    ]);
+  });
+
+  it("listAllPages throws when totalPages exceeds safety cap", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({
+        body: {
+          content: [],
+          pageable: { pageNumber: 0, pageSize: 20 },
+          totalPages: 51,
+          last: false
+        }
+      })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
+
+    await expect(client.groups.listAllPages()).rejects.toBeInstanceOf(BsuirConfigurationError);
   });
 });

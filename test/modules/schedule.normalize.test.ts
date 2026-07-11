@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { createBsuirClient } from "../../src";
+import { createBsuirClient, normalizeSchedule } from "../../src";
 import { createJsonResponse, mockFetchSequence } from "../helpers/fetchMock";
-import { buildScheduleResponse } from "./scheduleFixtures";
+import { buildNextTermMondayLesson, buildScheduleResponse } from "./scheduleFixtures";
 
 describe("schedule module — normalize and raw", () => {
   it("returns normalized schedule by default", async () => {
@@ -160,5 +160,46 @@ describe("schedule module — normalize and raw", () => {
 
     expect(payload.schedules?.Понедельник).toHaveLength(1);
     expect(payload.schedules?.Понедельник?.[0]?.employees).toHaveLength(1);
+  });
+
+  it("default normalize excludes nextSchedules from lessons", () => {
+    const response = buildScheduleResponse({
+      nextSchedules: buildNextTermMondayLesson()
+    });
+    const normalized = normalizeSchedule(response);
+
+    expect(normalized.lessons.every((lesson) => lesson.subject !== "NEXT")).toBe(true);
+    expect(normalized.lessons.every((lesson) => lesson.source !== "nextSchedules")).toBe(true);
+    expect(normalized.nextSchedules?.Понедельник?.[0]?.subject).toBe("NEXT");
+  });
+
+  it("includeNextSchedules flattens nextSchedules into lessons", () => {
+    const response = buildScheduleResponse({
+      nextSchedules: buildNextTermMondayLesson()
+    });
+    const normalized = normalizeSchedule(response, { includeNextSchedules: true });
+    const next = normalized.lessons.filter((lesson) => lesson.source === "nextSchedules");
+
+    expect(next).toHaveLength(1);
+    expect(next[0]?.subject).toBe("NEXT");
+    expect(next[0]?.day).toBe("Понедельник");
+    expect(normalized.scheduleLessons.every((lesson) => lesson.source === "schedules")).toBe(true);
+    expect(normalized.lessonsByDay.Понедельник.some((lesson) => lesson.subject === "NEXT")).toBe(
+      true
+    );
+  });
+
+  it("getGroup passes includeNextSchedules into normalize", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({
+        body: buildScheduleResponse({
+          nextSchedules: buildNextTermMondayLesson()
+        })
+      })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+    const normalized = await client.schedule.getGroup("053503", { includeNextSchedules: true });
+
+    expect(normalized.lessons.some((lesson) => lesson.source === "nextSchedules")).toBe(true);
   });
 });

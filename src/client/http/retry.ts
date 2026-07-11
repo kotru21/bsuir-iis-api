@@ -53,6 +53,7 @@ function getBackoffDelayMs(config: Readonly<InternalClientConfig>, attempt: numb
   return Math.floor(baseDelay * jitterFactor);
 }
 
+/** Whether the current attempt should retry, and after how long. */
 export type RetryDecision =
   | { retryable: true; delayMs: number }
   | { retryable: false; rejectedDelayMs: number };

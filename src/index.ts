@@ -17,7 +17,7 @@ export type {
 } from "./client/types";
 export type { ReadOptions } from "./modules/types";
 export type { AnnouncementReadOptions } from "./modules/announcements";
-export type { ScheduleModule } from "./modules/scheduleApi";
+export type { ScheduleModule, ScheduleReadOptions } from "./modules/scheduleApi";
 export type { InvalidLessonTimeHook } from "./helpers/schedule";
 export {
   buildScheduleDays,
@@ -70,8 +70,10 @@ export type {
   BuildScheduleDaysOptions,
   FlattenedLessonsByDay,
   FlattenedScheduleItem,
+  FlattenedScheduleSource,
   LessonWithTime,
   LessonStudentGroup,
+  NormalizeScheduleOptions,
   NormalizedScheduleResponse,
   ScheduleDay,
   ScheduleFilterOptions,
