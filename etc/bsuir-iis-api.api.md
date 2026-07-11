@@ -4,7 +4,7 @@
 
 ```ts
 
-// @public (undocumented)
+// @public
 export interface Announcement {
     // (undocumented)
     content: string;
@@ -31,7 +31,7 @@ export interface ApiDateResponse {
     lastUpdateDate: string;
 }
 
-// @public (undocumented)
+// @public
 export interface Auditory {
     // (undocumented)
     auditoryType: AuditoryType;
@@ -49,7 +49,7 @@ export interface Auditory {
     note: string;
 }
 
-// @public (undocumented)
+// @public
 export interface AuditoryDepartment {
     // (undocumented)
     abbrev: string;
@@ -61,7 +61,7 @@ export interface AuditoryDepartment {
     nameAndAbbrev: string;
 }
 
-// @public (undocumented)
+// @public
 export interface AuditoryType {
     // (undocumented)
     abbrev: string;
@@ -71,7 +71,7 @@ export interface AuditoryType {
     name: string;
 }
 
-// @public (undocumented)
+// @public
 export class BsuirApiError extends Error {
     constructor(message: string, status: number, endpoint: string, body: unknown);
     // (undocumented)
@@ -141,19 +141,19 @@ export interface BsuirClientShape {
     specialities: ReturnType<typeof createSpecialitiesModule>;
 }
 
-// @public (undocumented)
+// @public
 export class BsuirConfigurationError extends Error {
     constructor(message: string);
 }
 
-// @public (undocumented)
+// @public
 export class BsuirNetworkError extends Error {
     constructor(message: string, endpoint: string, cause: unknown);
     // (undocumented)
     readonly endpoint: string;
 }
 
-// @public (undocumented)
+// @public
 export class BsuirResponsePayloadTooLargeError extends Error {
     constructor(message: string, status: number, endpoint: string, maxResponseBytes: number);
     // (undocumented)
@@ -164,14 +164,14 @@ export class BsuirResponsePayloadTooLargeError extends Error {
     readonly status: number;
 }
 
-// @public (undocumented)
+// @public
 export class BsuirResponseValidationError extends Error {
     constructor(message: string, endpoint: string);
     // (undocumented)
     readonly endpoint: string;
 }
 
-// @public (undocumented)
+// @public
 export class BsuirTimeoutError extends Error {
     constructor(message: string, endpoint: string, timeoutMs: number, cause?: unknown);
     // (undocumented)
@@ -180,7 +180,7 @@ export class BsuirTimeoutError extends Error {
     readonly timeoutMs: number;
 }
 
-// @public (undocumented)
+// @public
 export class BsuirValidationError extends Error {
     constructor(message: string, field?: string, value?: unknown);
     // (undocumented)
@@ -189,7 +189,7 @@ export class BsuirValidationError extends Error {
     readonly value: unknown;
 }
 
-// @public (undocumented)
+// @public
 export interface BuildingNumber {
     // (undocumented)
     id: number;
@@ -217,13 +217,13 @@ export interface BuildScheduleDaysOptions {
     startDate?: Date;
 }
 
-// @public (undocumented)
+// @public
 export interface CacheOptions {
     maxEntries?: number;
     ttlMs: number;
 }
 
-// @public (undocumented)
+// @public
 export interface ClientHooks {
     // (undocumented)
     onError?: (context: ErrorHookContext) => void;
@@ -244,7 +244,7 @@ export namespace createBsuirClient {
     strict: (options?: BsuirClientOptions) => BsuirClientShape;
 }
 
-// @public (undocumented)
+// @public
 export interface Department {
     // (undocumented)
     abbrev: string;
@@ -254,7 +254,7 @@ export interface Department {
     name: string;
 }
 
-// @public (undocumented)
+// @public
 export interface EducationForm {
     // (undocumented)
     id: number;
@@ -262,7 +262,7 @@ export interface EducationForm {
     name: string;
 }
 
-// @public (undocumented)
+// @public
 export interface Employee {
     // (undocumented)
     calendarId: string;
@@ -290,7 +290,7 @@ export interface Employee {
     urlId: string;
 }
 
-// @public (undocumented)
+// @public
 export interface EmployeeCatalogItem {
     // (undocumented)
     academicDepartment?: string[];
@@ -316,7 +316,7 @@ export interface EmployeeCatalogItem {
     urlId: string;
 }
 
-// @public (undocumented)
+// @public
 export interface ErrorHookContext extends RequestHookContext {
     // (undocumented)
     durationMs: number;
@@ -324,7 +324,7 @@ export interface ErrorHookContext extends RequestHookContext {
     error: unknown;
 }
 
-// @public (undocumented)
+// @public
 export interface Faculty {
     // (undocumented)
     abbrev: string;
@@ -337,16 +337,19 @@ export interface Faculty {
 // @public
 export function filterLessons(response: NormalizedScheduleResponse, filter: ScheduleFilterOptions): FlattenedScheduleItem[];
 
-// @public (undocumented)
+// @public
 export type FlattenedLessonsByDay = Record<Weekday, FlattenedScheduleItem[]>;
 
-// @public (undocumented)
+// @public
 export interface FlattenedScheduleItem extends ScheduleItem {
     // (undocumented)
     day: Weekday | null;
     // (undocumented)
-    source: "schedules" | "exams";
+    source: FlattenedScheduleSource;
 }
+
+// @public
+export type FlattenedScheduleSource = "schedules" | "exams" | "nextSchedules";
 
 // @public
 export function formatEmployeeShortName(employee: Pick<Employee, "lastName" | "firstName" | "middleName">): string;
@@ -401,7 +404,7 @@ export type InvalidLessonTimeHook = (info: {
     lesson: LessonWithTime;
 }) => void;
 
-// @public (undocumented)
+// @public
 export interface LessonStudentGroup {
     // (undocumented)
     educationDegree: number;
@@ -418,10 +421,10 @@ export interface LessonStudentGroup {
 // @public
 export type LessonWithTime = Pick<FlattenedScheduleItem, "startLessonTime" | "endLessonTime">;
 
-// @public (undocumented)
+// @public
 export type Maybe<T> = T | null;
 
-// @public (undocumented)
+// @public
 export interface NormalizedScheduleResponse extends Omit<ScheduleResponse, "schedules" | "exams"> {
     // (undocumented)
     examLessons: FlattenedScheduleItem[];
@@ -438,15 +441,19 @@ export interface NormalizedScheduleResponse extends Omit<ScheduleResponse, "sche
 }
 
 // @public
-export function normalizeSchedule(response: ScheduleResponse, options?: {
-    validate?: boolean;
-    endpoint?: string;
-}): NormalizedScheduleResponse;
+export function normalizeSchedule(response: ScheduleResponse, options?: NormalizeScheduleOptions): NormalizedScheduleResponse;
 
-// @public (undocumented)
+// @public
+export interface NormalizeScheduleOptions {
+    endpoint?: string;
+    includeNextSchedules?: boolean;
+    validate?: boolean;
+}
+
+// @public
 export type QueryParams = Record<string, QueryValue>;
 
-// @public (undocumented)
+// @public
 export type QueryValue = string | number | boolean | null | undefined;
 
 // @public
@@ -455,10 +462,10 @@ export interface ReadOptions {
     signal?: AbortSignal | undefined;
 }
 
-// @public (undocumented)
+// @public
 export type RequestCacheMode = "default" | "no-store" | "reload";
 
-// @public (undocumented)
+// @public
 export interface RequestHookContext {
     // (undocumented)
     attempt: number;
@@ -474,7 +481,7 @@ export interface RequestHookContext {
     query: QueryParams | undefined;
 }
 
-// @public (undocumented)
+// @public
 export type RequestMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 // @public
@@ -488,7 +495,7 @@ export interface RequestOptions {
     signal?: AbortSignal | undefined;
 }
 
-// @public (undocumented)
+// @public
 export interface ResponseHookContext extends RequestHookContext {
     // (undocumented)
     durationMs: number;
@@ -498,7 +505,7 @@ export interface ResponseHookContext extends RequestHookContext {
     status: number;
 }
 
-// @public (undocumented)
+// @public
 export interface RetryHookContext extends RequestHookContext {
     // (undocumented)
     delayMs: number;
@@ -521,7 +528,7 @@ export interface ScheduleDay {
     weekdayLabel: string;
 }
 
-// @public (undocumented)
+// @public
 export interface ScheduleFilterOptions {
     // (undocumented)
     auditory?: string;
@@ -530,7 +537,7 @@ export interface ScheduleFilterOptions {
     // (undocumented)
     lessonTypeAbbrev?: string | string[];
     // (undocumented)
-    source?: "schedules" | "exams";
+    source?: FlattenedScheduleSource;
     // (undocumented)
     subgroup?: number;
     // (undocumented)
@@ -541,7 +548,7 @@ export interface ScheduleFilterOptions {
     weekNumber?: number;
 }
 
-// @public (undocumented)
+// @public
 export interface ScheduleItem {
     // (undocumented)
     announcement: boolean;
@@ -577,36 +584,36 @@ export interface ScheduleItem {
     weekNumber: number[] | null;
 }
 
-// @public (undocumented)
+// @public
 export interface ScheduleModule {
     // (undocumented)
     getCurrentWeek(options?: ReadOptions): Promise<number>;
     // (undocumented)
-    getEmployee(urlId: string, options?: ReadOptions): Promise<NormalizedScheduleResponse>;
+    getEmployee(urlId: string, options?: ScheduleReadOptions): Promise<NormalizedScheduleResponse>;
     // (undocumented)
-    getEmployeeBySubgroup(urlId: string, subgroup: number, options?: ReadOptions): Promise<FlattenedScheduleItem[]>;
+    getEmployeeBySubgroup(urlId: string, subgroup: number, options?: ScheduleReadOptions): Promise<FlattenedScheduleItem[]>;
     // (undocumented)
     getEmployeeBySubgroupEnvelope(urlId: string, subgroup: number, options?: ReadOptions): Promise<ScheduleResponse>;
     // (undocumented)
     getEmployeeBySubgroupRaw(urlId: string, subgroup: number, options?: ReadOptions): Promise<ScheduleItem[]>;
     // (undocumented)
-    getEmployeeExams(urlId: string, options?: ReadOptions): Promise<FlattenedScheduleItem[]>;
+    getEmployeeExams(urlId: string, options?: ScheduleReadOptions): Promise<FlattenedScheduleItem[]>;
     // (undocumented)
-    getEmployeeFiltered(urlId: string, filter: ScheduleFilterOptions, options?: ReadOptions): Promise<FlattenedScheduleItem[]>;
+    getEmployeeFiltered(urlId: string, filter: ScheduleFilterOptions, options?: ScheduleReadOptions): Promise<FlattenedScheduleItem[]>;
     // (undocumented)
     getEmployeeRaw(urlId: string, options?: ReadOptions): Promise<ScheduleResponse>;
     // (undocumented)
-    getGroup(groupNumber: string, options?: ReadOptions): Promise<NormalizedScheduleResponse>;
+    getGroup(groupNumber: string, options?: ScheduleReadOptions): Promise<NormalizedScheduleResponse>;
     // (undocumented)
-    getGroupBySubgroup(groupNumber: string, subgroup: number, options?: ReadOptions): Promise<FlattenedScheduleItem[]>;
+    getGroupBySubgroup(groupNumber: string, subgroup: number, options?: ScheduleReadOptions): Promise<FlattenedScheduleItem[]>;
     // (undocumented)
     getGroupBySubgroupEnvelope(groupNumber: string, subgroup: number, options?: ReadOptions): Promise<ScheduleResponse>;
     // (undocumented)
     getGroupBySubgroupRaw(groupNumber: string, subgroup: number, options?: ReadOptions): Promise<ScheduleItem[]>;
     // (undocumented)
-    getGroupExams(groupNumber: string, options?: ReadOptions): Promise<FlattenedScheduleItem[]>;
+    getGroupExams(groupNumber: string, options?: ScheduleReadOptions): Promise<FlattenedScheduleItem[]>;
     // (undocumented)
-    getGroupFiltered(groupNumber: string, filter: ScheduleFilterOptions, options?: ReadOptions): Promise<FlattenedScheduleItem[]>;
+    getGroupFiltered(groupNumber: string, filter: ScheduleFilterOptions, options?: ScheduleReadOptions): Promise<FlattenedScheduleItem[]>;
     // (undocumented)
     getGroupRaw(groupNumber: string, options?: ReadOptions): Promise<ScheduleResponse>;
     // @deprecated
@@ -623,7 +630,12 @@ export interface ScheduleModule {
     }, options?: ReadOptions): Promise<ApiDateResponse>;
 }
 
-// @public (undocumented)
+// @public
+export interface ScheduleReadOptions extends ReadOptions {
+    includeNextSchedules?: boolean;
+}
+
+// @public
 export interface ScheduleResponse {
     currentPeriod?: unknown;
     currentTerm?: unknown;
@@ -653,7 +665,7 @@ export function sortLessonsByTime<T extends LessonWithTime>(lessons: readonly T[
     onInvalidTime?: InvalidLessonTimeHook | undefined;
 }): T[];
 
-// @public (undocumented)
+// @public
 export interface Speciality {
     // (undocumented)
     abbrev: string;
@@ -672,7 +684,7 @@ export interface Speciality {
 // @public
 export type SpecialityEducationForm = EducationForm | EducationForm[];
 
-// @public (undocumented)
+// @public
 export interface StudentGroupCatalogItem {
     // (undocumented)
     calendarId: string;
@@ -698,7 +710,7 @@ export interface StudentGroupCatalogItem {
     specialityName: string;
 }
 
-// @public (undocumented)
+// @public
 export interface StudentGroupShort {
     // (undocumented)
     id: number;
@@ -706,13 +718,13 @@ export interface StudentGroupShort {
     name: string;
 }
 
-// @public (undocumented)
+// @public
 export type Weekday = (typeof WEEKDAYS)[number];
 
-// @public (undocumented)
+// @public
 export const WEEKDAYS: readonly ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"];
 
-// @public (undocumented)
+// @public
 export type WeekScheduleMap = Partial<Record<Weekday, ScheduleItem[]>>;
 
 // (No @packageDocumentation comment for this package)

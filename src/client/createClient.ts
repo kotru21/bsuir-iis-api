@@ -252,6 +252,8 @@ export function createBsuirClient(options: BsuirClientOptions = {}): BsuirClient
  * Same as {@link createBsuirClient} with `validateResponses` forced to `true`.
  * Other options are unchanged. The default `createBsuirClient()` still leaves
  * validation off.
+ *
+ * Attached as `createBsuirClient.strict` for discoverability in IDEs.
  */
 createBsuirClient.strict = function createBsuirClientStrict(
   options: BsuirClientOptions = {}

@@ -1,9 +1,14 @@
+/** Primitive values accepted in request query maps. */
 export type QueryValue = string | number | boolean | null | undefined;
+/** Per-request cache mode for successful GET responses. */
 export type RequestCacheMode = "default" | "no-store" | "reload";
 
+/** Query string map passed to the HTTP layer. */
 export type QueryParams = Record<string, QueryValue>;
+/** HTTP methods supported by the SDK request pipeline. */
 export type RequestMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
+/** In-memory GET response cache configuration. */
 export interface CacheOptions {
   /**
    * Cache TTL for successful GET responses, in milliseconds.
@@ -29,6 +34,7 @@ export interface CacheOptions {
   maxEntries?: number;
 }
 
+/** Context passed to `hooks.onRequest` before each attempt. */
 export interface RequestHookContext {
   method: RequestMethod;
   path: string;
@@ -38,23 +44,27 @@ export interface RequestHookContext {
   query: QueryParams | undefined;
 }
 
+/** Context passed to `hooks.onRetry` when a GET will be retried. */
 export interface RetryHookContext extends RequestHookContext {
   delayMs: number;
   reason: "http_status" | "network_error" | "retry_after_too_large";
   status: number | undefined;
 }
 
+/** Context passed to `hooks.onResponse` after a successful parse. */
 export interface ResponseHookContext extends RequestHookContext {
   status: number;
   durationMs: number;
   fromCache: boolean;
 }
 
+/** Context passed to `hooks.onError` when a request fails. */
 export interface ErrorHookContext extends RequestHookContext {
   durationMs: number;
   error: unknown;
 }
 
+/** Optional observability hooks for the HTTP pipeline. */
 export interface ClientHooks {
   onRequest?: (context: RequestHookContext) => void;
   onRetry?: (context: RetryHookContext) => void;
