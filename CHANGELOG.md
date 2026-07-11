@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.2
+
+### Patch Changes
+
+- 037a1c3: Clarify schedule modules vs helpers export boundary and split large http/schedule tests by scenario. Coverage thresholds already enforced via Vitest + CI.
+
 ## 1.0.1
 
 ### Patch Changes
