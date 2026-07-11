@@ -8,6 +8,7 @@ import type { ReadOptions } from "./types";
 /** Hard safety cap on Spring pages fetched for one catalog `listAllPages` call. */
 const MAX_CATALOG_PAGES = 50;
 
+/** Catalog module with first-page `listAll` and multi-page `listAllPages`. */
 export interface ListModule<T> {
   listAll(options?: ReadOptions): Promise<T[]>;
   listAllPages(options?: ReadOptions): Promise<T[]>;
@@ -57,10 +58,14 @@ export function createListModule<T>(
           responseValidator: config.validateResponses ? responseValidator : undefined
         });
 
-      return fetchAllSpringPages<T>(fetchPage, {}, {
-        maxPages: MAX_CATALOG_PAGES,
-        resourceLabel: "Catalog"
-      });
+      return fetchAllSpringPages<T>(
+        fetchPage,
+        {},
+        {
+          maxPages: MAX_CATALOG_PAGES,
+          resourceLabel: "Catalog"
+        }
+      );
     }
   };
 }

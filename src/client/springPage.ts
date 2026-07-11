@@ -19,6 +19,7 @@ export function unwrapSpringPageContent(payload: unknown): unknown {
   return payload;
 }
 
+/** Parsed Spring Data page metadata used by multi-page fetchers. */
 export interface SpringPageMeta {
   totalPages: number | undefined;
   last: boolean | undefined;

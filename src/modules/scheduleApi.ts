@@ -46,7 +46,10 @@ export interface ScheduleModule {
     options?: ScheduleReadOptions
   ): Promise<FlattenedScheduleItem[]>;
 
-  getGroupExams(groupNumber: string, options?: ScheduleReadOptions): Promise<FlattenedScheduleItem[]>;
+  getGroupExams(
+    groupNumber: string,
+    options?: ScheduleReadOptions
+  ): Promise<FlattenedScheduleItem[]>;
   getEmployeeExams(urlId: string, options?: ScheduleReadOptions): Promise<FlattenedScheduleItem[]>;
 
   getGroupRaw(groupNumber: string, options?: ReadOptions): Promise<ScheduleResponse>;

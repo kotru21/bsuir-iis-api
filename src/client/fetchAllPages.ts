@@ -1,6 +1,7 @@
 import { BsuirConfigurationError } from "./errors";
 import { readSpringPageMeta, unwrapSpringPageContent, type SpringPageMeta } from "./springPage";
 
+/** Options for {@link fetchAllSpringPages}. */
 export interface FetchAllSpringPagesOptions {
   /** Hard safety cap on pages fetched for one logical call. */
   maxPages: number;

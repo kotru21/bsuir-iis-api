@@ -93,11 +93,7 @@ export default defineConfig(
             MethodDefinition: false,
             ClassDeclaration: true
           },
-          contexts: [
-            "TSInterfaceDeclaration",
-            "TSTypeAliasDeclaration",
-            "TSEnumDeclaration"
-          ]
+          contexts: ["TSInterfaceDeclaration", "TSTypeAliasDeclaration", "TSEnumDeclaration"]
         }
       ],
       "jsdoc/check-param-names": "error",
