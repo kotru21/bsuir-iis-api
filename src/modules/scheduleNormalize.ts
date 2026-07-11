@@ -9,11 +9,8 @@ import type {
   ScheduleItem,
   ScheduleResponse
 } from "../types/schedule";
-
-function lessonAuditories(item: ScheduleItem): string[] {
-  const { auditories } = item;
-  return Array.isArray(auditories) ? [...auditories] : [];
-}
+import { deepFreezeJson } from "../utils/deepFreezeJson";
+import { lessonAuditories } from "../utils/lessonAuditories";
 
 function cloneLessonStudentGroups(groups: ScheduleItem["studentGroups"]): LessonStudentGroup[] {
   return groups.map((group) => ({ ...group }));
@@ -34,26 +31,6 @@ function cloneScheduleItem(item: ScheduleItem): ScheduleItem {
     auditories: lessonAuditories(item),
     employees: cloneEmployees(item.employees)
   };
-}
-
-function deepFreezeJson<T>(value: T): T {
-  if (value === null || typeof value !== "object") {
-    return value;
-  }
-  if (Object.isFrozen(value)) {
-    return value;
-  }
-  Object.freeze(value);
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      deepFreezeJson(item);
-    }
-  } else {
-    for (const key of Object.keys(value)) {
-      deepFreezeJson((value as Record<string, unknown>)[key]);
-    }
-  }
-  return value;
 }
 
 // Minimal envelope check kept here (not in responseValidators) because the normalize

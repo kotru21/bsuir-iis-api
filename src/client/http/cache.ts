@@ -1,5 +1,6 @@
 import { BsuirConfigurationError } from "../errors";
 import type { InternalClientConfig } from "../types";
+import { deepFreezeJson } from "../../utils/deepFreezeJson";
 
 function isJsonValue(value: unknown): boolean {
   if (value === null) {
@@ -23,26 +24,6 @@ function isJsonValue(value: unknown): boolean {
     return false;
   }
   return true;
-}
-
-function deepFreezeJson<T>(value: T): T {
-  if (value === null || typeof value !== "object") {
-    return value;
-  }
-  if (Object.isFrozen(value)) {
-    return value;
-  }
-  Object.freeze(value);
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      deepFreezeJson(item);
-    }
-  } else {
-    for (const key of Object.keys(value)) {
-      deepFreezeJson((value as Record<string, unknown>)[key]);
-    }
-  }
-  return value;
 }
 
 /**

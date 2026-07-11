@@ -1,15 +1,10 @@
 import { assertPositiveInt } from "../utils/guards";
+import { lessonAuditories } from "../utils/lessonAuditories";
 import type {
   FlattenedScheduleItem,
   NormalizedScheduleResponse,
-  ScheduleFilterOptions,
-  ScheduleItem
+  ScheduleFilterOptions
 } from "../types/schedule";
-
-function lessonAuditories(item: ScheduleItem): string[] {
-  const { auditories } = item;
-  return Array.isArray(auditories) ? auditories : [];
-}
 
 function matchesFilter(item: FlattenedScheduleItem, filter: ScheduleFilterOptions): boolean {
   if (filter.source && item.source !== filter.source) {
