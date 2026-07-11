@@ -67,6 +67,7 @@ describe("requestJson — responseValidator and onError", () => {
       hooks: { onError }
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-deprecated -- testing soft-deprecated last-update until removal
     await expect(client.schedule.getLastUpdateByGroup({ id: 123 })).rejects.toBeInstanceOf(
       BsuirResponseValidationError
     );

@@ -23,7 +23,9 @@ describe("meta modules", () => {
     const client = createBsuirClient({ fetch: fetchImpl });
 
     const week = await client.schedule.getCurrentWeek();
+    // eslint-disable-next-line @typescript-eslint/no-deprecated -- testing soft-deprecated last-update until removal
     const groupUpdate = await client.schedule.getLastUpdateByGroup({ id: 123 });
+    // eslint-disable-next-line @typescript-eslint/no-deprecated -- testing soft-deprecated last-update until removal
     const employeeUpdate = await client.schedule.getLastUpdateByEmployee({
       urlId: "s-nesterenkov"
     });
@@ -40,10 +42,12 @@ describe("meta modules", () => {
     ]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
 
+    // eslint-disable-next-line @typescript-eslint/no-deprecated -- testing soft-deprecated last-update until removal
     await expect(client.schedule.getLastUpdateByGroup({ id: 123 })).rejects.toBeInstanceOf(
       BsuirResponseValidationError
     );
     await expect(
+      // eslint-disable-next-line @typescript-eslint/no-deprecated -- testing soft-deprecated last-update until removal
       client.schedule.getLastUpdateByEmployee({ urlId: "s-nesterenkov" })
     ).rejects.toBeInstanceOf(BsuirResponseValidationError);
   });
@@ -51,16 +55,20 @@ describe("meta modules", () => {
   it("validates last update params", async () => {
     const client = createBsuirClient({ fetch: mockFetchSequence([]) });
 
+    // eslint-disable-next-line @typescript-eslint/no-deprecated -- testing soft-deprecated last-update until removal
     await expect(client.schedule.getLastUpdateByGroup({ id: 0 })).rejects.toBeInstanceOf(
       BsuirValidationError
     );
     await expect(
+      // eslint-disable-next-line @typescript-eslint/no-deprecated -- testing soft-deprecated last-update until removal
       client.schedule.getLastUpdateByGroup({ groupNumber: "05350A" })
     ).rejects.toBeInstanceOf(BsuirValidationError);
+    // eslint-disable-next-line @typescript-eslint/no-deprecated -- testing soft-deprecated last-update until removal
     await expect(client.schedule.getLastUpdateByEmployee({ urlId: "" })).rejects.toBeInstanceOf(
       BsuirValidationError
     );
     await expect(
+      // eslint-disable-next-line @typescript-eslint/no-deprecated -- testing soft-deprecated last-update until removal
       client.schedule.getLastUpdateByEmployee({ urlId: "s/nesterenkov" })
     ).rejects.toBeInstanceOf(BsuirValidationError);
   });
