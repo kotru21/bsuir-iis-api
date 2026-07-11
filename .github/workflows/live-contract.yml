@@ -16,6 +16,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      # Domain suites under test/integration/live/ (via package.json test:live).
       - run: npm run test:live
         env:
           BSUIR_LIVE_TESTS: "1"
