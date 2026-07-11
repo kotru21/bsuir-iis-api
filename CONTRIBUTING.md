@@ -13,12 +13,15 @@ npm run check        # lint + typecheck + unit tests
 npm run check:full   # lint + typecheck + format:check + coverage (matches CI)
 ```
 
+Coverage thresholds are enforced by Vitest (`vitest.config.ts`: lines/functions/statements ≥ 85%, branches ≥ 80%). `check:full` runs `test:coverage`, so CI fails when coverage drops below those floors.
+
 ## Project Structure
 
 ```markdown
 src/
 client/ — HTTP engine, error classes, types, signal merging
-modules/ — per-resource API modules (schedule, groups, employees…)
+modules/ — per-resource API modules (schedule HTTP + filter/normalize)
+helpers/ — pure schedule day/time helpers and formatters
 types/ — public TypeScript types (schedule, common, etc.)
 utils/ — shared guards, date helpers, week parser
 ```
