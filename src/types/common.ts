@@ -1,3 +1,4 @@
+/** Ordered BSUIR weekdays used as schedule map keys (Sunday is omitted). */
 export const WEEKDAYS = [
   "Понедельник",
   "Вторник",
@@ -7,6 +8,7 @@ export const WEEKDAYS = [
   "Суббота"
 ] as const;
 
+/** One of the six BSUIR weekday labels in {@link WEEKDAYS}. */
 export type Weekday = (typeof WEEKDAYS)[number];
 
 /** Payload from IIS legacy `last-update-date/*` endpoints (`schedule.getLastUpdateByGroup` / `getLastUpdateByEmployee`). */
@@ -14,9 +16,11 @@ export interface ApiDateResponse {
   lastUpdateDate: string;
 }
 
+/** Compact student-group reference nested under announcements. */
 export interface StudentGroupShort {
   id: number;
   name: string;
 }
 
+/** Nullable value helper used across IIS DTOs (`T | null`). */
 export type Maybe<T> = T | null;

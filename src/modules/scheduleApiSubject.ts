@@ -82,9 +82,11 @@ export function createScheduleSubjectMethods(
     options: ScheduleReadOptions = {}
   ): Promise<FlattenedScheduleItem[]> {
     const normalized = await fetcher.getNormalized(id, {
-      signal: options.signal,
-      cache: options.cache,
-      includeNextSchedules: options.includeNextSchedules
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
+      ...(options.cache === undefined ? {} : { cache: options.cache }),
+      ...(options.includeNextSchedules === undefined
+        ? {}
+        : { includeNextSchedules: options.includeNextSchedules })
     });
     return filterLessons(normalized, filter);
   }

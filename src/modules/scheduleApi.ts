@@ -26,6 +26,10 @@ export interface ScheduleReadOptions extends ReadOptions {
   includeNextSchedules?: boolean;
 }
 
+/**
+ * Schedule module: raw/normalized fetches, filters, subgroup helpers, current week,
+ * and deprecated last-update endpoints.
+ */
 export interface ScheduleModule {
   getGroup(groupNumber: string, options?: ScheduleReadOptions): Promise<NormalizedScheduleResponse>;
   getEmployee(urlId: string, options?: ScheduleReadOptions): Promise<NormalizedScheduleResponse>;
@@ -135,7 +139,9 @@ export function createScheduleModule(config: Readonly<InternalClientConfig>): Sc
     return normalizeSchedule(response, {
       validate: false,
       endpoint: "/schedule",
-      includeNextSchedules: resolvedOptions.includeNextSchedules
+      ...(resolvedOptions.includeNextSchedules === undefined
+        ? {}
+        : { includeNextSchedules: resolvedOptions.includeNextSchedules })
     });
   }
 
@@ -163,7 +169,9 @@ export function createScheduleModule(config: Readonly<InternalClientConfig>): Sc
     return normalizeSchedule(response, {
       validate: false,
       endpoint,
-      includeNextSchedules: resolvedOptions.includeNextSchedules
+      ...(resolvedOptions.includeNextSchedules === undefined
+        ? {}
+        : { includeNextSchedules: resolvedOptions.includeNextSchedules })
     });
   }
 

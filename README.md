@@ -127,7 +127,7 @@ When IIS responds with HTTP `404` (the employee or department has no announcemen
 - Schedule utilities: `normalizeSchedule`, `filterLessons`, `getLessonsForDate`, `getTodayLessons`, `getTomorrowLessons`, `getLessonsForWeek`, `sortLessonsByTime`, `groupLessonsByDay`, `getCurrentLesson`, `getNextLesson`, `buildScheduleDays`, `ScheduleFilterOptions`, `NormalizeScheduleOptions`, `InvalidLessonTimeHook`
 - Formatters: `formatEmployeeShortName`, `formatLessonAuditories`, `formatLessonEmployees`, `formatLessonSubgroup`, `formatLessonTimeRange`, `formatLessonType`, `formatLessonWeekNumbers`
 - Error classes: `BsuirApiError`, `BsuirNetworkError`, `BsuirTimeoutError`, `BsuirValidationError`, `BsuirResponseValidationError`, `BsuirResponsePayloadTooLargeError`, `BsuirConfigurationError`
-- Domain types: `Announcement`, `ApiDateResponse`, `Auditory`, `AuditoryDepartment`, `AuditoryType`, `BuildingNumber`, `Department`, `EducationForm`, `Employee`, `EmployeeCatalogItem`, `Faculty`, `FlattenedLessonsByDay`, `FlattenedScheduleItem`, `LessonStudentGroup`, `Maybe`, `NormalizedScheduleResponse`, `ScheduleItem`, `ScheduleResponse`, `Speciality`, `StudentGroupCatalogItem`, `StudentGroupShort`, `Weekday`, `WeekScheduleMap`
+- Domain types: `Announcement`, `ApiDateResponse`, `Auditory`, `AuditoryDepartment`, `AuditoryType`, `BuildingNumber`, `Department`, `EducationForm`, `Employee`, `EmployeeCatalogItem`, `Faculty`, `FlattenedLessonsByDay`, `FlattenedScheduleItem`, `FlattenedScheduleSource`, `LessonStudentGroup`, `Maybe`, `NormalizedScheduleResponse`, `ScheduleItem`, `ScheduleResponse`, `Speciality`, `StudentGroupCatalogItem`, `StudentGroupShort`, `Weekday`, `WeekScheduleMap`
 
 ## Errors
 

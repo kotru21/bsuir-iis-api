@@ -1,5 +1,6 @@
 import type { Maybe } from "./common";
 
+/** Employee DTO embedded in schedule lessons and employee schedule envelopes. */
 export interface Employee {
   firstName: string;
   lastName: string;
@@ -15,6 +16,7 @@ export interface Employee {
   jobPositions: Maybe<string[]>;
 }
 
+/** Employee row from the `/employees/all` catalog. */
 export interface EmployeeCatalogItem {
   firstName: string;
   lastName: string;
