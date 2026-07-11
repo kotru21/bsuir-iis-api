@@ -1,11 +1,7 @@
-import { BsuirApiError, BsuirConfigurationError } from "../client/errors";
+import { BsuirApiError } from "../client/errors";
+import { fetchAllSpringPages } from "../client/fetchAllPages";
 import { requestJson } from "../client/http";
 import { assertAnnouncementListResponse } from "../client/responseValidators";
-import {
-  readSpringPageMeta,
-  unwrapSpringPageContent,
-  type SpringPageMeta
-} from "../client/springPage";
 import type { InternalClientConfig } from "../client/types";
 import type { Announcement } from "../types/announcement";
 import { assertEmployeeUrlId, assertPositiveInt } from "../utils/guards";
@@ -55,32 +51,6 @@ function isFirstPageNotFound(
   );
 }
 
-function assertWithinPageCap(totalPages: number | undefined): void {
-  if (typeof totalPages === "number" && totalPages > MAX_ANNOUNCEMENT_PAGES) {
-    throw new BsuirConfigurationError(
-      `Announcements pagination exceeded safety cap of ${String(MAX_ANNOUNCEMENT_PAGES)} pages (totalPages=${String(totalPages)})`
-    );
-  }
-}
-
-function hasMoreAnnouncementPages(meta: SpringPageMeta, nextPage: number): boolean {
-  if (meta.last === true) {
-    return false;
-  }
-  if (typeof meta.totalPages === "number") {
-    return nextPage < meta.totalPages;
-  }
-  return meta.last === false;
-}
-
-function assertNextPageWithinCap(nextPage: number): void {
-  if (nextPage >= MAX_ANNOUNCEMENT_PAGES) {
-    throw new BsuirConfigurationError(
-      `Announcements pagination exceeded safety cap of ${String(MAX_ANNOUNCEMENT_PAGES)} pages`
-    );
-  }
-}
-
 /**
  * Fetches an announcement list across all Spring Data pages (capped), optionally
  * converting a first-request 404 to an empty array.
@@ -111,48 +81,16 @@ async function requestAnnouncementList(
     });
 
   try {
-    return await fetchAllAnnouncementPages(fetchPage, baseQuery);
+    return await fetchAllSpringPages<Announcement>(fetchPage, baseQuery, {
+      maxPages: MAX_ANNOUNCEMENT_PAGES,
+      resourceLabel: "Announcements"
+    });
   } catch (error) {
     if (error instanceof BsuirApiError && isFirstPageNotFound(error, path, treat404AsEmpty)) {
       return [];
     }
     throw error;
   }
-}
-
-async function fetchAllAnnouncementPages(
-  fetchPage: (query: Record<string, string | number>) => Promise<unknown>,
-  baseQuery: Record<string, string | number>
-): Promise<Announcement[]> {
-  const firstPayload = await fetchPage(baseQuery);
-  const firstMeta = readSpringPageMeta(firstPayload);
-  if (!firstMeta) {
-    return unwrapSpringPageContent(firstPayload) as Announcement[];
-  }
-
-  assertWithinPageCap(firstMeta.totalPages);
-  const items = [...(unwrapSpringPageContent(firstPayload) as Announcement[])];
-  let pageNumber = firstMeta.pageNumber;
-  let meta = firstMeta;
-
-  while (hasMoreAnnouncementPages(meta, pageNumber + 1)) {
-    const nextPage = pageNumber + 1;
-    assertNextPageWithinCap(nextPage);
-    const pagePayload = await fetchPage({
-      ...baseQuery,
-      page: nextPage,
-      size: firstMeta.pageSize
-    });
-    const pageMeta = readSpringPageMeta(pagePayload);
-    items.push(...(unwrapSpringPageContent(pagePayload) as Announcement[]));
-    if (!pageMeta) {
-      break;
-    }
-    pageNumber = pageMeta.pageNumber;
-    meta = pageMeta;
-  }
-
-  return items;
 }
 
 /**
