@@ -40,4 +40,31 @@ describe("catalog modules", () => {
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
     await expect(client.departments.listAll()).rejects.toThrow();
   });
+
+  it("unwraps Spring page envelope for listAll", async () => {
+    const groups = [{ name: "053503", id: 1 }];
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({
+        body: {
+          content: groups,
+          totalElements: 1,
+          totalPages: 1,
+          last: true
+        }
+      })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
+    await expect(client.groups.listAll()).resolves.toEqual(groups);
+  });
+
+  it("unwraps Spring page envelope when validateResponses is true", async () => {
+    const departments = [{ id: 20_027, name: "ПОИТ", abbrev: "ПОИТ" }];
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({
+        body: { content: departments, totalElements: 1, last: true }
+      })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
+    await expect(client.departments.listAll()).resolves.toEqual(departments);
+  });
 });

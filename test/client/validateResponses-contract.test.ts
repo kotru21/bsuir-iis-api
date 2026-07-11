@@ -26,6 +26,15 @@ describe("validateResponses contract", () => {
     await expect(client.groups.listAll()).rejects.toBeInstanceOf(BsuirResponseValidationError);
   });
 
+  it("catalog listAll unwraps paginated envelope when validateResponses is true", async () => {
+    const items = [{ id: 1, name: "x" }];
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ body: { content: items, totalElements: 1 } })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
+    await expect(client.groups.listAll()).resolves.toEqual(items);
+  });
+
   it("announcements skip array check when validateResponses is false", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: { not: "array" } })]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });

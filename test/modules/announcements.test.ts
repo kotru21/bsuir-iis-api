@@ -121,4 +121,16 @@ describe("announcements module", () => {
     const result = await client.announcements.byDepartment(5);
     expect(result).toHaveLength(1);
   });
+
+  it("unwraps empty content array from paginated envelope", async () => {
+    const body = {
+      content: [],
+      totalElements: 0,
+      totalPages: 0,
+      last: true
+    };
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body })]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+    await expect(client.announcements.byDepartment(1)).resolves.toEqual([]);
+  });
 });

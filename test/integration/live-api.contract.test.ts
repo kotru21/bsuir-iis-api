@@ -73,6 +73,18 @@ describeLive("live API contract", () => {
     expect(Array.isArray(specialities)).toBe(true);
     expect(Array.isArray(auditories)).toBe(true);
 
+    for (const [label, value] of [
+      ["groups", groups],
+      ["employees", employees],
+      ["departments", departments],
+      ["faculties", faculties],
+      ["specialities", specialities],
+      ["auditories", auditories]
+    ] as const) {
+      expect(Array.isArray(value), `${label} must be an array (not a page object)`).toBe(true);
+      expect(value, `${label} must not look like a raw Spring page`).not.toHaveProperty("content");
+    }
+
     const sampleGroup = groups[0] as StudentGroupCatalogItem | undefined;
     const sampleEmployee = employees[0] as EmployeeCatalogItem | undefined;
     const sampleDepartment = departments[0] as Department | undefined;
@@ -130,5 +142,45 @@ describeLive("live API contract", () => {
 
     expect(Array.isArray(employeeAnnouncements)).toBe(true);
     expect(Array.isArray(departmentAnnouncements)).toBe(true);
+  }, 60_000);
+
+  it("announcements endpoints return array or Spring page; SDK yields array", async () => {
+    const baseUrl = "https://iis.bsuir.by/api/v1";
+    const rawEmployeeUrl = `${baseUrl}/announcements/employees?url-id=s-nesterenkov`;
+
+    const rawResponse = await fetch(rawEmployeeUrl, {
+      headers: { Accept: "application/json" }
+    });
+    expect(rawResponse.ok || rawResponse.status === 404).toBe(true);
+
+    if (rawResponse.ok) {
+      const rawPayload: unknown = await rawResponse.json();
+      const isArray = Array.isArray(rawPayload);
+      const isPage =
+        typeof rawPayload === "object" &&
+        rawPayload !== null &&
+        Array.isArray((rawPayload as { content?: unknown }).content);
+      expect(isArray || isPage).toBe(true);
+
+      if (isPage) {
+        const page = rawPayload as {
+          content: unknown[];
+          totalPages?: number;
+          totalElements?: number;
+          last?: boolean;
+        };
+        expect(page.content).toEqual(expect.any(Array));
+        if (typeof page.totalPages === "number") {
+          expect(page.totalPages).toBeGreaterThanOrEqual(1);
+        }
+        // Wave 1 will fetch remaining pages when totalPages > 1 / last === false.
+        if (page.last === false || (typeof page.totalPages === "number" && page.totalPages > 1)) {
+          expect(page.content.length).toBeGreaterThan(0);
+        }
+      }
+    }
+
+    const viaSdk = await client.announcements.byEmployee("s-nesterenkov");
+    expect(Array.isArray(viaSdk)).toBe(true);
   }, 60_000);
 });
