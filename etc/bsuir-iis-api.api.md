@@ -21,6 +21,11 @@ export interface Announcement {
 }
 
 // @public
+export interface AnnouncementReadOptions extends ReadOptions {
+    treat404AsEmpty?: boolean;
+}
+
+// @public
 export interface ApiDateResponse {
     // (undocumented)
     lastUpdateDate: string;

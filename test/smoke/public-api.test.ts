@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { AnnouncementReadOptions } from "../../src";
 import {
   BsuirApiError,
   BsuirConfigurationError,
@@ -30,5 +31,10 @@ describe("public api", () => {
     expect(filterLessons).toBeDefined();
     expect(getTodayLessons).toBeDefined();
     expect(buildScheduleDays).toBeDefined();
+  });
+
+  it("exports AnnouncementReadOptions as a public type", () => {
+    const options: AnnouncementReadOptions = { treat404AsEmpty: false };
+    expect(options.treat404AsEmpty).toBe(false);
   });
 });
