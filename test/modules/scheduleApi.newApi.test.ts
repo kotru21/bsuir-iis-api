@@ -24,7 +24,7 @@ describe("schedule module — explicit raw/envelope API", () => {
     expect(raw).toHaveProperty("schedules");
   });
 
-  it("getGroupEnvelope filters subgroup and returns ScheduleResponse envelope", async () => {
+  it("getGroupBySubgroupEnvelope filters subgroup and returns ScheduleResponse envelope", async () => {
     const body = {
       employeeDto: null,
       studentGroupDto: null,
@@ -43,13 +43,13 @@ describe("schedule module — explicit raw/envelope API", () => {
     const fetchImpl = vi.fn(async () => createJsonResponse({ body })) as unknown as typeof fetch;
     const client = createBsuirClient({ fetch: fetchImpl });
 
-    const envelope = await client.schedule.getGroupEnvelope("053503", 2);
+    const envelope = await client.schedule.getGroupBySubgroupEnvelope("053503", 2);
     expect(envelope).toHaveProperty("schedules");
     expect(envelope.schedules?.Понедельник).toHaveLength(1);
     expect(envelope.schedules?.Понедельник?.[0]?.numSubgroup).toBe(2);
   });
 
-  it("getEmployeeEnvelope filters subgroup and returns ScheduleResponse envelope", async () => {
+  it("getEmployeeBySubgroupEnvelope filters subgroup and returns ScheduleResponse envelope", async () => {
     const body = {
       employeeDto: null,
       studentGroupDto: null,
@@ -68,7 +68,7 @@ describe("schedule module — explicit raw/envelope API", () => {
     const fetchImpl = vi.fn(async () => createJsonResponse({ body })) as unknown as typeof fetch;
     const client = createBsuirClient({ fetch: fetchImpl });
 
-    const envelope = await client.schedule.getEmployeeEnvelope("s-nesterenkov", 2);
+    const envelope = await client.schedule.getEmployeeBySubgroupEnvelope("s-nesterenkov", 2);
     expect(envelope).toHaveProperty("schedules");
     expect(envelope.schedules?.Вторник).toHaveLength(1);
     expect(envelope.schedules?.Вторник?.[0]?.numSubgroup).toBe(2);

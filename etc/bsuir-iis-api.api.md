@@ -234,6 +234,12 @@ export interface ClientHooks {
 export function createBsuirClient(options?: BsuirClientOptions): BsuirClientShape;
 
 // @public (undocumented)
+export namespace createBsuirClient {
+    var // (undocumented)
+    strict: (options?: BsuirClientOptions) => BsuirClientShape;
+}
+
+// @public (undocumented)
 export interface Department {
     // (undocumented)
     abbrev: string;
@@ -573,26 +579,11 @@ export interface ScheduleModule {
     // (undocumented)
     getEmployee(urlId: string, options?: ReadOptions): Promise<NormalizedScheduleResponse>;
     // (undocumented)
-    getEmployeeBySubgroup(urlId: string, subgroup: number, options: ReadOptions & {
-        rawEnvelope: true;
-    }): Promise<ScheduleResponse>;
+    getEmployeeBySubgroup(urlId: string, subgroup: number, options?: ReadOptions): Promise<FlattenedScheduleItem[]>;
     // (undocumented)
-    getEmployeeBySubgroup(urlId: string, subgroup: number, options: ReadOptions & {
-        raw: true;
-        rawEnvelope?: false | undefined;
-    }): Promise<ScheduleItem[]>;
+    getEmployeeBySubgroupEnvelope(urlId: string, subgroup: number, options?: ReadOptions): Promise<ScheduleResponse>;
     // (undocumented)
-    getEmployeeBySubgroup(urlId: string, subgroup: number, options: ReadOptions & {
-        raw: boolean;
-        rawEnvelope?: false | undefined;
-    }): Promise<ScheduleItem[] | FlattenedScheduleItem[]>;
-    // (undocumented)
-    getEmployeeBySubgroup(urlId: string, subgroup: number, options?: ReadOptions & {
-        raw?: false | undefined;
-        rawEnvelope?: false | undefined;
-    }): Promise<FlattenedScheduleItem[]>;
-    // (undocumented)
-    getEmployeeEnvelope(urlId: string, subgroup: number, options?: ReadOptions): Promise<ScheduleResponse>;
+    getEmployeeBySubgroupRaw(urlId: string, subgroup: number, options?: ReadOptions): Promise<ScheduleItem[]>;
     // (undocumented)
     getEmployeeExams(urlId: string, options?: ReadOptions): Promise<FlattenedScheduleItem[]>;
     // (undocumented)
@@ -602,39 +593,24 @@ export interface ScheduleModule {
     // (undocumented)
     getGroup(groupNumber: string, options?: ReadOptions): Promise<NormalizedScheduleResponse>;
     // (undocumented)
-    getGroupBySubgroup(groupNumber: string, subgroup: number, options: ReadOptions & {
-        rawEnvelope: true;
-    }): Promise<ScheduleResponse>;
+    getGroupBySubgroup(groupNumber: string, subgroup: number, options?: ReadOptions): Promise<FlattenedScheduleItem[]>;
     // (undocumented)
-    getGroupBySubgroup(groupNumber: string, subgroup: number, options: ReadOptions & {
-        raw: true;
-        rawEnvelope?: false | undefined;
-    }): Promise<ScheduleItem[]>;
+    getGroupBySubgroupEnvelope(groupNumber: string, subgroup: number, options?: ReadOptions): Promise<ScheduleResponse>;
     // (undocumented)
-    getGroupBySubgroup(groupNumber: string, subgroup: number, options: ReadOptions & {
-        raw: boolean;
-        rawEnvelope?: false | undefined;
-    }): Promise<ScheduleItem[] | FlattenedScheduleItem[]>;
-    // (undocumented)
-    getGroupBySubgroup(groupNumber: string, subgroup: number, options?: ReadOptions & {
-        raw?: false | undefined;
-        rawEnvelope?: false | undefined;
-    }): Promise<FlattenedScheduleItem[]>;
-    // (undocumented)
-    getGroupEnvelope(groupNumber: string, subgroup: number, options?: ReadOptions): Promise<ScheduleResponse>;
+    getGroupBySubgroupRaw(groupNumber: string, subgroup: number, options?: ReadOptions): Promise<ScheduleItem[]>;
     // (undocumented)
     getGroupExams(groupNumber: string, options?: ReadOptions): Promise<FlattenedScheduleItem[]>;
     // (undocumented)
     getGroupFiltered(groupNumber: string, filter: ScheduleFilterOptions, options?: ReadOptions): Promise<FlattenedScheduleItem[]>;
     // (undocumented)
     getGroupRaw(groupNumber: string, options?: ReadOptions): Promise<ScheduleResponse>;
-    // (undocumented)
+    // @deprecated
     getLastUpdateByEmployee(params: {
         urlId: string;
     } | {
         id: number;
     }, options?: ReadOptions): Promise<ApiDateResponse>;
-    // (undocumented)
+    // @deprecated
     getLastUpdateByGroup(params: {
         groupNumber: string;
     } | {

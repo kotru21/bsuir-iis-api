@@ -34,70 +34,62 @@ export interface ScheduleModule {
   getGroupExams(groupNumber: string, options?: ReadOptions): Promise<FlattenedScheduleItem[]>;
   getEmployeeExams(urlId: string, options?: ReadOptions): Promise<FlattenedScheduleItem[]>;
 
-  // Explicit raw/envelope helpers (new explicit API)
   getGroupRaw(groupNumber: string, options?: ReadOptions): Promise<ScheduleResponse>;
-  getGroupEnvelope(
-    groupNumber: string,
-    subgroup: number,
-    options?: ReadOptions
-  ): Promise<ScheduleResponse>;
-
   getEmployeeRaw(urlId: string, options?: ReadOptions): Promise<ScheduleResponse>;
-  getEmployeeEnvelope(
-    urlId: string,
+
+  getGroupBySubgroup(
+    groupNumber: string,
+    subgroup: number,
+    options?: ReadOptions
+  ): Promise<FlattenedScheduleItem[]>;
+  getGroupBySubgroupRaw(
+    groupNumber: string,
+    subgroup: number,
+    options?: ReadOptions
+  ): Promise<ScheduleItem[]>;
+  getGroupBySubgroupEnvelope(
+    groupNumber: string,
     subgroup: number,
     options?: ReadOptions
   ): Promise<ScheduleResponse>;
 
-  getGroupBySubgroup(
-    groupNumber: string,
+  getEmployeeBySubgroup(
+    urlId: string,
     subgroup: number,
-    options: ReadOptions & { rawEnvelope: true }
-  ): Promise<ScheduleResponse>;
-  getGroupBySubgroup(
-    groupNumber: string,
-    subgroup: number,
-    options: ReadOptions & { raw: true; rawEnvelope?: false | undefined }
-  ): Promise<ScheduleItem[]>;
-  getGroupBySubgroup(
-    groupNumber: string,
-    subgroup: number,
-    options: ReadOptions & { raw: boolean; rawEnvelope?: false | undefined }
-  ): Promise<ScheduleItem[] | FlattenedScheduleItem[]>;
-  getGroupBySubgroup(
-    groupNumber: string,
-    subgroup: number,
-    options?: ReadOptions & { raw?: false | undefined; rawEnvelope?: false | undefined }
+    options?: ReadOptions
   ): Promise<FlattenedScheduleItem[]>;
-
-  getEmployeeBySubgroup(
+  getEmployeeBySubgroupRaw(
     urlId: string,
     subgroup: number,
-    options: ReadOptions & { rawEnvelope: true }
-  ): Promise<ScheduleResponse>;
-  getEmployeeBySubgroup(
-    urlId: string,
-    subgroup: number,
-    options: ReadOptions & { raw: true; rawEnvelope?: false | undefined }
+    options?: ReadOptions
   ): Promise<ScheduleItem[]>;
-  getEmployeeBySubgroup(
+  getEmployeeBySubgroupEnvelope(
     urlId: string,
     subgroup: number,
-    options: ReadOptions & { raw: boolean; rawEnvelope?: false | undefined }
-  ): Promise<ScheduleItem[] | FlattenedScheduleItem[]>;
-  getEmployeeBySubgroup(
-    urlId: string,
-    subgroup: number,
-    options?: ReadOptions & { raw?: false | undefined; rawEnvelope?: false | undefined }
-  ): Promise<FlattenedScheduleItem[]>;
+    options?: ReadOptions
+  ): Promise<ScheduleResponse>;
 
   getCurrentWeek(options?: ReadOptions): Promise<number>;
 
+  /**
+   * Calls IIS `/last-update-date/student-group`.
+   *
+   * @deprecated Legacy IIS endpoint; no longer maintained upstream. Six-digit
+   * group numbers may fail. Prefer schedule date fields or your own cache TTL.
+   * Planned for removal in a future major.
+   */
   getLastUpdateByGroup(
     params: { groupNumber: string } | { id: number },
     options?: ReadOptions
   ): Promise<ApiDateResponse>;
 
+  /**
+   * Calls IIS `/last-update-date/employee`.
+   *
+   * @deprecated Legacy IIS endpoint; no longer maintained upstream. Prefer
+   * schedule date fields or your own cache TTL. Planned for removal in a
+   * future major.
+   */
   getLastUpdateByEmployee(
     params: { urlId: string } | { id: number },
     options?: ReadOptions
@@ -226,115 +218,6 @@ export function createScheduleModule(config: Readonly<InternalClientConfig>): Sc
     return parseCurrentWeek(payload);
   }
 
-  /**
-   * Returns regular schedule lessons for a subgroup.
-   *
-   * Shape selection:
-   * - `rawEnvelope: true` → returns the full `ScheduleResponse` with `schedules` arrays
-   *   filtered to the requested subgroup. Preserves `employeeDto`, `studentGroupDto`,
-   *   exam fields, and date ranges from the original envelope.
-   * - `raw: true` (without `rawEnvelope`) → returns `ScheduleItem[]` only.
-   * - default → returns flattened `FlattenedScheduleItem[]` with day/source metadata.
-   */
-  function getGroupBySubgroup(
-    groupNumber: string,
-    subgroup: number,
-    options: ReadOptions & { rawEnvelope: true }
-  ): Promise<ScheduleResponse>;
-  function getGroupBySubgroup(
-    groupNumber: string,
-    subgroup: number,
-    options: ReadOptions & { raw: true; rawEnvelope?: false | undefined }
-  ): Promise<ScheduleItem[]>;
-  function getGroupBySubgroup(
-    groupNumber: string,
-    subgroup: number,
-    options: ReadOptions & { raw: boolean; rawEnvelope?: false | undefined }
-  ): Promise<ScheduleItem[] | FlattenedScheduleItem[]>;
-  function getGroupBySubgroup(
-    groupNumber: string,
-    subgroup: number,
-    options?: ReadOptions & { raw?: false | undefined; rawEnvelope?: false | undefined }
-  ): Promise<FlattenedScheduleItem[]>;
-  async function getGroupBySubgroup(
-    groupNumber: string,
-    subgroup: number,
-    options?: ReadOptions & { raw?: boolean | undefined; rawEnvelope?: boolean | undefined }
-  ): Promise<FlattenedScheduleItem[] | ScheduleItem[] | ScheduleResponse> {
-    const resolvedOptions = options ?? {};
-    assertPositiveInt(subgroup, "subgroup");
-    if (resolvedOptions.rawEnvelope === true) {
-      const raw = await getGroupRaw(groupNumber, {
-        signal: resolvedOptions.signal,
-        cache: resolvedOptions.cache
-      });
-      return filterRawSubgroupEnvelope(raw, subgroup);
-    }
-    if (resolvedOptions.raw === true) {
-      const raw = await getGroupRaw(groupNumber, {
-        signal: resolvedOptions.signal,
-        cache: resolvedOptions.cache
-      });
-      return filterRawSubgroupLessons(raw, subgroup);
-    }
-    return getGroupFiltered(groupNumber, { source: "schedules", subgroup }, resolvedOptions);
-  }
-
-  /**
-   * Returns regular schedule lessons for an employee subgroup filter.
-   *
-   * Shape selection:
-   * - `rawEnvelope: true` → returns the full `ScheduleResponse` with `schedules` arrays
-   *   filtered to the requested subgroup. Preserves `employeeDto`, `studentGroupDto`,
-   *   exam fields, and date ranges from the original envelope.
-   * - `raw: true` (without `rawEnvelope`) → returns `ScheduleItem[]` only.
-   * - default → returns flattened `FlattenedScheduleItem[]` with day/source metadata.
-   */
-  function getEmployeeBySubgroup(
-    urlId: string,
-    subgroup: number,
-    options: ReadOptions & { rawEnvelope: true }
-  ): Promise<ScheduleResponse>;
-  function getEmployeeBySubgroup(
-    urlId: string,
-    subgroup: number,
-    options: ReadOptions & { raw: true; rawEnvelope?: false | undefined }
-  ): Promise<ScheduleItem[]>;
-  function getEmployeeBySubgroup(
-    urlId: string,
-    subgroup: number,
-    options: ReadOptions & { raw: boolean; rawEnvelope?: false | undefined }
-  ): Promise<ScheduleItem[] | FlattenedScheduleItem[]>;
-  function getEmployeeBySubgroup(
-    urlId: string,
-    subgroup: number,
-    options?: ReadOptions & { raw?: false | undefined; rawEnvelope?: false | undefined }
-  ): Promise<FlattenedScheduleItem[]>;
-  async function getEmployeeBySubgroup(
-    urlId: string,
-    subgroup: number,
-    options?: ReadOptions & { raw?: boolean | undefined; rawEnvelope?: boolean | undefined }
-  ): Promise<FlattenedScheduleItem[] | ScheduleItem[] | ScheduleResponse> {
-    const resolvedOptions = options ?? {};
-    assertPositiveInt(subgroup, "subgroup");
-    if (resolvedOptions.rawEnvelope === true) {
-      const raw = await getEmployeeRaw(urlId, {
-        signal: resolvedOptions.signal,
-        cache: resolvedOptions.cache
-      });
-      return filterRawSubgroupEnvelope(raw, subgroup);
-    }
-    if (resolvedOptions.raw === true) {
-      const raw = await getEmployeeRaw(urlId, {
-        signal: resolvedOptions.signal,
-        cache: resolvedOptions.cache
-      });
-      return filterRawSubgroupLessons(raw, subgroup);
-    }
-    return getEmployeeFiltered(urlId, { source: "schedules", subgroup }, resolvedOptions);
-  }
-
-  // Explicit helpers: raw/envelope variants to make API shape explicit.
   async function getGroupRaw(
     groupNumber: string,
     options: ReadOptions = {}
@@ -353,16 +236,10 @@ export function createScheduleModule(config: Readonly<InternalClientConfig>): Sc
     return payload as ScheduleResponse;
   }
 
-  async function getGroupEnvelope(
-    groupNumber: string,
-    subgroup: number,
+  async function getEmployeeRaw(
+    urlId: string,
     options: ReadOptions = {}
-  ) {
-    const raw = await getGroupRaw(groupNumber, options);
-    return filterRawSubgroupEnvelope(raw, subgroup);
-  }
-
-  async function getEmployeeRaw(urlId: string, options: ReadOptions = {}) {
+  ): Promise<ScheduleResponse> {
     assertEmployeeUrlId(urlId, "urlId");
     const endpoint = `/employees/schedule/${encodeURIComponent(urlId)}`;
     const payload = await requestJson<unknown>(config, endpoint, {
@@ -377,7 +254,82 @@ export function createScheduleModule(config: Readonly<InternalClientConfig>): Sc
     return payload as ScheduleResponse;
   }
 
-  async function getEmployeeEnvelope(urlId: string, subgroup: number, options: ReadOptions = {}) {
+  /**
+   * Returns flattened regular schedule lessons for a subgroup.
+   * Use `getGroupBySubgroupRaw` / `getGroupBySubgroupEnvelope` for raw shapes.
+   */
+  async function getGroupBySubgroup(
+    groupNumber: string,
+    subgroup: number,
+    options: ReadOptions = {}
+  ): Promise<FlattenedScheduleItem[]> {
+    assertPositiveInt(subgroup, "subgroup");
+    return getGroupFiltered(groupNumber, { source: "schedules", subgroup }, options);
+  }
+
+  /**
+   * Returns raw `ScheduleItem[]` for a group subgroup (no day/source metadata).
+   */
+  async function getGroupBySubgroupRaw(
+    groupNumber: string,
+    subgroup: number,
+    options: ReadOptions = {}
+  ): Promise<ScheduleItem[]> {
+    assertPositiveInt(subgroup, "subgroup");
+    const raw = await getGroupRaw(groupNumber, options);
+    return filterRawSubgroupLessons(raw, subgroup);
+  }
+
+  /**
+   * Returns the full `ScheduleResponse` with `schedules` arrays filtered to the subgroup.
+   * Preserves envelope fields (`employeeDto`, exams, date ranges).
+   */
+  async function getGroupBySubgroupEnvelope(
+    groupNumber: string,
+    subgroup: number,
+    options: ReadOptions = {}
+  ): Promise<ScheduleResponse> {
+    assertPositiveInt(subgroup, "subgroup");
+    const raw = await getGroupRaw(groupNumber, options);
+    return filterRawSubgroupEnvelope(raw, subgroup);
+  }
+
+  /**
+   * Returns flattened regular schedule lessons for an employee filtered by subgroup.
+   * Use `getEmployeeBySubgroupRaw` / `getEmployeeBySubgroupEnvelope` for raw shapes.
+   */
+  async function getEmployeeBySubgroup(
+    urlId: string,
+    subgroup: number,
+    options: ReadOptions = {}
+  ): Promise<FlattenedScheduleItem[]> {
+    assertPositiveInt(subgroup, "subgroup");
+    return getEmployeeFiltered(urlId, { source: "schedules", subgroup }, options);
+  }
+
+  /**
+   * Returns raw `ScheduleItem[]` for an employee subgroup filter.
+   */
+  async function getEmployeeBySubgroupRaw(
+    urlId: string,
+    subgroup: number,
+    options: ReadOptions = {}
+  ): Promise<ScheduleItem[]> {
+    assertPositiveInt(subgroup, "subgroup");
+    const raw = await getEmployeeRaw(urlId, options);
+    return filterRawSubgroupLessons(raw, subgroup);
+  }
+
+  /**
+   * Returns the full `ScheduleResponse` with `schedules` arrays filtered to the subgroup.
+   * Preserves envelope fields (`employeeDto`, exams, date ranges).
+   */
+  async function getEmployeeBySubgroupEnvelope(
+    urlId: string,
+    subgroup: number,
+    options: ReadOptions = {}
+  ): Promise<ScheduleResponse> {
+    assertPositiveInt(subgroup, "subgroup");
     const raw = await getEmployeeRaw(urlId, options);
     return filterRawSubgroupEnvelope(raw, subgroup);
   }
@@ -386,13 +338,15 @@ export function createScheduleModule(config: Readonly<InternalClientConfig>): Sc
     getGroup,
     getEmployee,
     getGroupRaw,
-    getGroupEnvelope,
     getEmployeeRaw,
-    getEmployeeEnvelope,
     getGroupFiltered,
     getEmployeeFiltered,
     getGroupBySubgroup,
+    getGroupBySubgroupRaw,
+    getGroupBySubgroupEnvelope,
     getEmployeeBySubgroup,
+    getEmployeeBySubgroupRaw,
+    getEmployeeBySubgroupEnvelope,
     getCurrentWeek,
 
     /**
@@ -417,6 +371,10 @@ export function createScheduleModule(config: Readonly<InternalClientConfig>): Sc
 
     /**
      * Calls IIS `/last-update-date/student-group`.
+     *
+     * @deprecated Legacy IIS endpoint; no longer maintained upstream. Six-digit
+     * group numbers may fail. Prefer schedule date fields or your own cache TTL.
+     * Planned for removal in a future major.
      */
     async getLastUpdateByGroup(
       params: { groupNumber: string } | { id: number },
@@ -445,6 +403,10 @@ export function createScheduleModule(config: Readonly<InternalClientConfig>): Sc
 
     /**
      * Calls IIS `/last-update-date/employee`.
+     *
+     * @deprecated Legacy IIS endpoint; no longer maintained upstream. Prefer
+     * schedule date fields or your own cache TTL. Planned for removal in a
+     * future major.
      */
     async getLastUpdateByEmployee(
       params: { urlId: string } | { id: number },

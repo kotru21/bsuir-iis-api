@@ -18,9 +18,7 @@ async function findWorkingGroupNumber(
     } catch (error) {
       if (
         error instanceof BsuirApiError &&
-        (error.status === 404 ||
-          error.status === 503 ||
-          error.message.includes("Invalid JSON"))
+        (error.status === 404 || error.status === 503 || error.message.includes("Invalid JSON"))
       ) {
         continue;
       }
@@ -42,9 +40,7 @@ async function findWorkingEmployeeUrlId(
     } catch (error) {
       if (
         error instanceof BsuirApiError &&
-        (error.status === 404 ||
-          error.status === 503 ||
-          error.message.includes("Invalid JSON"))
+        (error.status === 404 || error.status === 503 || error.message.includes("Invalid JSON"))
       ) {
         continue;
       }
