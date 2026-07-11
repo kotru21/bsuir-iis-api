@@ -133,4 +133,99 @@ describe("announcements module", () => {
     const client = createBsuirClient({ fetch: fetchImpl });
     await expect(client.announcements.byDepartment(1)).resolves.toEqual([]);
   });
+
+  it("fetches all pages and concatenates announcement content", async () => {
+    const page0 = {
+      content: [{ id: 1 }, { id: 2 }],
+      pageable: { pageNumber: 0, pageSize: 2 },
+      totalElements: 5,
+      totalPages: 3,
+      last: false,
+      size: 2,
+      number: 0
+    };
+    const page1 = {
+      content: [{ id: 3 }, { id: 4 }],
+      pageable: { pageNumber: 1, pageSize: 2 },
+      totalElements: 5,
+      totalPages: 3,
+      last: false,
+      size: 2,
+      number: 1
+    };
+    const page2 = {
+      content: [{ id: 5 }],
+      pageable: { pageNumber: 2, pageSize: 2 },
+      totalElements: 5,
+      totalPages: 3,
+      last: true,
+      size: 2,
+      number: 2
+    };
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ body: page0 }),
+      createJsonResponse({ body: page1 }),
+      createJsonResponse({ body: page2 })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+    const result = await client.announcements.byEmployee("v-petrov");
+    expect(result).toEqual([{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }, { id: 5 }]);
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    const secondUrl = String((fetchImpl as ReturnType<typeof vi.fn>).mock.calls[1]?.[0]);
+    const thirdUrl = String((fetchImpl as ReturnType<typeof vi.fn>).mock.calls[2]?.[0]);
+    expect(secondUrl).toContain("page=1");
+    expect(secondUrl).toContain("size=2");
+    expect(secondUrl).toContain("url-id=v-petrov");
+    expect(thirdUrl).toContain("page=2");
+    expect(thirdUrl).toContain("size=2");
+  });
+
+  it("does not request further pages when totalPages is 1", async () => {
+    const body = {
+      content: [{ id: 1 }],
+      pageable: { pageNumber: 0, pageSize: 20 },
+      totalElements: 1,
+      totalPages: 1,
+      last: true
+    };
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body })]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+    await expect(client.announcements.byEmployee("v-petrov")).resolves.toEqual([{ id: 1 }]);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("throws BsuirConfigurationError when totalPages exceeds safety cap", async () => {
+    const { BsuirConfigurationError } = await import("../../src/client/errors");
+    const body = {
+      content: [{ id: 1 }],
+      pageable: { pageNumber: 0, pageSize: 20 },
+      totalElements: 2000,
+      totalPages: 51,
+      last: false
+    };
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body })]);
+    const client = createBsuirClient({ fetch: fetchImpl, retries: 0 });
+    await expect(client.announcements.byEmployee("v-petrov")).rejects.toBeInstanceOf(
+      BsuirConfigurationError
+    );
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps treat404AsEmpty on the first request only", async () => {
+    const page0 = {
+      content: [{ id: 1 }],
+      pageable: { pageNumber: 0, pageSize: 1 },
+      totalElements: 2,
+      totalPages: 2,
+      last: false,
+      size: 1,
+      number: 0
+    };
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ body: page0 }),
+      createJsonResponse({ status: 404, body: { message: "not found" } })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl, retries: 0 });
+    await expect(client.announcements.byEmployee("v-petrov")).rejects.toBeInstanceOf(BsuirApiError);
+  });
 });
