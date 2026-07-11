@@ -30,11 +30,7 @@ function hasMorePages(meta: SpringPageMeta, nextPage: number): boolean {
   return meta.last === false;
 }
 
-function assertNextPageWithinCap(
-  nextPage: number,
-  maxPages: number,
-  resourceLabel: string
-): void {
+function assertNextPageWithinCap(nextPage: number, maxPages: number, resourceLabel: string): void {
   if (nextPage >= maxPages) {
     throw new BsuirConfigurationError(
       `${resourceLabel} pagination exceeded safety cap of ${String(maxPages)} pages`
