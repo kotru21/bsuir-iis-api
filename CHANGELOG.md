@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.3
+
+### Patch Changes
+
+- b0c9633: Fetch all Spring Data pages for `announcements.byEmployee` / `byDepartment` (safety cap: 50 pages) so callers no longer silently lose items beyond the first page.
+
 ## 0.13.2
 
 ### Patch Changes
