@@ -27,16 +27,22 @@ describe("parseBody", () => {
     expect(result).toBeNull();
   });
 
-  it("throws BsuirApiError for empty JSON body (declaredJson, empty text)", async () => {
+  it("throws BsuirApiError for empty JSON body on 2xx (declaredJson, empty text)", async () => {
     await expect(parseBody(makeResponse("", "application/json"), 1_000_000)).rejects.toBeInstanceOf(
       BsuirApiError
     );
   });
 
-  it("throws BsuirApiError for malformed JSON with JSON content-type", async () => {
+  it("throws BsuirApiError for malformed JSON with JSON content-type on 2xx", async () => {
     await expect(
       parseBody(makeResponse("not-json{{", "application/json"), 1_000_000)
     ).rejects.toBeInstanceOf(BsuirApiError);
+  });
+
+  it("preserves plain-text error body when non-2xx claims application/json", async () => {
+    const text = "после 15 августа";
+    const result = await parseBody(makeResponse(text, "application/json", 503), 1_000_000);
+    expect(result).toBe(text);
   });
 
   it("returns raw text for malformed JSON with non-JSON content-type", async () => {

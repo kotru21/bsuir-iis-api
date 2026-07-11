@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.1
+
+### Patch Changes
+
+- Preserve plain-text IIS error bodies on non-2xx responses even when `Content-Type` claims `application/json` (for example seasonal HTTP `503` messages). Raw text is kept in `BsuirApiError.body` and appended to `message` instead of being replaced with `Invalid JSON response payload` / `body: null`. Strict invalid-JSON handling for **2xx** responses is unchanged.
+
 ## 1.1.0
 
 ### Minor Changes

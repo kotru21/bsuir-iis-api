@@ -127,12 +127,12 @@ export async function performRequestWithRetry<T>(params: PerformRequestParams): 
           };
           config.hooks.onRetry?.(skipRetryCtx);
         }
-        const apiError = new BsuirApiError(
-          `BSUIR API returned HTTP ${String(response.status)} for ${method} ${path}`,
-          response.status,
-          endpoint,
-          errorBody
-        );
+        const statusLabel = `BSUIR API returned HTTP ${String(response.status)} for ${method} ${path}`;
+        const message =
+          typeof errorBody === "string" && errorBody.length > 0
+            ? `${statusLabel}: ${errorBody}`
+            : statusLabel;
+        const apiError = new BsuirApiError(message, response.status, endpoint, errorBody);
         const errorCtx: ErrorHookContext = {
           ...hookCtx,
           durationMs: Date.now() - startedAt,
