@@ -257,13 +257,13 @@ The project uses Changesets for version bumps and changelog generation; edit pen
 
 ## Migration notes (majors)
 
-When this package ships a **major** changeset (on 0.x that typically becomes the next minor, e.g. 0.14.0), include a short note with:
+When this package ships a **major** changeset, include a short note with:
 
 1. **Removed / renamed** — what callers must change
 2. **Mapping table** — old call → new call
 3. **Search hints** — strings to find in consuming repos
 
-### 0.14.0 — subgroup schedule helpers
+### 1.0.0 — subgroup schedule helpers
 
 | Before                                               | After                                 |
 | ---------------------------------------------------- | ------------------------------------- |
