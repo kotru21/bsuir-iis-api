@@ -11,8 +11,8 @@ import type {
 } from "../types/schedule";
 import { assertEmployeeUrlId, assertGroupNumber, assertPositiveInt } from "../utils/guards";
 import { parseCurrentWeek } from "../utils/week";
-import { filterLessons } from "./scheduleFilter";
 import { normalizeSchedule } from "./scheduleNormalize";
+import { createScheduleSubjectMethods } from "./scheduleApiSubject";
 import type { ReadOptions } from "./types";
 
 export interface ScheduleModule {
@@ -96,29 +96,6 @@ export interface ScheduleModule {
   ): Promise<ApiDateResponse>;
 }
 
-function filterRawSubgroupLessons(response: ScheduleResponse, subgroup: number): ScheduleItem[] {
-  const items: ScheduleItem[] = [];
-  const schedules = response.schedules ?? {};
-  for (const dayItems of Object.values(schedules)) {
-    for (const lesson of dayItems) {
-      if (lesson.numSubgroup === subgroup) {
-        items.push(structuredClone(lesson));
-      }
-    }
-  }
-  return items;
-}
-
-function filterRawSubgroupEnvelope(response: ScheduleResponse, subgroup: number): ScheduleResponse {
-  const cloned = structuredClone(response);
-  const schedules = cloned.schedules ?? {};
-  for (const day of Object.keys(schedules) as (keyof typeof schedules)[]) {
-    const items = schedules[day] ?? [];
-    schedules[day] = items.filter((lesson) => lesson.numSubgroup === subgroup);
-  }
-  return cloned;
-}
-
 /**
  * Creates schedule API module with raw/normalized response support.
  */
@@ -178,36 +155,6 @@ export function createScheduleModule(config: Readonly<InternalClientConfig>): Sc
   }
 
   /**
-   * Returns filtered schedule items for a group from normalized schedule payload.
-   */
-  async function getGroupFiltered(
-    groupNumber: string,
-    filter: ScheduleFilterOptions,
-    options: ReadOptions = {}
-  ): Promise<FlattenedScheduleItem[]> {
-    const normalized = await getGroup(groupNumber, {
-      signal: options.signal,
-      cache: options.cache
-    });
-    return filterLessons(normalized, filter);
-  }
-
-  /**
-   * Returns filtered schedule items for an employee from normalized schedule payload.
-   */
-  async function getEmployeeFiltered(
-    urlId: string,
-    filter: ScheduleFilterOptions,
-    options: ReadOptions = {}
-  ): Promise<FlattenedScheduleItem[]> {
-    const normalized = await getEmployee(urlId, {
-      signal: options.signal,
-      cache: options.cache
-    });
-    return filterLessons(normalized, filter);
-  }
-
-  /**
    * Returns current academic week number.
    */
   async function getCurrentWeek(options: ReadOptions = {}): Promise<number> {
@@ -254,120 +201,67 @@ export function createScheduleModule(config: Readonly<InternalClientConfig>): Sc
     return payload as ScheduleResponse;
   }
 
-  /**
-   * Returns flattened regular schedule lessons for a subgroup.
-   * Use `getGroupBySubgroupRaw` / `getGroupBySubgroupEnvelope` for raw shapes.
-   */
-  async function getGroupBySubgroup(
-    groupNumber: string,
-    subgroup: number,
-    options: ReadOptions = {}
-  ): Promise<FlattenedScheduleItem[]> {
-    assertPositiveInt(subgroup, "subgroup");
-    return getGroupFiltered(groupNumber, { source: "schedules", subgroup }, options);
-  }
-
-  /**
-   * Returns raw `ScheduleItem[]` for a group subgroup (no day/source metadata).
-   */
-  async function getGroupBySubgroupRaw(
-    groupNumber: string,
-    subgroup: number,
-    options: ReadOptions = {}
-  ): Promise<ScheduleItem[]> {
-    assertPositiveInt(subgroup, "subgroup");
-    const raw = await getGroupRaw(groupNumber, options);
-    return filterRawSubgroupLessons(raw, subgroup);
-  }
-
-  /**
-   * Returns the full `ScheduleResponse` with `schedules` arrays filtered to the subgroup.
-   * Preserves envelope fields (`employeeDto`, exams, date ranges).
-   */
-  async function getGroupBySubgroupEnvelope(
-    groupNumber: string,
-    subgroup: number,
-    options: ReadOptions = {}
-  ): Promise<ScheduleResponse> {
-    assertPositiveInt(subgroup, "subgroup");
-    const raw = await getGroupRaw(groupNumber, options);
-    return filterRawSubgroupEnvelope(raw, subgroup);
-  }
-
-  /**
-   * Returns flattened regular schedule lessons for an employee filtered by subgroup.
-   * Use `getEmployeeBySubgroupRaw` / `getEmployeeBySubgroupEnvelope` for raw shapes.
-   */
-  async function getEmployeeBySubgroup(
-    urlId: string,
-    subgroup: number,
-    options: ReadOptions = {}
-  ): Promise<FlattenedScheduleItem[]> {
-    assertPositiveInt(subgroup, "subgroup");
-    return getEmployeeFiltered(urlId, { source: "schedules", subgroup }, options);
-  }
-
-  /**
-   * Returns raw `ScheduleItem[]` for an employee subgroup filter.
-   */
-  async function getEmployeeBySubgroupRaw(
-    urlId: string,
-    subgroup: number,
-    options: ReadOptions = {}
-  ): Promise<ScheduleItem[]> {
-    assertPositiveInt(subgroup, "subgroup");
-    const raw = await getEmployeeRaw(urlId, options);
-    return filterRawSubgroupLessons(raw, subgroup);
-  }
-
-  /**
-   * Returns the full `ScheduleResponse` with `schedules` arrays filtered to the subgroup.
-   * Preserves envelope fields (`employeeDto`, exams, date ranges).
-   */
-  async function getEmployeeBySubgroupEnvelope(
-    urlId: string,
-    subgroup: number,
-    options: ReadOptions = {}
-  ): Promise<ScheduleResponse> {
-    assertPositiveInt(subgroup, "subgroup");
-    const raw = await getEmployeeRaw(urlId, options);
-    return filterRawSubgroupEnvelope(raw, subgroup);
-  }
+  const groupMethods = createScheduleSubjectMethods({
+    getNormalized: getGroup,
+    getRaw: getGroupRaw
+  });
+  const employeeMethods = createScheduleSubjectMethods({
+    getNormalized: getEmployee,
+    getRaw: getEmployeeRaw
+  });
 
   return {
     getGroup,
     getEmployee,
     getGroupRaw,
     getEmployeeRaw,
-    getGroupFiltered,
-    getEmployeeFiltered,
-    getGroupBySubgroup,
-    getGroupBySubgroupRaw,
-    getGroupBySubgroupEnvelope,
-    getEmployeeBySubgroup,
-    getEmployeeBySubgroupRaw,
-    getEmployeeBySubgroupEnvelope,
+    getGroupFiltered: (id, filter, options) => groupMethods.getFiltered(id, filter, options),
+    getEmployeeFiltered: (id, filter, options) => employeeMethods.getFiltered(id, filter, options),
+    /**
+     * Returns flattened regular schedule lessons for a subgroup.
+     * Use `getGroupBySubgroupRaw` / `getGroupBySubgroupEnvelope` for raw shapes.
+     */
+    getGroupBySubgroup: (id, subgroup, options) =>
+      groupMethods.getBySubgroup(id, subgroup, options),
+    /**
+     * Returns raw `ScheduleItem[]` for a group subgroup (no day/source metadata).
+     */
+    getGroupBySubgroupRaw: (id, subgroup, options) =>
+      groupMethods.getBySubgroupRaw(id, subgroup, options),
+    /**
+     * Returns the full `ScheduleResponse` with `schedules` arrays filtered to the subgroup.
+     * Preserves envelope fields (`employeeDto`, exams, date ranges).
+     */
+    getGroupBySubgroupEnvelope: (id, subgroup, options) =>
+      groupMethods.getBySubgroupEnvelope(id, subgroup, options),
+    /**
+     * Returns flattened regular schedule lessons for an employee filtered by subgroup.
+     * Use `getEmployeeBySubgroupRaw` / `getEmployeeBySubgroupEnvelope` for raw shapes.
+     */
+    getEmployeeBySubgroup: (id, subgroup, options) =>
+      employeeMethods.getBySubgroup(id, subgroup, options),
+    /**
+     * Returns raw `ScheduleItem[]` for an employee subgroup filter.
+     */
+    getEmployeeBySubgroupRaw: (id, subgroup, options) =>
+      employeeMethods.getBySubgroupRaw(id, subgroup, options),
+    /**
+     * Returns the full `ScheduleResponse` with `schedules` arrays filtered to the subgroup.
+     * Preserves envelope fields (`employeeDto`, exams, date ranges).
+     */
+    getEmployeeBySubgroupEnvelope: (id, subgroup, options) =>
+      employeeMethods.getBySubgroupEnvelope(id, subgroup, options),
     getCurrentWeek,
 
     /**
      * Returns exams for a group.
      */
-    async getGroupExams(
-      groupNumber: string,
-      options: ReadOptions = {}
-    ): Promise<FlattenedScheduleItem[]> {
-      return getGroupFiltered(groupNumber, { source: "exams" }, options);
-    },
+    getGroupExams: (id, options) => groupMethods.getExams(id, options),
 
     /**
      * Returns exams for an employee.
      */
-    async getEmployeeExams(
-      urlId: string,
-      options: ReadOptions = {}
-    ): Promise<FlattenedScheduleItem[]> {
-      return getEmployeeFiltered(urlId, { source: "exams" }, options);
-    },
+    getEmployeeExams: (id, options) => employeeMethods.getExams(id, options),
 
     /**
      * Calls IIS `/last-update-date/student-group`.
