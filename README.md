@@ -93,6 +93,8 @@ const client = createBsuirClient({
 - `client.specialities.listAll(options?)`
 - `client.auditories.listAll(options?)`
 
+Catalog `listAll()` methods always resolve to arrays. If IIS returns a Spring Data page envelope (`{ content: [...] }`), the SDK unwraps `content` (first page only; same limitation as announcements until multi-page fetching lands).
+
 ### Announcements
 
 - `client.announcements.byEmployee(urlId, options?)`
