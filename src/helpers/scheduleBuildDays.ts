@@ -1,4 +1,4 @@
-import { filterLessons } from "../modules/scheduleFilter";
+import { filterLessons } from "./scheduleFilter";
 import { WEEKDAYS } from "../types/common";
 import type {
   BuildScheduleDaysOptions,

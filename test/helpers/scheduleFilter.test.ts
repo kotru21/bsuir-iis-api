@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BsuirValidationError } from "../../src/client/errors";
-import { filterLessons } from "../../src/modules/scheduleFilter";
+import { filterLessons } from "../../src/helpers/scheduleFilter";
 import { normalizeSchedule } from "../../src/modules/scheduleNormalize";
 import type { ScheduleItem, ScheduleResponse } from "../../src/types/schedule";
 
@@ -97,8 +97,8 @@ describe("scheduleFilter", () => {
     expect(filterLessons(makeSchedule(), { auditory: "999-9" })).toHaveLength(0);
   });
 
-  // line 11 — lessonAuditories: auditories is null → returns []
-  it("treats null auditories as empty when filtering by auditory (line 11)", () => {
+  // lessonAuditories: auditories is null → returns []
+  it("treats null auditories as empty when filtering by auditory", () => {
     const schedule = makeSchedule({
       schedules: { Понедельник: [makeItem({ auditories: null as unknown as string[] })] }
     });

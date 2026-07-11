@@ -8,3 +8,5 @@ temp
 *.log
 .changeset/pre.json
 .worktrees
+.cursor
+docs

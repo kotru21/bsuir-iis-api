@@ -5,7 +5,7 @@
 [![node](https://img.shields.io/node/v/bsuir-iis-api)](https://www.npmjs.com/package/bsuir-iis-api)
 [![license](https://img.shields.io/npm/l/bsuir-iis-api)](./LICENSE)
 
-Type-safe ESM SDK for [BSUIR IIS API](https://iis.bsuir.by/api/) with support for Node.js and browser runtimes. Example project exist in [this repo](https://github.com/kotru21/BsuirRasp).
+Type-safe ESM SDK for [BSUIR IIS API](https://iis.bsuir.by/api/) with support for Node.js and browser runtimes. Example project exists in [this repo](https://github.com/kotru21/BsuirRasp).
 
 ## Runtime requirements
 
@@ -93,7 +93,7 @@ const client = createBsuirClient({
 - `client.schedule.getLastUpdateByGroup({ groupNumber } | { id }, options?)` — **deprecated**
 - `client.schedule.getLastUpdateByEmployee({ urlId } | { id }, options?)` — **deprecated**
 
-**Last update (legacy IIS, deprecated).** The upstream routes `/last-update-date/student-group` and `/last-update-date/employee` are legacy on the BSUIR IIS side and are no longer maintained. The SDK marks these helpers `@deprecated`; behavior is unchanged for now, with removal planned in a later major. For newer group identifiers (six-digit numbers such as `524404`), the student-group endpoint may respond with an error; do not rely on these calls for cache freshness or invalidation.
+**Last update (legacy IIS, deprecated).** The upstream routes `/last-update-date/student-group` and `/last-update-date/employee` are legacy on the BSUIR IIS side and are no longer maintained. The SDK marks these helpers `@deprecated`; behavior is unchanged for now. Removal is planned for the **next major (2.0)**. Until then helpers remain callable but `@deprecated`. Prefer schedule date fields or your own cache TTL. For newer group identifiers (six-digit numbers such as `524404`), the student-group endpoint may respond with an error; do not rely on these calls for cache freshness or invalidation.
 
 ### Catalogs
 
@@ -120,8 +120,9 @@ When IIS responds with HTTP `404` (the employee or department has no announcemen
 ### Public exports (runtime utilities and types)
 
 - Core runtime API: `createBsuirClient`, `BsuirClient`
-- Client/runtime option types: `BsuirClientOptions`, `CacheOptions`, `ClientHooks`, `RequestOptions`, `ReadOptions`, `RequestHookContext`, `RetryHookContext`, `ResponseHookContext`, `ErrorHookContext`
+- Client/runtime option types: `BsuirClientOptions`, `CacheOptions`, `ClientHooks`, `RequestOptions`, `ReadOptions`, `AnnouncementReadOptions`, `RequestHookContext`, `RetryHookContext`, `ResponseHookContext`, `ErrorHookContext`
 - Schedule utilities: `normalizeSchedule`, `filterLessons`, `getLessonsForDate`, `getTodayLessons`, `getTomorrowLessons`, `getLessonsForWeek`, `sortLessonsByTime`, `groupLessonsByDay`, `getCurrentLesson`, `getNextLesson`, `buildScheduleDays`, `ScheduleFilterOptions`, `InvalidLessonTimeHook`
+- Formatters: `formatEmployeeShortName`, `formatLessonAuditories`, `formatLessonEmployees`, `formatLessonSubgroup`, `formatLessonTimeRange`, `formatLessonType`, `formatLessonWeekNumbers`
 - Error classes: `BsuirApiError`, `BsuirNetworkError`, `BsuirTimeoutError`, `BsuirValidationError`, `BsuirResponseValidationError`, `BsuirResponsePayloadTooLargeError`, `BsuirConfigurationError`
 - Domain types: `Announcement`, `ApiDateResponse`, `Auditory`, `AuditoryDepartment`, `AuditoryType`, `BuildingNumber`, `Department`, `EducationForm`, `Employee`, `EmployeeCatalogItem`, `Faculty`, `FlattenedLessonsByDay`, `FlattenedScheduleItem`, `LessonStudentGroup`, `Maybe`, `NormalizedScheduleResponse`, `ScheduleItem`, `ScheduleResponse`, `Speciality`, `StudentGroupCatalogItem`, `StudentGroupShort`, `Weekday`, `WeekScheduleMap`
 
@@ -157,7 +158,7 @@ For **2xx** responses the client reads the body as text, then applies `JSON.pars
 
 - Valid JSON is returned even when `Content-Type` does **not** include `application/json` (mislabeled responses still parse).
 - If `Content-Type` indicates **`application/json`** but the body is empty or not valid JSON, the client throws `BsuirApiError` (`Invalid JSON response payload`), same as for a truncated `{` payload.
-- If the body is **empty** and the content type does **not** indicate JSON, the result is an empty string `""` (analogous to reading plain text). Typical IIS catalog JSON endpoints return a non-empty body.
+- If the body is **empty** and the content type does **not** indicate JSON, the result is `null`. Typical IIS catalog JSON endpoints return a non-empty body.
 - If response body size exceeds `maxResponseBytes`, the client throws `BsuirResponsePayloadTooLargeError`.
 
 ## Raw vs normalized schedule response
@@ -268,6 +269,10 @@ When this package ships a **major** changeset, include a short note with:
 1. **Removed / renamed** — what callers must change
 2. **Mapping table** — old call → new call
 3. **Search hints** — strings to find in consuming repos
+
+### Planned 2.0 (not released)
+
+Intended breaking items (see local quality backlog): remove `schedule.getLastUpdateByGroup` / `getLastUpdateByEmployee`; change subgroup filter so `numSubgroup === 0` is treated as shared lessons; trim leaked low-level request types from the public surface. Exact mapping will land in this section when 2.0 ships.
 
 ### 1.0.0 — subgroup schedule helpers
 
