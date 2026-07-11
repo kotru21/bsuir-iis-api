@@ -258,15 +258,22 @@ export interface BsuirClientOptions {
    * which makes integration issues with the upstream API visible immediately
    * instead of causing silent type-cast bugs later.
    *
-   * **Recommended to enable during development and in test environments.**
-   * Can be left `false` in production for a small performance gain.
+   * Checked surfaces include catalog `listAll`, schedule raw/normalized fetches,
+   * announcements lists, and last-update payloads. Normalized schedule calls still
+   * apply a minimal envelope check even when this flag is `false`, so normalization
+   * cannot crash on non-objects.
+   *
+   * **Recommended during development and in tests.** Leave `false` in production
+   * if you prefer not to fail hard on quirky IIS payloads. Use
+   * `createBsuirClient.strict()` as a shorthand for `{ validateResponses: true }`.
    *
    * @defaultValue false
    *
    * @example
    * ```ts
-   * // Enable only in non-production environments
-   * const client = createBsuirClient({
+   * const client = createBsuirClient.strict({ timeoutMs: 10_000 });
+   * // or:
+   * const client2 = createBsuirClient({
    *   validateResponses: process.env.NODE_ENV !== "production",
    * });
    * ```

@@ -208,8 +208,8 @@ function createInternalConfig(options: BsuirClientOptions): InternalClientConfig
  *
  * Use explicit raw/envelope helpers on the `schedule` module to obtain the
  * API's raw `ScheduleResponse` when required (e.g. `getGroupRaw`,
- * `getEmployeeRaw`, `getGroupEnvelope`). The default `getGroup`/`getEmployee`
- * return a normalized payload.
+ * `getEmployeeRaw`, `getGroupBySubgroupEnvelope`). The default
+ * `getGroup`/`getEmployee` return a normalized payload.
  */
 export interface BsuirClientShape {
   schedule: ReturnType<typeof createScheduleModule>;
@@ -228,6 +228,11 @@ export interface BsuirClientShape {
  * The `schedule` module exposes both normalized and explicit raw/envelope
  * helpers. Use `getGroup` / `getEmployee` for normalized payloads and
  * `getGroupRaw` / `getEmployeeRaw` when you need the original API envelope.
+ * Subgroup shapes use `get*BySubgroup`, `get*BySubgroupRaw`, and
+ * `get*BySubgroupEnvelope`.
+ *
+ * Prefer {@link createBsuirClient.strict} in development/tests when you want
+ * `validateResponses: true` without repeating the option.
  */
 export function createBsuirClient(options: BsuirClientOptions = {}): BsuirClientShape {
   const config = createInternalConfig(options);
@@ -242,6 +247,17 @@ export function createBsuirClient(options: BsuirClientOptions = {}): BsuirClient
     auditories: createAuditoriesModule(config)
   };
 }
+
+/**
+ * Same as {@link createBsuirClient} with `validateResponses` forced to `true`.
+ * Other options are unchanged. The default `createBsuirClient()` still leaves
+ * validation off.
+ */
+createBsuirClient.strict = function createBsuirClientStrict(
+  options: BsuirClientOptions = {}
+): BsuirClientShape {
+  return createBsuirClient({ ...options, validateResponses: true });
+};
 
 /**
  * Public client contract returned by `createBsuirClient`.

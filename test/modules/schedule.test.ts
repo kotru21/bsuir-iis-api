@@ -331,17 +331,16 @@ describe("schedule module", () => {
     expect(subgroupLessons[0]?.numSubgroup).toBe(1);
   });
 
-  it("supports raw subgroup helper responses via options.raw=true", async () => {
+  it("supports raw subgroup helper via getGroupBySubgroupRaw", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildScheduleResponse() })]);
     const client = createBsuirClient({ fetch: fetchImpl });
 
-    const subgroupLessons = await client.schedule.getGroupBySubgroup("053503", 1, { raw: true });
+    const subgroupLessons = await client.schedule.getGroupBySubgroupRaw("053503", 1);
     const first = subgroupLessons[0] as ScheduleItem | undefined;
     expect(subgroupLessons).toHaveLength(1);
     expect(first?.numSubgroup).toBe(1);
     expect(first && "source" in first).toBe(false);
   });
-
   it("returns empty normalized arrays for empty schedules", async () => {
     const fetchImpl = mockFetchSequence([
       createJsonResponse({

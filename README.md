@@ -62,7 +62,7 @@ const client = createBsuirClient({
 - `cache` stores successful GET responses in-memory for the configured TTL. A live `AbortSignal` can still use cache; an already-aborted signal skips cache. Cache hits return **deep-frozen** JSON (same reference on repeat reads); clone the payload if you need to mutate it. Use a separate client instance per identity in multi-tenant apps.
 - `dedupeInFlight` reuses the same in-flight GET request for concurrent callers. It is disabled for per-request signals, non-default cache modes, private credential headers, and already-aborted signals.
 - `maxResponseBytes` limits body size per response to protect against memory spikes.
-- `validateResponses` enables runtime payload-shape checks for list, schedule, announcement, and last-update endpoints when set to `true` (default: `false`). Normalized schedule calls still apply a minimal envelope check so normalization cannot crash on non-objects.
+- `validateResponses` enables runtime payload-shape checks for list, schedule, announcement, and last-update endpoints when set to `true` (default: `false`). Normalized schedule calls still apply a minimal envelope check so normalization cannot crash on non-objects. Prefer enabling in development/tests; use `createBsuirClient.strict(options?)` as a shorthand that forces `validateResponses: true` without changing the default for `createBsuirClient()`.
 - `hooks` provides lifecycle callbacks (`onRequest`, `onRetry`, `onResponse`, `onError`) for observability.
 - `AbortSignal` is supported by all read methods.
 
@@ -72,17 +72,23 @@ const client = createBsuirClient({
 
 - `client.schedule.getGroup(groupNumber, options?)`
 - `client.schedule.getEmployee(urlId, options?)`
+- `client.schedule.getGroupRaw(groupNumber, options?)`
+- `client.schedule.getEmployeeRaw(urlId, options?)`
 - `client.schedule.getGroupFiltered(groupNumber, filter, options?)`
 - `client.schedule.getEmployeeFiltered(urlId, filter, options?)`
 - `client.schedule.getGroupExams(groupNumber, options?)`
 - `client.schedule.getEmployeeExams(urlId, options?)`
-- `client.schedule.getGroupBySubgroup(groupNumber, subgroup, options?)`
-- `client.schedule.getEmployeeBySubgroup(urlId, subgroup, options?)`
+- `client.schedule.getGroupBySubgroup(groupNumber, subgroup, options?)` — flattened lessons
+- `client.schedule.getGroupBySubgroupRaw(groupNumber, subgroup, options?)` — `ScheduleItem[]`
+- `client.schedule.getGroupBySubgroupEnvelope(groupNumber, subgroup, options?)` — filtered `ScheduleResponse`
+- `client.schedule.getEmployeeBySubgroup(urlId, subgroup, options?)` — flattened lessons
+- `client.schedule.getEmployeeBySubgroupRaw(urlId, subgroup, options?)` — `ScheduleItem[]`
+- `client.schedule.getEmployeeBySubgroupEnvelope(urlId, subgroup, options?)` — filtered `ScheduleResponse`
 - `client.schedule.getCurrentWeek(options?)`
-- `client.schedule.getLastUpdateByGroup({ groupNumber } | { id }, options?)`
-- `client.schedule.getLastUpdateByEmployee({ urlId } | { id }, options?)`
+- `client.schedule.getLastUpdateByGroup({ groupNumber } | { id }, options?)` — **deprecated**
+- `client.schedule.getLastUpdateByEmployee({ urlId } | { id }, options?)` — **deprecated**
 
-**Last update (legacy IIS).** The upstream routes `/last-update-date/student-group` and `/last-update-date/employee` are legacy on the BSUIR IIS side and are no longer maintained. For newer group identifiers (six-digit numbers such as `524404`), the student-group endpoint may respond with an error; do not rely on these calls for cache freshness or invalidation for such groups.
+**Last update (legacy IIS, deprecated).** The upstream routes `/last-update-date/student-group` and `/last-update-date/employee` are legacy on the BSUIR IIS side and are no longer maintained. The SDK marks these helpers `@deprecated`; behavior is unchanged for now, with removal planned in a later major. For newer group identifiers (six-digit numbers such as `524404`), the student-group endpoint may respond with an error; do not rely on these calls for cache freshness or invalidation.
 
 ### Catalogs
 
@@ -160,7 +166,7 @@ const client = createBsuirClient();
 const raw = await client.schedule.getGroupRaw("053503");
 ```
 
-Use explicit helpers `getGroupRaw` / `getEmployeeRaw` to obtain raw envelopes. `getGroup()` / `getEmployee()` return normalized payloads by default.
+Use explicit helpers `getGroupRaw` / `getEmployeeRaw` to obtain raw envelopes. `getGroup()` / `getEmployee()` return normalized payloads by default. For subgroup filtering use `get*BySubgroup` (flattened), `get*BySubgroupRaw`, or `get*BySubgroupEnvelope`.
 In raw mode API may return `schedules: null`; normalized mode always converts it to `{}`.
 In raw mode some lesson fields may also be nullable (`weekNumber`, `lessonTypeAbbrev`), so keep null checks if you consume raw payload directly.
 README examples match the installed package version; if types and docs ever diverge, rely on `NormalizedScheduleResponse` / `ScheduleResponse` from the same release.
@@ -248,6 +254,29 @@ node -e "import('bsuir-iis-api').then(m=>console.log(typeof m.createBsuirClient)
 ```
 
 The project uses Changesets for version bumps and changelog generation; edit pending changeset text before versioning when release notes need refinement.
+
+## Migration notes (majors)
+
+When this package ships a **major** changeset (on 0.x that typically becomes the next minor, e.g. 0.14.0), include a short note with:
+
+1. **Removed / renamed** — what callers must change
+2. **Mapping table** — old call → new call
+3. **Search hints** — strings to find in consuming repos
+
+### 0.14.0 — subgroup schedule helpers
+
+| Before                                               | After                                 |
+| ---------------------------------------------------- | ------------------------------------- |
+| `getGroupBySubgroup(g, s, { raw: true })`            | `getGroupBySubgroupRaw(g, s)`         |
+| `getGroupBySubgroup(g, s, { rawEnvelope: true })`    | `getGroupBySubgroupEnvelope(g, s)`    |
+| `getEmployeeBySubgroup(u, s, { raw: true })`         | `getEmployeeBySubgroupRaw(u, s)`      |
+| `getEmployeeBySubgroup(u, s, { rawEnvelope: true })` | `getEmployeeBySubgroupEnvelope(u, s)` |
+| `getGroupEnvelope(g, s)`                             | `getGroupBySubgroupEnvelope(g, s)`    |
+| `getEmployeeEnvelope(u, s)`                          | `getEmployeeBySubgroupEnvelope(u, s)` |
+
+Default `get*BySubgroup(...)` (flattened lessons) is unchanged. Flags `raw` / `rawEnvelope` on subgroup methods are removed.
+
+Search hints: `rawEnvelope`, `getGroupEnvelope`, `getEmployeeEnvelope`, `getGroupBySubgroup(.*raw`.
 
 ## License
 

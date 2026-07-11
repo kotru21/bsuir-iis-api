@@ -111,6 +111,8 @@ export default defineConfig(
       "@typescript-eslint/no-non-null-assertion": "off",
       "@typescript-eslint/array-type": "off",
       "@typescript-eslint/no-unnecessary-type-assertion": "off",
+      // Tests intentionally exercise @deprecated APIs until removal.
+      "@typescript-eslint/no-deprecated": "off",
       // В тестах unicorn тоже менее строгий
       "unicorn/no-array-callback-reference": "off",
       "unicorn/consistent-function-scoping": "off"

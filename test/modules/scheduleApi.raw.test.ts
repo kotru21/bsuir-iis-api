@@ -117,13 +117,11 @@ describe("scheduleApi — explicit raw/envelope behavior", () => {
     expect("lessons" in response).toBe(true);
   });
 
-  it("getGroupBySubgroup rawEnvelope preserves envelope fields and filters schedules", async () => {
+  it("getGroupBySubgroupEnvelope preserves envelope fields and filters schedules", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildSubgroupPayload() })]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
 
-    const response = await client.schedule.getGroupBySubgroup("053503", 1, {
-      rawEnvelope: true
-    });
+    const response = await client.schedule.getGroupBySubgroupEnvelope("053503", 1);
 
     expect(response.startDate).toBe("01.09.2025");
     expect(response.endDate).toBe("30.12.2025");
@@ -132,13 +130,11 @@ describe("scheduleApi — explicit raw/envelope behavior", () => {
     expect(response.schedules?.Вторник?.map((item) => item.numSubgroup)).toEqual([1]);
   });
 
-  it("getEmployeeBySubgroup rawEnvelope preserves envelope fields and filters schedules", async () => {
+  it("getEmployeeBySubgroupEnvelope preserves envelope fields and filters schedules", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildSubgroupPayload() })]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
 
-    const response = await client.schedule.getEmployeeBySubgroup("s-nesterenkov", 1, {
-      rawEnvelope: true
-    });
+    const response = await client.schedule.getEmployeeBySubgroupEnvelope("s-nesterenkov", 1);
 
     expect(response.startDate).toBe("01.09.2025");
     expect(response.endDate).toBe("30.12.2025");
@@ -147,27 +143,14 @@ describe("scheduleApi — explicit raw/envelope behavior", () => {
     expect(response.schedules?.Вторник?.map((item) => item.numSubgroup)).toEqual([1]);
   });
 
-  it("getGroupBySubgroup with raw: true returns filtered ScheduleItem array", async () => {
+  it("getGroupBySubgroupRaw returns filtered ScheduleItem array", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildSubgroupPayload() })]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
 
-    const lessons = await client.schedule.getGroupBySubgroup("053503", 2, { raw: true });
+    const lessons = await client.schedule.getGroupBySubgroupRaw("053503", 2);
     expect(Array.isArray(lessons)).toBe(true);
     expect(lessons).toHaveLength(1);
     expect(lessons[0]?.numSubgroup).toBe(2);
     expect(lessons[0]?.subject).toBe("Physics");
-  });
-
-  it("rawEnvelope takes precedence over raw: true in subgroup helpers", async () => {
-    const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildSubgroupPayload() })]);
-    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
-
-    const response = await client.schedule.getGroupBySubgroup("053503", 1, {
-      raw: true,
-      rawEnvelope: true
-    } as unknown as { rawEnvelope: true });
-
-    expect("schedules" in response).toBe(true);
-    expect(Array.isArray(response)).toBe(false);
   });
 });
