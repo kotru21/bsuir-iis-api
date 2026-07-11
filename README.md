@@ -97,14 +97,17 @@ const client = createBsuirClient({
 
 ### Catalogs
 
-- `client.groups.listAll(options?)`
-- `client.employees.listAll(options?)`
-- `client.faculties.listAll(options?)`
-- `client.departments.listAll(options?)`
-- `client.specialities.listAll(options?)`
-- `client.auditories.listAll(options?)`
+- `client.groups.listAll(options?)` / `client.groups.listAllPages(options?)`
+- `client.employees.listAll(options?)` / `client.employees.listAllPages(options?)`
+- `client.faculties.listAll(options?)` / `client.faculties.listAllPages(options?)`
+- `client.departments.listAll(options?)` / `client.departments.listAllPages(options?)`
+- `client.specialities.listAll(options?)` / `client.specialities.listAllPages(options?)`
+- `client.auditories.listAll(options?)` / `client.auditories.listAllPages(options?)`
 
-Catalog `listAll()` methods always resolve to arrays. If IIS returns a Spring Data page envelope (`{ content: [...] }`), the SDK unwraps `content` (first page only).
+Catalog list methods always resolve to arrays. If IIS returns a Spring Data page envelope (`{ content: [...] }`):
+
+- **`listAll()`** unwraps **first page only** (does not request page 2+). Prefer this when catalogs are small or returned as a plain array.
+- **`listAllPages()`** fetches **all pages** (query `page` / `size`) and concatenates them. If IIS reports more than **50** pages, the SDK throws `BsuirConfigurationError` (same safety cap as announcements).
 
 ### Announcements
 
@@ -115,7 +118,7 @@ Both methods always resolve to `Announcement[]`. IIS may respond with a plain JS
 
 When IIS responds with HTTP `404` (the employee or department has no announcements), these methods resolve to an empty array `[]` instead of throwing `BsuirApiError`. Pass `treat404AsEmpty: false` to receive the underlying `BsuirApiError` instead. Client-side validation still runs first (`urlId`, department `id`); all other HTTP errors (including `400`) are always thrown so malformed-request bugs are not silently masked.
 
-**Pagination note:** IIS serves announcements as Spring Data pages (default `size` 20) using `page` / `size` query params. The SDK fetches **all pages** and returns the concatenated `Announcement[]`. If IIS reports more than **50** pages, the SDK throws `BsuirConfigurationError` (safety cap). Catalog `listAll()` still unwraps the first page only.
+**Pagination note:** IIS serves announcements as Spring Data pages (default `size` 20) using `page` / `size` query params. The SDK fetches **all pages** and returns the concatenated `Announcement[]`. If IIS reports more than **50** pages, the SDK throws `BsuirConfigurationError` (safety cap). Catalog **`listAll()`** still unwraps the first page only; use **`listAllPages()`** to fetch every catalog page under the same 50-page cap.
 
 ### Public exports (runtime utilities and types)
 
@@ -136,7 +139,7 @@ SDK throws typed errors:
 - `BsuirResponseValidationError` for invalid payload shapes when `validateResponses: true`
 - `BsuirTimeoutError` for timeouts (contains `endpoint`, `timeoutMs`)
 - `BsuirValidationError` for invalid input parameters
-- `BsuirConfigurationError` when the runtime has no `fetch` and none was passed to `createBsuirClient({ fetch })`, or when announcements pagination exceeds the 50-page safety cap
+- `BsuirConfigurationError` when the runtime has no `fetch` and none was passed to `createBsuirClient({ fetch })`, or when announcements / catalog `listAllPages` pagination exceeds the 50-page safety cap
 
 Validation rules:
 
