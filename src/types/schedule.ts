@@ -52,15 +52,18 @@ export interface ScheduleResponse {
   isZaochOrDist?: boolean | null;
 }
 
+/** Where a flattened lesson came from in the IIS schedule envelope. */
+export type FlattenedScheduleSource = "schedules" | "exams" | "nextSchedules";
+
 export interface FlattenedScheduleItem extends ScheduleItem {
   day: Weekday | null;
-  source: "schedules" | "exams";
+  source: FlattenedScheduleSource;
 }
 
 export type FlattenedLessonsByDay = Record<Weekday, FlattenedScheduleItem[]>;
 
 export interface ScheduleFilterOptions {
-  source?: "schedules" | "exams";
+  source?: FlattenedScheduleSource;
   weekday?: Weekday;
   weekNumber?: number;
   subgroup?: number;
@@ -68,6 +71,21 @@ export interface ScheduleFilterOptions {
   subjectQuery?: string;
   employeeUrlId?: string;
   auditory?: string;
+}
+
+/**
+ * Options for {@link normalizeSchedule}.
+ */
+export interface NormalizeScheduleOptions {
+  /** When `true`, run full envelope validation via `assertScheduleResponse`. */
+  validate?: boolean;
+  /** Endpoint label used in validation / minimal-envelope errors. */
+  endpoint?: string;
+  /**
+   * When `true`, flatten `nextSchedules` into `lessons` / `lessonsByDay` with
+   * `source: "nextSchedules"`. Default `false` keeps current-term (`schedules`) only.
+   */
+  includeNextSchedules?: boolean;
 }
 
 export interface NormalizedScheduleResponse extends Omit<ScheduleResponse, "schedules" | "exams"> {

@@ -7,10 +7,11 @@ import type {
 } from "../types/schedule";
 import { assertPositiveInt } from "../utils/guards";
 import { filterLessons } from "../helpers/scheduleFilter";
+import type { ScheduleReadOptions } from "./scheduleApi";
 import type { ReadOptions } from "./types";
 
 export interface ScheduleSubjectFetcher {
-  getNormalized(id: string, options?: ReadOptions): Promise<NormalizedScheduleResponse>;
+  getNormalized(id: string, options?: ScheduleReadOptions): Promise<NormalizedScheduleResponse>;
   getRaw(id: string, options?: ReadOptions): Promise<ScheduleResponse>;
 }
 
@@ -18,13 +19,13 @@ export interface ScheduleSubjectMethods {
   getFiltered(
     id: string,
     filter: ScheduleFilterOptions,
-    options?: ReadOptions
+    options?: ScheduleReadOptions
   ): Promise<FlattenedScheduleItem[]>;
-  getExams(id: string, options?: ReadOptions): Promise<FlattenedScheduleItem[]>;
+  getExams(id: string, options?: ScheduleReadOptions): Promise<FlattenedScheduleItem[]>;
   getBySubgroup(
     id: string,
     subgroup: number,
-    options?: ReadOptions
+    options?: ScheduleReadOptions
   ): Promise<FlattenedScheduleItem[]>;
   getBySubgroupRaw(id: string, subgroup: number, options?: ReadOptions): Promise<ScheduleItem[]>;
   getBySubgroupEnvelope(
@@ -78,23 +79,27 @@ export function createScheduleSubjectMethods(
   async function getFiltered(
     id: string,
     filter: ScheduleFilterOptions,
-    options: ReadOptions = {}
+    options: ScheduleReadOptions = {}
   ): Promise<FlattenedScheduleItem[]> {
     const normalized = await fetcher.getNormalized(id, {
       signal: options.signal,
-      cache: options.cache
+      cache: options.cache,
+      includeNextSchedules: options.includeNextSchedules
     });
     return filterLessons(normalized, filter);
   }
 
-  async function getExams(id: string, options: ReadOptions = {}): Promise<FlattenedScheduleItem[]> {
+  async function getExams(
+    id: string,
+    options: ScheduleReadOptions = {}
+  ): Promise<FlattenedScheduleItem[]> {
     return getFiltered(id, { source: "exams" }, options);
   }
 
   async function getBySubgroup(
     id: string,
     subgroup: number,
-    options: ReadOptions = {}
+    options: ScheduleReadOptions = {}
   ): Promise<FlattenedScheduleItem[]> {
     assertPositiveInt(subgroup, "subgroup");
     return getFiltered(id, { source: "schedules", subgroup }, options);
