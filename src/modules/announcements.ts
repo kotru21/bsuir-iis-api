@@ -1,6 +1,7 @@
 import { BsuirApiError } from "../client/errors";
 import { requestJson } from "../client/http";
 import { assertAnnouncementListResponse } from "../client/responseValidators";
+import { unwrapSpringPageContent } from "../client/springPage";
 import type { InternalClientConfig } from "../client/types";
 import type { Announcement } from "../types/announcement";
 import { assertEmployeeUrlId, assertPositiveInt } from "../utils/guards";
@@ -35,24 +36,6 @@ function endpointMatchesPath(endpoint: string, path: string): boolean {
 }
 
 /**
- * IIS announcements may be a plain array (legacy) or a Spring page `{ content: [...] }`.
- */
-function normalizeAnnouncementList(payload: unknown): unknown {
-  if (Array.isArray(payload)) {
-    return payload;
-  }
-
-  if (typeof payload === "object" && payload !== null) {
-    const content = (payload as Record<string, unknown>).content;
-    if (Array.isArray(content)) {
-      return content;
-    }
-  }
-
-  return payload;
-}
-
-/**
  * Fetches an announcement list, optionally converting 404 to empty array.
  *
  * The previous implementation inspected response bodies for marker strings like
@@ -80,7 +63,7 @@ async function requestAnnouncementList(
           }
         : undefined
     });
-    return normalizeAnnouncementList(payload) as Announcement[];
+    return unwrapSpringPageContent(payload) as Announcement[];
   } catch (error) {
     if (
       treat404AsEmpty &&
