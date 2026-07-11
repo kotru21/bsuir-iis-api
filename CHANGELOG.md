@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.1
+
+### Patch Changes
+
+- 2c70f23: Internal refactors: shared scheduleApi subject factory; split requestJson and schedule helpers into focused modules. No public API or behavior changes.
+
 ## 1.0.0
 
 ### Major Changes
