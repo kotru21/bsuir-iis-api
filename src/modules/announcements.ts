@@ -1,11 +1,18 @@
-import { BsuirApiError } from "../client/errors";
+import { BsuirApiError, BsuirConfigurationError } from "../client/errors";
 import { requestJson } from "../client/http";
 import { assertAnnouncementListResponse } from "../client/responseValidators";
-import { unwrapSpringPageContent } from "../client/springPage";
+import {
+  readSpringPageMeta,
+  unwrapSpringPageContent,
+  type SpringPageMeta
+} from "../client/springPage";
 import type { InternalClientConfig } from "../client/types";
 import type { Announcement } from "../types/announcement";
 import { assertEmployeeUrlId, assertPositiveInt } from "../utils/guards";
 import type { ReadOptions } from "./types";
+
+/** Hard safety cap on Spring pages fetched for one announcements call. */
+const MAX_ANNOUNCEMENT_PAGES = 50;
 
 /**
  * Options accepted by `announcements.byEmployee` and `announcements.byDepartment`.
@@ -35,16 +42,52 @@ function endpointMatchesPath(endpoint: string, path: string): boolean {
   }
 }
 
+function isFirstPageNotFound(
+  error: BsuirApiError,
+  path: string,
+  treat404AsEmpty: boolean
+): boolean {
+  return (
+    treat404AsEmpty &&
+    error.status === 404 &&
+    endpointMatchesPath(error.endpoint, path) &&
+    !/[?&]page=/.test(error.endpoint)
+  );
+}
+
+function assertWithinPageCap(totalPages: number | undefined): void {
+  if (typeof totalPages === "number" && totalPages > MAX_ANNOUNCEMENT_PAGES) {
+    throw new BsuirConfigurationError(
+      `Announcements pagination exceeded safety cap of ${MAX_ANNOUNCEMENT_PAGES} pages (totalPages=${totalPages})`
+    );
+  }
+}
+
+function hasMoreAnnouncementPages(meta: SpringPageMeta, nextPage: number): boolean {
+  if (meta.last === true) {
+    return false;
+  }
+  if (typeof meta.totalPages === "number") {
+    return nextPage < meta.totalPages;
+  }
+  return meta.last === false;
+}
+
+function assertNextPageWithinCap(nextPage: number): void {
+  if (nextPage >= MAX_ANNOUNCEMENT_PAGES) {
+    throw new BsuirConfigurationError(
+      `Announcements pagination exceeded safety cap of ${MAX_ANNOUNCEMENT_PAGES} pages`
+    );
+  }
+}
+
 /**
- * Fetches an announcement list, optionally converting 404 to empty array.
+ * Fetches an announcement list across all Spring Data pages (capped), optionally
+ * converting a first-request 404 to an empty array.
  *
- * The previous implementation inspected response bodies for marker strings like
- * "announcement"/"объяв" to decide whether to swallow the 404. That heuristic
- * masked genuine errors with similar wording and was fragile across API versions.
- * We now rely on the endpoint-scoped 404 status alone, with an opt-out.
- *
- * @returns The announcement list (plain array or first page from a paginated envelope), or empty array for 404 when `treat404AsEmpty` is `true`
- * @throws {BsuirApiError} For non-404 errors, or any 404 when `treat404AsEmpty` is `false`
+ * @returns The full announcement list, or empty array for first-request 404 when `treat404AsEmpty` is `true`
+ * @throws {BsuirApiError} For non-404 errors, mid-pagination 404, or any 404 when `treat404AsEmpty` is `false`
+ * @throws {BsuirConfigurationError} When pagination exceeds the 50-page safety cap
  * @throws {BsuirNetworkError} On transport failures
  * @throws {BsuirTimeoutError} When request times out
  */
@@ -54,27 +97,62 @@ async function requestAnnouncementList(
   options: AnnouncementReadOptions & { query: Record<string, string | number> }
 ): Promise<Announcement[]> {
   const treat404AsEmpty = options.treat404AsEmpty ?? true;
-  try {
-    const payload = await requestJson<unknown>(config, path, {
-      ...options,
+  const { query: baseQuery, ...readOptions } = options;
+
+  const fetchPage = async (query: Record<string, string | number>): Promise<unknown> =>
+    requestJson<unknown>(config, path, {
+      ...readOptions,
+      query,
       responseValidator: config.validateResponses
         ? (value) => {
             assertAnnouncementListResponse(value, path);
           }
         : undefined
     });
-    return unwrapSpringPageContent(payload) as Announcement[];
+
+  try {
+    return await fetchAllAnnouncementPages(fetchPage, baseQuery);
   } catch (error) {
-    if (
-      treat404AsEmpty &&
-      error instanceof BsuirApiError &&
-      error.status === 404 &&
-      endpointMatchesPath(error.endpoint, path)
-    ) {
+    if (error instanceof BsuirApiError && isFirstPageNotFound(error, path, treat404AsEmpty)) {
       return [];
     }
     throw error;
   }
+}
+
+async function fetchAllAnnouncementPages(
+  fetchPage: (query: Record<string, string | number>) => Promise<unknown>,
+  baseQuery: Record<string, string | number>
+): Promise<Announcement[]> {
+  const firstPayload = await fetchPage(baseQuery);
+  const firstMeta = readSpringPageMeta(firstPayload);
+  if (!firstMeta) {
+    return unwrapSpringPageContent(firstPayload) as Announcement[];
+  }
+
+  assertWithinPageCap(firstMeta.totalPages);
+  const items = [...(unwrapSpringPageContent(firstPayload) as Announcement[])];
+  let pageNumber = firstMeta.pageNumber;
+  let meta = firstMeta;
+
+  while (hasMoreAnnouncementPages(meta, pageNumber + 1)) {
+    const nextPage = pageNumber + 1;
+    assertNextPageWithinCap(nextPage);
+    const pagePayload = await fetchPage({
+      ...baseQuery,
+      page: nextPage,
+      size: firstMeta.pageSize
+    });
+    const pageMeta = readSpringPageMeta(pagePayload);
+    items.push(...(unwrapSpringPageContent(pagePayload) as Announcement[]));
+    if (!pageMeta) {
+      break;
+    }
+    pageNumber = pageMeta.pageNumber;
+    meta = pageMeta;
+  }
+
+  return items;
 }
 
 /**
@@ -92,8 +170,8 @@ export function createAnnouncementsModule(config: Readonly<InternalClientConfig>
      * the SDK maps that to `[]`; pass `treat404AsEmpty: false` to receive the
      * underlying `BsuirApiError` instead.
      *
-     * When IIS returns a paginated envelope, only the `content` array from the first
-     * page is returned.
+     * When IIS returns a paginated Spring Data envelope, all pages are fetched
+     * (safety cap: 50 pages) and concatenated into a single `Announcement[]`.
      */
     async byEmployee(
       urlId: string,
@@ -113,8 +191,8 @@ export function createAnnouncementsModule(config: Readonly<InternalClientConfig>
      * the SDK maps that to `[]`; pass `treat404AsEmpty: false` to receive the
      * underlying `BsuirApiError` instead.
      *
-     * When IIS returns a paginated envelope, only the `content` array from the first
-     * page is returned.
+     * When IIS returns a paginated Spring Data envelope, all pages are fetched
+     * (safety cap: 50 pages) and concatenated into a single `Announcement[]`.
      */
     async byDepartment(id: number, options: AnnouncementReadOptions = {}): Promise<Announcement[]> {
       assertPositiveInt(id, "id");
