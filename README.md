@@ -93,7 +93,7 @@ const client = createBsuirClient({
 - `client.specialities.listAll(options?)`
 - `client.auditories.listAll(options?)`
 
-Catalog `listAll()` methods always resolve to arrays. If IIS returns a Spring Data page envelope (`{ content: [...] }`), the SDK unwraps `content` (first page only; same limitation as announcements until multi-page fetching lands).
+Catalog `listAll()` methods always resolve to arrays. If IIS returns a Spring Data page envelope (`{ content: [...] }`), the SDK unwraps `content` (first page only).
 
 ### Announcements
 
@@ -104,7 +104,7 @@ Both methods always resolve to `Announcement[]`. IIS may respond with a plain JS
 
 When IIS responds with HTTP `404` (the employee or department has no announcements), these methods resolve to an empty array `[]` instead of throwing `BsuirApiError`. Pass `treat404AsEmpty: false` to receive the underlying `BsuirApiError` instead. Client-side validation still runs first (`urlId`, department `id`); all other HTTP errors (including `400`) are always thrown so malformed-request bugs are not silently masked.
 
-**Pagination note:** IIS currently serves announcements in pages (default `pageSize: 20`). The SDK returns the items from the first page only; automatic multi-page fetching is not implemented yet.
+**Pagination note:** IIS serves announcements as Spring Data pages (default `size` 20) using `page` / `size` query params. The SDK fetches **all pages** and returns the concatenated `Announcement[]`. If IIS reports more than **50** pages, the SDK throws `BsuirConfigurationError` (safety cap). Catalog `listAll()` still unwraps the first page only.
 
 ### Public exports (runtime utilities and types)
 
@@ -124,7 +124,7 @@ SDK throws typed errors:
 - `BsuirResponseValidationError` for invalid payload shapes when `validateResponses: true`
 - `BsuirTimeoutError` for timeouts (contains `endpoint`, `timeoutMs`)
 - `BsuirValidationError` for invalid input parameters
-- `BsuirConfigurationError` when the runtime has no `fetch` and none was passed to `createBsuirClient({ fetch })`
+- `BsuirConfigurationError` when the runtime has no `fetch` and none was passed to `createBsuirClient({ fetch })`, or when announcements pagination exceeds the 50-page safety cap
 
 Validation rules:
 

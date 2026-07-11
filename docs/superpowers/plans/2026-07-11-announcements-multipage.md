@@ -14,16 +14,16 @@
 
 ## File map
 
-| File                                                 | Responsibility                                                                 |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Modify: `src/modules/announcements.ts`               | Fetch-all pagination loop, `MAX_ANNOUNCEMENT_PAGES`, cap error                 |
-| Modify: `src/client/springPage.ts`                   | Optional tiny helpers for page meta (keep unwrap; add `readSpringPageMeta`)    |
-| Modify: `test/client/springPage.test.ts`             | Tests for page-meta helper                                                     |
-| Modify: `test/modules/announcements.test.ts`         | Multi-page, cap, query-param, treat404 regression tests                        |
-| Modify: `test/integration/live-api.contract.test.ts` | Probe `page`/`size`; assert SDK length vs `totalElements`                      |
-| Modify: `README.md`                                  | Pagination note: fetch-all + 50-page cap                                       |
-| Create: `.changeset/announcements-multipage.md`      | Patch changeset                                                                |
-| Docs: mini-spec + this plan                          | Already created under `docs/superpowers/`                                      |
+| File                                                 | Responsibility                                                              |
+| ---------------------------------------------------- | --------------------------------------------------------------------------- |
+| Modify: `src/modules/announcements.ts`               | Fetch-all pagination loop, `MAX_ANNOUNCEMENT_PAGES`, cap error              |
+| Modify: `src/client/springPage.ts`                   | Optional tiny helpers for page meta (keep unwrap; add `readSpringPageMeta`) |
+| Modify: `test/client/springPage.test.ts`             | Tests for page-meta helper                                                  |
+| Modify: `test/modules/announcements.test.ts`         | Multi-page, cap, query-param, treat404 regression tests                     |
+| Modify: `test/integration/live-api.contract.test.ts` | Probe `page`/`size`; assert SDK length vs `totalElements`                   |
+| Modify: `README.md`                                  | Pagination note: fetch-all + 50-page cap                                    |
+| Create: `.changeset/announcements-multipage.md`      | Patch changeset                                                             |
+| Docs: mini-spec + this plan                          | Already created under `docs/superpowers/`                                   |
 
 **Public API:** No new exports. Return type stays `Announcement[]`. Semver: **patch**.
 
@@ -172,100 +172,100 @@ EOF
 Append to `test/modules/announcements.test.ts`:
 
 ```typescript
-  it("fetches all pages and concatenates announcement content", async () => {
-    const page0 = {
-      content: [{ id: 1 }, { id: 2 }],
-      pageable: { pageNumber: 0, pageSize: 2 },
-      totalElements: 5,
-      totalPages: 3,
-      last: false,
-      size: 2,
-      number: 0
-    };
-    const page1 = {
-      content: [{ id: 3 }, { id: 4 }],
-      pageable: { pageNumber: 1, pageSize: 2 },
-      totalElements: 5,
-      totalPages: 3,
-      last: false,
-      size: 2,
-      number: 1
-    };
-    const page2 = {
-      content: [{ id: 5 }],
-      pageable: { pageNumber: 2, pageSize: 2 },
-      totalElements: 5,
-      totalPages: 3,
-      last: true,
-      size: 2,
-      number: 2
-    };
-    const fetchImpl = mockFetchSequence([
-      createJsonResponse({ body: page0 }),
-      createJsonResponse({ body: page1 }),
-      createJsonResponse({ body: page2 })
-    ]);
-    const client = createBsuirClient({ fetch: fetchImpl });
-    const result = await client.announcements.byEmployee("v-petrov");
-    expect(result).toEqual([{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }, { id: 5 }]);
-    expect(fetchImpl).toHaveBeenCalledTimes(3);
-    const secondUrl = String((fetchImpl as ReturnType<typeof vi.fn>).mock.calls[1]?.[0]);
-    const thirdUrl = String((fetchImpl as ReturnType<typeof vi.fn>).mock.calls[2]?.[0]);
-    expect(secondUrl).toContain("page=1");
-    expect(secondUrl).toContain("size=2");
-    expect(secondUrl).toContain("url-id=v-petrov");
-    expect(thirdUrl).toContain("page=2");
-    expect(thirdUrl).toContain("size=2");
-  });
+it("fetches all pages and concatenates announcement content", async () => {
+  const page0 = {
+    content: [{ id: 1 }, { id: 2 }],
+    pageable: { pageNumber: 0, pageSize: 2 },
+    totalElements: 5,
+    totalPages: 3,
+    last: false,
+    size: 2,
+    number: 0
+  };
+  const page1 = {
+    content: [{ id: 3 }, { id: 4 }],
+    pageable: { pageNumber: 1, pageSize: 2 },
+    totalElements: 5,
+    totalPages: 3,
+    last: false,
+    size: 2,
+    number: 1
+  };
+  const page2 = {
+    content: [{ id: 5 }],
+    pageable: { pageNumber: 2, pageSize: 2 },
+    totalElements: 5,
+    totalPages: 3,
+    last: true,
+    size: 2,
+    number: 2
+  };
+  const fetchImpl = mockFetchSequence([
+    createJsonResponse({ body: page0 }),
+    createJsonResponse({ body: page1 }),
+    createJsonResponse({ body: page2 })
+  ]);
+  const client = createBsuirClient({ fetch: fetchImpl });
+  const result = await client.announcements.byEmployee("v-petrov");
+  expect(result).toEqual([{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }, { id: 5 }]);
+  expect(fetchImpl).toHaveBeenCalledTimes(3);
+  const secondUrl = String((fetchImpl as ReturnType<typeof vi.fn>).mock.calls[1]?.[0]);
+  const thirdUrl = String((fetchImpl as ReturnType<typeof vi.fn>).mock.calls[2]?.[0]);
+  expect(secondUrl).toContain("page=1");
+  expect(secondUrl).toContain("size=2");
+  expect(secondUrl).toContain("url-id=v-petrov");
+  expect(thirdUrl).toContain("page=2");
+  expect(thirdUrl).toContain("size=2");
+});
 
-  it("does not request further pages when totalPages is 1", async () => {
-    const body = {
-      content: [{ id: 1 }],
-      pageable: { pageNumber: 0, pageSize: 20 },
-      totalElements: 1,
-      totalPages: 1,
-      last: true
-    };
-    const fetchImpl = mockFetchSequence([createJsonResponse({ body })]);
-    const client = createBsuirClient({ fetch: fetchImpl });
-    await expect(client.announcements.byEmployee("v-petrov")).resolves.toEqual([{ id: 1 }]);
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
-  });
+it("does not request further pages when totalPages is 1", async () => {
+  const body = {
+    content: [{ id: 1 }],
+    pageable: { pageNumber: 0, pageSize: 20 },
+    totalElements: 1,
+    totalPages: 1,
+    last: true
+  };
+  const fetchImpl = mockFetchSequence([createJsonResponse({ body })]);
+  const client = createBsuirClient({ fetch: fetchImpl });
+  await expect(client.announcements.byEmployee("v-petrov")).resolves.toEqual([{ id: 1 }]);
+  expect(fetchImpl).toHaveBeenCalledTimes(1);
+});
 
-  it("throws BsuirConfigurationError when totalPages exceeds safety cap", async () => {
-    const { BsuirConfigurationError } = await import("../../src/client/errors");
-    const body = {
-      content: [{ id: 1 }],
-      pageable: { pageNumber: 0, pageSize: 20 },
-      totalElements: 2000,
-      totalPages: 51,
-      last: false
-    };
-    const fetchImpl = mockFetchSequence([createJsonResponse({ body })]);
-    const client = createBsuirClient({ fetch: fetchImpl, retries: 0 });
-    await expect(client.announcements.byEmployee("v-petrov")).rejects.toBeInstanceOf(
-      BsuirConfigurationError
-    );
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
-  });
+it("throws BsuirConfigurationError when totalPages exceeds safety cap", async () => {
+  const { BsuirConfigurationError } = await import("../../src/client/errors");
+  const body = {
+    content: [{ id: 1 }],
+    pageable: { pageNumber: 0, pageSize: 20 },
+    totalElements: 2000,
+    totalPages: 51,
+    last: false
+  };
+  const fetchImpl = mockFetchSequence([createJsonResponse({ body })]);
+  const client = createBsuirClient({ fetch: fetchImpl, retries: 0 });
+  await expect(client.announcements.byEmployee("v-petrov")).rejects.toBeInstanceOf(
+    BsuirConfigurationError
+  );
+  expect(fetchImpl).toHaveBeenCalledTimes(1);
+});
 
-  it("keeps treat404AsEmpty on the first request only", async () => {
-    const page0 = {
-      content: [{ id: 1 }],
-      pageable: { pageNumber: 0, pageSize: 1 },
-      totalElements: 2,
-      totalPages: 2,
-      last: false,
-      size: 1,
-      number: 0
-    };
-    const fetchImpl = mockFetchSequence([
-      createJsonResponse({ body: page0 }),
-      createJsonResponse({ status: 404, body: { message: "not found" } })
-    ]);
-    const client = createBsuirClient({ fetch: fetchImpl, retries: 0 });
-    await expect(client.announcements.byEmployee("v-petrov")).rejects.toBeInstanceOf(BsuirApiError);
-  });
+it("keeps treat404AsEmpty on the first request only", async () => {
+  const page0 = {
+    content: [{ id: 1 }],
+    pageable: { pageNumber: 0, pageSize: 1 },
+    totalElements: 2,
+    totalPages: 2,
+    last: false,
+    size: 1,
+    number: 0
+  };
+  const fetchImpl = mockFetchSequence([
+    createJsonResponse({ body: page0 }),
+    createJsonResponse({ status: 404, body: { message: "not found" } })
+  ]);
+  const client = createBsuirClient({ fetch: fetchImpl, retries: 0 });
+  await expect(client.announcements.byEmployee("v-petrov")).rejects.toBeInstanceOf(BsuirApiError);
+});
 ```
 
 Also add at top of file if missing: `import` already has `vi` and `BsuirApiError`.
@@ -358,10 +358,7 @@ async function requestAnnouncementList(
       return items;
     }
 
-    if (
-      typeof firstMeta.totalPages === "number" &&
-      firstMeta.totalPages > MAX_ANNOUNCEMENT_PAGES
-    ) {
+    if (typeof firstMeta.totalPages === "number" && firstMeta.totalPages > MAX_ANNOUNCEMENT_PAGES) {
       throw new BsuirConfigurationError(
         `Announcements pagination exceeded safety cap of ${MAX_ANNOUNCEMENT_PAGES} pages (totalPages=${firstMeta.totalPages})`
       );
@@ -472,42 +469,45 @@ In `test/integration/live-api.contract.test.ts`, update the announcements pagina
 Example addition inside the existing test (after raw default probe):
 
 ```typescript
-    const pagedUrl = `${baseUrl}/announcements/employees?url-id=s-nesterenkov&page=0&size=5`;
-    const pagedResponse = await fetch(pagedUrl, { headers: { Accept: "application/json" } });
-    if (pagedResponse.ok) {
-      const pagedPayload: unknown = await pagedResponse.json();
-      if (
-        typeof pagedPayload === "object" &&
-        pagedPayload !== null &&
-        Array.isArray((pagedPayload as { content?: unknown }).content)
-      ) {
-        const page = pagedPayload as {
-          content: unknown[];
-          totalPages?: number;
-          totalElements?: number;
-          last?: boolean;
-        };
-        expect(page.content.length).toBeGreaterThan(0);
-        expect(page.content.length).toBeLessThanOrEqual(5);
-        if (typeof page.totalPages === "number" && page.totalPages > 1) {
-          expect(page.last).toBe(false);
-          const page1Url = `${baseUrl}/announcements/employees?url-id=s-nesterenkov&page=1&size=5`;
-          const page1Response = await fetch(page1Url, {
-            headers: { Accept: "application/json" }
-          });
-          expect(page1Response.ok).toBe(true);
-          const page1Payload: unknown = await page1Response.json();
-          expect(Array.isArray((page1Payload as { content?: unknown }).content)).toBe(true);
-        }
-      }
+const pagedUrl = `${baseUrl}/announcements/employees?url-id=s-nesterenkov&page=0&size=5`;
+const pagedResponse = await fetch(pagedUrl, { headers: { Accept: "application/json" } });
+if (pagedResponse.ok) {
+  const pagedPayload: unknown = await pagedResponse.json();
+  if (
+    typeof pagedPayload === "object" &&
+    pagedPayload !== null &&
+    Array.isArray((pagedPayload as { content?: unknown }).content)
+  ) {
+    const page = pagedPayload as {
+      content: unknown[];
+      totalPages?: number;
+      totalElements?: number;
+      last?: boolean;
+    };
+    expect(page.content.length).toBeGreaterThan(0);
+    expect(page.content.length).toBeLessThanOrEqual(5);
+    if (typeof page.totalPages === "number" && page.totalPages > 1) {
+      expect(page.last).toBe(false);
+      const page1Url = `${baseUrl}/announcements/employees?url-id=s-nesterenkov&page=1&size=5`;
+      const page1Response = await fetch(page1Url, {
+        headers: { Accept: "application/json" }
+      });
+      expect(page1Response.ok).toBe(true);
+      const page1Payload: unknown = await page1Response.json();
+      expect(Array.isArray((page1Payload as { content?: unknown }).content)).toBe(true);
     }
+  }
+}
 
-    const viaSdk = await client.announcements.byEmployee("s-nesterenkov");
-    expect(Array.isArray(viaSdk)).toBe(true);
-    if (rawResponse.ok) {
-      const rawPayload: unknown = await rawResponse.clone().json().catch(() => null);
-      // Prefer totalElements captured earlier from the first json() call — see Step notes.
-    }
+const viaSdk = await client.announcements.byEmployee("s-nesterenkov");
+expect(Array.isArray(viaSdk)).toBe(true);
+if (rawResponse.ok) {
+  const rawPayload: unknown = await rawResponse
+    .clone()
+    .json()
+    .catch(() => null);
+  // Prefer totalElements captured earlier from the first json() call — see Step notes.
+}
 ```
 
 **Implementation note:** The current test already calls `rawResponse.json()` once. Capture `totalElements` in a `let` during the first parse, then after `viaSdk` assert:

@@ -11,26 +11,26 @@ IIS serves announcements as a Spring Data page. Default page size is **20**. Tod
 
 ## Live contract (probed 2026-07-11)
 
-| Observation | Evidence |
-| ----------- | -------- |
-| Envelope | `{ content, pageable, totalElements, totalPages, last, size, number, ... }` |
-| Default size | `pageSize` / `size` = **20** |
-| Query params | **`page`** (0-based) and **`size`** — Spring Data defaults |
-| `pageSize` query | **Ignored** by IIS (still returns default size 20) |
-| Example | `s-nesterenkov`: 10 items → 1 page at default; 2 pages when `size=5` |
+| Observation      | Evidence                                                                    |
+| ---------------- | --------------------------------------------------------------------------- |
+| Envelope         | `{ content, pageable, totalElements, totalPages, last, size, number, ... }` |
+| Default size     | `pageSize` / `size` = **20**                                                |
+| Query params     | **`page`** (0-based) and **`size`** — Spring Data defaults                  |
+| `pageSize` query | **Ignored** by IIS (still returns default size 20)                          |
+| Example          | `s-nesterenkov`: 10 items → 1 page at default; 2 pages when `size=5`        |
 
 ## Decision (locked)
 
-| Topic | Choice | Why |
-| ----- | ------ | --- |
-| Default behavior | **Always fetch all pages** and return concatenated `Announcement[]` | Closes silent data-loss P0; callers already expect a full list |
-| Public options | **No new opts** (`fetchAllPages` / `maxPages` YAGNI) | Constant safety cap is enough |
-| Semver | **patch** | Behavior bugfix; return type unchanged |
-| Unwrap | Reuse `unwrapSpringPageContent` | Wave 0 foundation |
-| Empty 404 | Keep `treat404AsEmpty` unchanged (first request only) | Existing contract |
-| Safety cap | **`MAX_ANNOUNCEMENT_PAGES = 50`** | Bound latency / IIS load |
-| Cap exceeded | Throw **`BsuirConfigurationError`** with a clear message | Typed, already exported; no new public error class |
-| Subsequent-page 404 | **Do not** map to `[]` — rethrow | First page succeeded; mid-pagination 404 is exceptional |
+| Topic               | Choice                                                              | Why                                                            |
+| ------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Default behavior    | **Always fetch all pages** and return concatenated `Announcement[]` | Closes silent data-loss P0; callers already expect a full list |
+| Public options      | **No new opts** (`fetchAllPages` / `maxPages` YAGNI)                | Constant safety cap is enough                                  |
+| Semver              | **patch**                                                           | Behavior bugfix; return type unchanged                         |
+| Unwrap              | Reuse `unwrapSpringPageContent`                                     | Wave 0 foundation                                              |
+| Empty 404           | Keep `treat404AsEmpty` unchanged (first request only)               | Existing contract                                              |
+| Safety cap          | **`MAX_ANNOUNCEMENT_PAGES = 50`**                                   | Bound latency / IIS load                                       |
+| Cap exceeded        | Throw **`BsuirConfigurationError`** with a clear message            | Typed, already exported; no new public error class             |
+| Subsequent-page 404 | **Do not** map to `[]` — rethrow                                    | First page succeeded; mid-pagination 404 is exceptional        |
 
 ## Behavior
 

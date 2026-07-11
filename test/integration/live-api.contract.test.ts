@@ -147,6 +147,7 @@ describeLive("live API contract", () => {
   it("announcements endpoints return array or Spring page; SDK yields array", async () => {
     const baseUrl = "https://iis.bsuir.by/api/v1";
     const rawEmployeeUrl = `${baseUrl}/announcements/employees?url-id=s-nesterenkov`;
+    let capturedTotalElements: number | undefined;
 
     const rawResponse = await fetch(rawEmployeeUrl, {
       headers: { Accept: "application/json" }
@@ -173,14 +174,50 @@ describeLive("live API contract", () => {
         if (typeof page.totalPages === "number") {
           expect(page.totalPages).toBeGreaterThanOrEqual(1);
         }
-        // Wave 1 will fetch remaining pages when totalPages > 1 / last === false.
+        if (typeof page.totalElements === "number") {
+          capturedTotalElements = page.totalElements;
+        }
         if (page.last === false || (typeof page.totalPages === "number" && page.totalPages > 1)) {
           expect(page.content.length).toBeGreaterThan(0);
+        }
+      } else if (isArray) {
+        capturedTotalElements = rawPayload.length;
+      }
+    }
+
+    const pagedUrl = `${baseUrl}/announcements/employees?url-id=s-nesterenkov&page=0&size=5`;
+    const pagedResponse = await fetch(pagedUrl, { headers: { Accept: "application/json" } });
+    if (pagedResponse.ok) {
+      const pagedPayload: unknown = await pagedResponse.json();
+      if (
+        typeof pagedPayload === "object" &&
+        pagedPayload !== null &&
+        Array.isArray((pagedPayload as { content?: unknown }).content)
+      ) {
+        const page = pagedPayload as {
+          content: unknown[];
+          totalPages?: number;
+          last?: boolean;
+        };
+        expect(page.content.length).toBeGreaterThan(0);
+        expect(page.content.length).toBeLessThanOrEqual(5);
+        if (typeof page.totalPages === "number" && page.totalPages > 1) {
+          expect(page.last).toBe(false);
+          const page1Url = `${baseUrl}/announcements/employees?url-id=s-nesterenkov&page=1&size=5`;
+          const page1Response = await fetch(page1Url, {
+            headers: { Accept: "application/json" }
+          });
+          expect(page1Response.ok).toBe(true);
+          const page1Payload: unknown = await page1Response.json();
+          expect(Array.isArray((page1Payload as { content?: unknown }).content)).toBe(true);
         }
       }
     }
 
     const viaSdk = await client.announcements.byEmployee("s-nesterenkov");
     expect(Array.isArray(viaSdk)).toBe(true);
+    if (typeof capturedTotalElements === "number") {
+      expect(viaSdk.length).toBe(capturedTotalElements);
+    }
   }, 60_000);
 });

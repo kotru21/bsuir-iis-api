@@ -58,7 +58,7 @@ function isFirstPageNotFound(
 function assertWithinPageCap(totalPages: number | undefined): void {
   if (typeof totalPages === "number" && totalPages > MAX_ANNOUNCEMENT_PAGES) {
     throw new BsuirConfigurationError(
-      `Announcements pagination exceeded safety cap of ${MAX_ANNOUNCEMENT_PAGES} pages (totalPages=${totalPages})`
+      `Announcements pagination exceeded safety cap of ${String(MAX_ANNOUNCEMENT_PAGES)} pages (totalPages=${String(totalPages)})`
     );
   }
 }
@@ -76,7 +76,7 @@ function hasMoreAnnouncementPages(meta: SpringPageMeta, nextPage: number): boole
 function assertNextPageWithinCap(nextPage: number): void {
   if (nextPage >= MAX_ANNOUNCEMENT_PAGES) {
     throw new BsuirConfigurationError(
-      `Announcements pagination exceeded safety cap of ${MAX_ANNOUNCEMENT_PAGES} pages`
+      `Announcements pagination exceeded safety cap of ${String(MAX_ANNOUNCEMENT_PAGES)} pages`
     );
   }
 }
