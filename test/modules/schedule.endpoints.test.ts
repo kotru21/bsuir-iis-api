@@ -22,7 +22,9 @@ describe("schedule module — endpoints and helpers", () => {
     ]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
 
+    // eslint-disable-next-line @typescript-eslint/no-deprecated -- testing soft-deprecated last-update until removal
     const byGroup = await client.schedule.getLastUpdateByGroup({ groupNumber: "053503" });
+    // eslint-disable-next-line @typescript-eslint/no-deprecated -- testing soft-deprecated last-update until removal
     const byEmployee = await client.schedule.getLastUpdateByEmployee({ id: 123 });
 
     expect(byGroup.lastUpdateDate).toBe("23.02.2022");

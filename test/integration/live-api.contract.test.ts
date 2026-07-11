@@ -113,6 +113,7 @@ describeLive("live API contract", () => {
         client.schedule.getGroup(workingGroupNumber),
         client.schedule.getEmployee(workingEmployeeUrlId),
         client.schedule.getCurrentWeek(),
+        // eslint-disable-next-line @typescript-eslint/no-deprecated -- testing soft-deprecated last-update until removal
         client.schedule.getLastUpdateByEmployee({ urlId: "s-nesterenkov" })
       ]);
 
@@ -124,6 +125,7 @@ describeLive("live API contract", () => {
       expect(employeeUpdate.lastUpdateDate).toEqual(expect.any(String));
 
       try {
+        // eslint-disable-next-line @typescript-eslint/no-deprecated -- testing soft-deprecated last-update until removal
         const groupUpdate = await client.schedule.getLastUpdateByGroup({
           groupNumber: workingGroupNumber
         });
