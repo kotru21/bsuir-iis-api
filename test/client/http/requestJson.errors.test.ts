@@ -74,8 +74,7 @@ describe("requestJson — response and transport errors", () => {
   });
 
   it("preserves IIS plain-text body on non-2xx even when Content-Type claims JSON", async () => {
-    const seasonal =
-      "Сервис временно недоступен. Работа ИИС возобновится после 15 августа.";
+    const seasonal = "Сервис временно недоступен. Работа ИИС возобновится после 15 августа.";
     const fetchImpl = mockFetchSequence([
       new Response(seasonal, {
         status: 503,

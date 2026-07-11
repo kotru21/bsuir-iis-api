@@ -75,8 +75,7 @@ describe("parseBody", () => {
   });
 
   it("preserves raw text for non-2xx when Content-Type claims JSON but body is plain text", async () => {
-    const seasonal =
-      "Сервис временно недоступен. Работа ИИС возобновится после 15 августа.";
+    const seasonal = "Сервис временно недоступен. Работа ИИС возобновится после 15 августа.";
     const res = new Response(seasonal, {
       status: 503,
       headers: { "content-type": "application/json" }
