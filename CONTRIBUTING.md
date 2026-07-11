@@ -20,10 +20,10 @@ Coverage thresholds are enforced by Vitest (`vitest.config.ts`: lines/functions/
 ```markdown
 src/
 client/ — HTTP engine, error classes, types, signal merging
-modules/ — per-resource API modules (schedule HTTP + filter/normalize)
-helpers/ — pure schedule day/time helpers and formatters
+modules/ — per-resource API modules (schedule HTTP + normalize; filter re-exported from helpers)
+helpers/ — pure schedule filter, day/time helpers, and formatters
 types/ — public TypeScript types (schedule, common, etc.)
-utils/ — shared guards, date helpers, week parser
+utils/ — shared guards, date helpers, week parser, JSON freeze helpers
 ```
 
 ## Browser Tests

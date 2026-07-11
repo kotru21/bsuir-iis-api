@@ -1,9 +1,9 @@
 /**
- * Schedule module barrel — HTTP client module + response shaping only.
+ * Schedule module barrel — HTTP client module + response shaping.
  *
- * Pure day/time helpers live in `helpers/schedule`; formatters in
- * `helpers/scheduleFormat`. Package root re-exports each from its owning layer.
+ * Pure filter lives in `helpers/scheduleFilter` (helpers must not import modules).
+ * This barrel re-exports `filterLessons` for a stable modules entry.
  */
 export { createScheduleModule } from "./scheduleApi";
-export { filterLessons } from "./scheduleFilter";
+export { filterLessons } from "../helpers/scheduleFilter";
 export { normalizeSchedule } from "./scheduleNormalize";

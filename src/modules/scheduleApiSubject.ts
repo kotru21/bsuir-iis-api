@@ -6,7 +6,7 @@ import type {
   ScheduleResponse
 } from "../types/schedule";
 import { assertPositiveInt } from "../utils/guards";
-import { filterLessons } from "./scheduleFilter";
+import { filterLessons } from "../helpers/scheduleFilter";
 import type { ReadOptions } from "./types";
 
 export interface ScheduleSubjectFetcher {
