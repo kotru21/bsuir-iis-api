@@ -7,7 +7,7 @@ Thank you for your interest! Below is everything you need to get started.
 ```bash
 npm install
 npm run build        # compile TypeScript
-npm test             # run unit tests (live contract: BSUIR_LIVE_TESTS=1 npm run test:live)
+npm test             # unit tests (live: BSUIR_LIVE_TESTS=1 npm run test:live → test/integration/live/)
 npm run test:browser  # Chromium runtime tests (requires: npx playwright install chromium)
 npm run check        # lint + typecheck + unit tests
 npm run check:full   # lint + typecheck + format:check + coverage (matches CI)

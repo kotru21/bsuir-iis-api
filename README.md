@@ -222,7 +222,7 @@ npm run api:report
 Linting uses ESLint flat config with strict type-aware TypeScript rules for `src`,
 plus test-specific overrides for `test` and `vitest.config.ts`.
 
-Live contract tests against real BSUIR API are opt-in:
+Live contract tests against real BSUIR API are opt-in (`test/integration/live/`):
 
 ```bash
 BSUIR_LIVE_TESTS=1 npm run test:live
@@ -235,7 +235,8 @@ $env:BSUIR_LIVE_TESTS="1"; npm run test:live
 ```
 
 GitHub Actions runs live contracts weekly (Mondays 06:00 UTC) and on demand via the
-**Live contract** workflow (`workflow_dispatch`).
+**Live contract** workflow (`workflow_dispatch`). Catalogs and announcements must pass;
+schedule / strict / helpers soft-skip with a warning when IIS probes find no working entities.
 
 ## Release checklist
 
