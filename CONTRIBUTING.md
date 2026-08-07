@@ -10,8 +10,10 @@ npm run build        # compile TypeScript
 npm test             # unit tests (live: BSUIR_LIVE_TESTS=1 npm run test:live → test/integration/live/)
 npm run test:browser  # Chromium runtime tests (requires: npx playwright install chromium)
 npm run check        # lint + typecheck + unit tests
-npm run check:full   # lint + typecheck + format:check + coverage (matches CI)
+npm run check:full   # lint + typecheck + format:check + coverage (matches CI on Node 22+)
 ```
+
+Lint (`eslint-plugin-unicorn` / `eslint-plugin-jsdoc`) needs **Node.js 22+**. The published SDK still supports Node 20; CI skips lint on the Node 20 matrix job and still runs typecheck, tests, and build there.
 
 Coverage thresholds are enforced by Vitest (`vitest.config.ts`: lines/functions/statements ≥ 85%, branches ≥ 80%). `check:full` runs `test:coverage`, so CI fails when coverage drops below those floors.
 

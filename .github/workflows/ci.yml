@@ -21,7 +21,15 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: npm
       - run: npm ci
-      - run: npm run check:full
+      # eslint-plugin-unicorn@66+ and eslint-plugin-jsdoc@63+ require Node >=22.
+      # On Node 20 we still verify the published runtime surface (types/tests/build).
+      - name: Lint and format
+        if: matrix.node-version != 20
+        run: |
+          npm run lint
+          npm run format:check
+      - run: npm run typecheck
+      - run: npm run test:coverage
       - run: npm run build
       - run: npx --yes @cyclonedx/cyclonedx-npm --output-file sbom.cdx.json
         if: matrix.node-version == 24
