@@ -65,6 +65,14 @@ const client = createBsuirClient({
 - `allowInsecureHttp` enables `http://` only for trusted local/test endpoints.
 - `signal` in `createBsuirClient({ signal })` acts as a global cancellation signal for all requests made by that client.
 - `cache` stores successful GET responses in-memory for the configured TTL. A live `AbortSignal` can still use cache; an already-aborted signal skips cache. Cache hits return **deep-frozen** JSON (same reference on repeat reads); clone the payload if you need to mutate it. Use a separate client instance per identity in multi-tenant apps.
+- `cache.store` plugs in a custom storage backend (any synchronous Map-compatible object: a shared `Map`, an `lru-cache` instance, a custom adapter). The SDK still handles TTL and LRU eviction itself — the store is a plain container. A store can be shared across client instances; `keys()`/`entries()` must iterate in insertion order for LRU eviction to be accurate.
+
+```ts
+const store = new Map(); // or: new LRUCache<string, ResponseCacheEntry>({ max: 500 })
+const clientA = createBsuirClient({ cache: { ttlMs: 60_000, store } });
+const clientB = createBsuirClient({ cache: { ttlMs: 60_000, store } }); // shares entries with clientA
+```
+
 - `dedupeInFlight` reuses the same in-flight GET request for concurrent callers. It is disabled for per-request signals, non-default cache modes, private credential headers, and already-aborted signals.
 - `maxResponseBytes` limits body size per response to protect against memory spikes.
 - `validateResponses` enables runtime payload-shape checks for list, schedule, announcement, and last-update endpoints when set to `true` (default: `false`). Schedule responses are validated down to every lesson item (`schedules` / `nextSchedules` / `exams`) and announcements down to each item — fields are checked when present, since IIS may omit keys on sparse payloads; catalog items are checked as objects. Normalized schedule calls still apply a minimal envelope check so normalization cannot crash on non-objects. Prefer enabling in development/tests; use `createBsuirClient.strict(options?)` as a shorthand that forces `validateResponses: true` without changing the default for `createBsuirClient()`.
@@ -123,7 +131,7 @@ When IIS responds with HTTP `404` (the employee or department has no announcemen
 ### Public exports (runtime utilities and types)
 
 - Core runtime API: `createBsuirClient`, `BsuirClient`
-- Client/runtime option types: `BsuirClientOptions`, `CacheOptions`, `ClientHooks`, `RequestOptions`, `ReadOptions`, `AnnouncementReadOptions`, `ScheduleReadOptions`, `RequestHookContext`, `RetryHookContext`, `ResponseHookContext`, `ErrorHookContext`
+- Client/runtime option types: `BsuirClientOptions`, `CacheOptions`, `CacheStore`, `ResponseCacheEntry`, `ClientHooks`, `RequestOptions`, `ReadOptions`, `AnnouncementReadOptions`, `ScheduleReadOptions`, `RequestHookContext`, `RetryHookContext`, `ResponseHookContext`, `ErrorHookContext`
 - Schedule utilities: `normalizeSchedule`, `filterLessons`, `getLessonsForDate`, `getTodayLessons`, `getTomorrowLessons`, `getLessonsForWeek`, `sortLessonsByTime`, `groupLessonsByDay`, `getCurrentLesson`, `getNextLesson`, `buildScheduleDays`, `ScheduleFilterOptions`, `NormalizeScheduleOptions`, `InvalidLessonTimeHook`
 - Formatters: `formatEmployeeShortName`, `formatLessonAuditories`, `formatLessonEmployees`, `formatLessonSubgroup`, `formatLessonTimeRange`, `formatLessonType`, `formatLessonWeekNumbers`
 - Error classes: `BsuirApiError`, `BsuirNetworkError`, `BsuirTimeoutError`, `BsuirValidationError`, `BsuirResponseValidationError`, `BsuirResponsePayloadTooLargeError`, `BsuirConfigurationError`

@@ -99,7 +99,7 @@ export function setCache<T>(
   }
 
   // Remove expired entries before capacity-based eviction, but only when oversized.
-  for (const [k, v] of config.responseCache) {
+  for (const [k, v] of config.responseCache.entries()) {
     if (v.expiresAt <= now) {
       config.responseCache.delete(k);
     }

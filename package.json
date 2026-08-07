@@ -40,8 +40,8 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
+    "build": "tsdown",
+    "dev": "tsdown --watch",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -70,7 +70,7 @@
     "eslint-plugin-unicorn": "^73.0.0",
     "globals": "17.9.0",
     "prettier": "3.9.6",
-    "tsup": "8.5.1",
+    "tsdown": "0.22.14",
     "typescript": "6.0.3",
     "typescript-eslint": "8.66.0",
     "vitest": "4.1.10"

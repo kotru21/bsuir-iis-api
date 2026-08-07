@@ -220,7 +220,24 @@ export interface BuildScheduleDaysOptions {
 // @public
 export interface CacheOptions {
     maxEntries?: number;
+    store?: CacheStore;
     ttlMs: number;
+}
+
+// @public
+export interface CacheStore {
+    // (undocumented)
+    delete(key: string): void;
+    // (undocumented)
+    entries(): Iterable<[string, ResponseCacheEntry]>;
+    // (undocumented)
+    get(key: string): ResponseCacheEntry | undefined;
+    // (undocumented)
+    keys(): Iterable<string>;
+    // (undocumented)
+    set(key: string, entry: ResponseCacheEntry): void;
+    // (undocumented)
+    readonly size: number;
 }
 
 // @public
@@ -493,6 +510,13 @@ export interface RequestOptions {
     query?: QueryParams | undefined;
     responseValidator?: ((payload: unknown) => void) | undefined;
     signal?: AbortSignal | undefined;
+}
+
+// @public
+export interface ResponseCacheEntry {
+    readonly expiresAt: number;
+    readonly status: number | undefined;
+    readonly value: unknown;
 }
 
 // @public

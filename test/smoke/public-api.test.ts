@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AnnouncementReadOptions, ScheduleReadOptions } from "../../src";
+import type { AnnouncementReadOptions, CacheStore, ScheduleReadOptions } from "../../src";
 import {
   BsuirApiError,
   BsuirConfigurationError,
@@ -67,6 +67,11 @@ describe("public api", () => {
 
   it("exports createBsuirClient.strict", () => {
     expect(typeof createBsuirClient.strict).toBe("function");
+  });
+
+  it("exports CacheStore as a public type and accepts a plain Map", () => {
+    const store: CacheStore = new Map();
+    expect(store.size).toBe(0);
   });
 
   it("exports BsuirResponsePayloadTooLargeError", () => {

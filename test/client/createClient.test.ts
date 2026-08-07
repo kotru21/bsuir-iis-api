@@ -105,6 +105,20 @@ describe("createBsuirClient", () => {
     ).not.toThrow();
   });
 
+  it("rejects a cache store without Map-compatible methods", () => {
+    expect(() =>
+      createBsuirClient({
+        cache: {
+          ttlMs: 1000,
+          store: {} as never
+        }
+      })
+    ).toThrow(BsuirConfigurationError);
+
+    // A plain Map satisfies the CacheStore contract.
+    expect(() => createBsuirClient({ cache: { ttlMs: 1000, store: new Map() } })).not.toThrow();
+  });
+
   it("rejects unsafe userAgent header value", () => {
     expect(() =>
       createBsuirClient({

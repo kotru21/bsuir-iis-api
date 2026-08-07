@@ -4,6 +4,7 @@ export type { BsuirClient, BsuirClientShape } from "./client/createClient";
 export type {
   BsuirClientOptions,
   CacheOptions,
+  CacheStore,
   ClientHooks,
   ErrorHookContext,
   QueryParams,
@@ -12,6 +13,7 @@ export type {
   RequestHookContext,
   RequestMethod,
   RequestOptions,
+  ResponseCacheEntry,
   ResponseHookContext,
   RetryHookContext
 } from "./client/types";

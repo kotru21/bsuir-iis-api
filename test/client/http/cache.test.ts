@@ -44,9 +44,9 @@ describe("tryReadCacheEntry", () => {
     expect(tryReadCacheEntry(config, "k1")?.value).toBe(1);
 
     setCache(config, "k3", 3);
-    expect(config.responseCache.has("k1")).toBe(true);
-    expect(config.responseCache.has("k2")).toBe(false);
-    expect(config.responseCache.has("k3")).toBe(true);
+    expect(config.responseCache.get("k1")).not.toBeUndefined();
+    expect(config.responseCache.get("k2")).toBeUndefined();
+    expect(config.responseCache.get("k3")).not.toBeUndefined();
   });
 
   it("returns a deeply-frozen value so cache hits cannot mutate shared entries", () => {
@@ -75,7 +75,7 @@ describe("tryReadCacheEntry", () => {
 
     vi.setSystemTime(1001);
     expect(tryReadCacheEntry(config, "key")).toBeUndefined();
-    expect(config.responseCache.has("key")).toBe(false);
+    expect(config.responseCache.get("key")).toBeUndefined();
   });
 
   it("returns the original status alongside the value", () => {
@@ -141,7 +141,7 @@ describe("setCache", () => {
     setCache(config, "k1", 1);
     setCache(config, "k2", 2);
 
-    expect(config.responseCache.has("expired")).toBe(false);
+    expect(config.responseCache.get("expired")).toBeUndefined();
     expect(config.responseCache.size).toBe(2);
   });
 
@@ -166,9 +166,9 @@ describe("setCache", () => {
 
     setCache(config, "lru4", 4);
 
-    expect(config.responseCache.has("lru1")).toBe(false);
-    expect(config.responseCache.has("lru2")).toBe(true);
-    expect(config.responseCache.has("lru4")).toBe(true);
+    expect(config.responseCache.get("lru1")).toBeUndefined();
+    expect(config.responseCache.get("lru2")).not.toBeUndefined();
+    expect(config.responseCache.get("lru4")).not.toBeUndefined();
     expect(config.responseCache.size).toBe(3);
   });
 });

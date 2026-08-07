@@ -8,6 +8,39 @@ export type QueryParams = Record<string, QueryValue>;
 /** HTTP methods supported by the SDK request pipeline. */
 export type RequestMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
+/** Entry stored in the response cache. Treat as opaque: entries are deep-frozen on write. */
+export interface ResponseCacheEntry {
+  /** Deep-frozen parsed JSON payload. */
+  readonly value: unknown;
+  /** HTTP status of the original response; `undefined` for hand-populated entries. */
+  readonly status: number | undefined;
+  /** Epoch milliseconds when the entry becomes stale. */
+  readonly expiresAt: number;
+}
+
+/**
+ * Synchronous, Map-compatible storage backend for the response cache.
+ *
+ * Any object with Map semantics works: a plain `Map`, an `lru-cache` instance,
+ * or a custom adapter. Requirements:
+ * - Fully synchronous — the cache is read on the request hot path.
+ * - `keys()` / `entries()` iterate in insertion order, otherwise LRU eviction
+ *   degrades to arbitrary eviction (a plain `Map` guarantees this).
+ *
+ * Entries are written and read as frozen {@link ResponseCacheEntry} objects —
+ * never mutate them. TTL and LRU bookkeeping stay in the SDK; the store is a
+ * plain container. A store may be shared across client instances (cache keys
+ * are full request URLs).
+ */
+export interface CacheStore {
+  get(key: string): ResponseCacheEntry | undefined;
+  set(key: string, entry: ResponseCacheEntry): void;
+  delete(key: string): void;
+  keys(): Iterable<string>;
+  entries(): Iterable<[string, ResponseCacheEntry]>;
+  readonly size: number;
+}
+
 /** In-memory GET response cache configuration. */
 export interface CacheOptions {
   /**
@@ -32,6 +65,17 @@ export interface CacheOptions {
    * @defaultValue 200
    */
   maxEntries?: number;
+  /**
+   * Custom storage backend for cached entries.
+   *
+   * Accepts any synchronous Map-compatible store (see {@link CacheStore}) —
+   * for example a shared `Map` or an `lru-cache` instance — instead of the
+   * SDK-managed per-client in-memory `Map`. The SDK still handles TTL, LRU
+   * eviction, and entry freezing itself.
+   *
+   * @defaultValue new Map() per client instance
+   */
+  store?: CacheStore;
 }
 
 /** Context passed to `hooks.onRequest` before each attempt. */
@@ -339,6 +383,6 @@ export interface InternalClientConfig {
   maxResponseBytes: number;
   validateResponses: boolean;
   hooks: ClientHooks;
-  responseCache: Map<string, { expiresAt: number; value: unknown; status: number | undefined }>;
+  responseCache: CacheStore;
   inFlightRequests: Map<string, Promise<unknown>>;
 }

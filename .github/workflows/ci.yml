@@ -22,7 +22,7 @@ jobs:
           cache: npm
       - run: npm ci
       # eslint-plugin-unicorn@66+ and eslint-plugin-jsdoc@63+ require Node >=22.
-      # On Node 20 we still verify the published runtime surface (types/tests/build).
+      # On Node 20 we still verify the published runtime surface (types/tests).
       - name: Lint and format
         if: matrix.node-version != 20
         run: |
@@ -30,7 +30,10 @@ jobs:
           npm run format:check
       - run: npm run typecheck
       - run: npm run test:coverage
+      # tsdown requires Node ^22.18; the published runtime still supports Node 20
+      # (build output targets es2022), so the Node 20 job skips the build step.
       - run: npm run build
+        if: matrix.node-version != 20
       - run: npx --yes @cyclonedx/cyclonedx-npm --output-file sbom.cdx.json
         if: matrix.node-version == 24
       - name: Upload SBOM artifact

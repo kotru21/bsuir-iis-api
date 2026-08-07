@@ -13,7 +13,7 @@ npm run check        # lint + typecheck + unit tests
 npm run check:full   # lint + typecheck + format:check + coverage (matches CI on Node 22+)
 ```
 
-Lint (`eslint-plugin-unicorn` / `eslint-plugin-jsdoc`) needs **Node.js 22+**. The published SDK still supports Node 20; CI skips lint on the Node 20 matrix job and still runs typecheck, tests, and build there.
+Lint (`eslint-plugin-unicorn` / `eslint-plugin-jsdoc`) needs **Node.js 22+**, and the build (`tsdown`) needs **Node.js 22.18+**. The published SDK still supports Node 20 at runtime (the bundle targets es2022); CI skips lint and build on the Node 20 matrix job and still runs typecheck and tests there.
 
 Coverage thresholds are enforced by Vitest (`vitest.config.ts`: lines/functions/statements ≥ 85%, branches ≥ 80%). `check:full` runs `test:coverage`, so CI fails when coverage drops below those floors.
 

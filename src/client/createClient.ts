@@ -1,5 +1,5 @@
 import { BsuirConfigurationError } from "./errors";
-import type { BsuirClientOptions, InternalClientConfig } from "./types";
+import type { BsuirClientOptions, CacheStore, InternalClientConfig } from "./types";
 import {
   createAnnouncementsModule,
   createAuditoriesModule,
@@ -160,6 +160,29 @@ function normalizeBaseUrl(
   return `${parsed.origin}${normalizedPath}`;
 }
 
+function assertCacheStore(store: unknown): asserts store is CacheStore {
+  if (typeof store !== "object" || store === null) {
+    throw new BsuirConfigurationError(
+      "'cache.store' must be a synchronous Map-compatible store (get/set/delete/keys/entries/size)"
+    );
+  }
+  const candidate = store as Partial<
+    Record<"get" | "set" | "delete" | "keys" | "entries" | "size", unknown>
+  >;
+  if (
+    typeof candidate.get !== "function" ||
+    typeof candidate.set !== "function" ||
+    typeof candidate.delete !== "function" ||
+    typeof candidate.keys !== "function" ||
+    typeof candidate.entries !== "function" ||
+    typeof candidate.size !== "number"
+  ) {
+    throw new BsuirConfigurationError(
+      "'cache.store' must be a synchronous Map-compatible store (get/set/delete/keys/entries/size)"
+    );
+  }
+}
+
 function createInternalConfig(options: BsuirClientOptions): InternalClientConfig {
   const timeoutMs = assertIntegerOption(options.timeoutMs, "timeoutMs", 1) ?? 10_000;
   if (timeoutMs > MAX_TIMEOUT_MS) {
@@ -182,6 +205,10 @@ function createInternalConfig(options: BsuirClientOptions): InternalClientConfig
   const cacheTtlMs = assertIntegerOption(options.cache?.ttlMs, "cache.ttlMs", 1);
   const cacheMaxEntries =
     assertIntegerOption(options.cache?.maxEntries, "cache.maxEntries", 1) ?? 200;
+  const cacheStore = options.cache?.store;
+  if (cacheStore !== undefined) {
+    assertCacheStore(cacheStore);
+  }
   const maxResponseBytes =
     assertIntegerOption(options.maxResponseBytes, "maxResponseBytes", 1) ??
     DEFAULT_MAX_RESPONSE_BYTES;
@@ -208,7 +235,7 @@ function createInternalConfig(options: BsuirClientOptions): InternalClientConfig
     maxResponseBytes,
     validateResponses: options.validateResponses ?? false,
     hooks: options.hooks ?? {},
-    responseCache: new Map(),
+    responseCache: cacheStore ?? new Map(),
     inFlightRequests: new Map()
   };
 }
