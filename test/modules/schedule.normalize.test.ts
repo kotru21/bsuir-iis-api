@@ -113,53 +113,65 @@ describe("schedule module — normalize and raw", () => {
     expect(response.examLessons).toHaveLength(0);
   });
 
-  it("returns normalized schedule structures that do not alias raw payload arrays", async () => {
-    const payload = buildScheduleResponse();
-    const fetchImpl = mockFetchSequence([createJsonResponse({ body: payload })]);
-    const client = createBsuirClient({ fetch: fetchImpl });
+  it("returns a consistently deep-frozen structure across all views", () => {
+    const normalized = normalizeSchedule(buildScheduleResponse());
 
-    const normalized = await client.schedule.getGroup("053503");
-    normalized.schedules.Понедельник?.push({
-      weekNumber: [1],
-      studentGroups: [],
-      numSubgroup: 9,
-      auditories: [],
-      startLessonTime: "20:00",
-      endLessonTime: "21:20",
-      subject: "tmp",
-      subjectFullName: "tmp",
-      note: null,
-      lessonTypeAbbrev: null,
-      dateLesson: null,
-      startLessonDate: null,
-      endLessonDate: null,
-      announcement: false,
-      split: false,
-      employees: null
-    });
+    expect(Object.isFrozen(normalized.lessons)).toBe(true);
+    expect(Object.isFrozen(normalized.scheduleLessons)).toBe(true);
+    expect(Object.isFrozen(normalized.examLessons)).toBe(true);
+    expect(Object.isFrozen(normalized.lessonsByDay.Понедельник)).toBe(true);
+    expect(Object.isFrozen(normalized.schedules)).toBe(true);
 
-    const employees = normalized.lessons[0]?.employees;
-    if (Array.isArray(employees)) {
+    // Items inside the `schedules` map are frozen as deeply as flattened lessons —
+    // previously only the flattened views were frozen, leaving these half-mutable.
+    const mondayFirst = normalized.schedules.Понедельник?.[0];
+    expect(mondayFirst).toBeDefined();
+    if (mondayFirst) {
+      expect(Object.isFrozen(mondayFirst)).toBe(true);
+      expect(mondayFirst.weekNumber && Object.isFrozen(mondayFirst.weekNumber)).toBe(true);
       expect(() => {
-        employees.push({
-          firstName: "New",
-          lastName: "Teacher",
-          middleName: "",
-          degree: "",
-          degreeAbbrev: "",
-          email: null,
-          rank: null,
-          photoLink: "",
-          calendarId: "",
-          id: 1,
-          urlId: "new-teacher",
-          jobPositions: null
-        });
+        mondayFirst.note = "mutated";
+      }).toThrow(TypeError);
+      expect(() => {
+        mondayFirst.weekNumber?.push(4);
       }).toThrow(TypeError);
     }
 
-    expect(payload.schedules?.Понедельник).toHaveLength(1);
-    expect(payload.schedules?.Понедельник?.[0]?.employees).toHaveLength(1);
+    const exam = normalized.exams[0];
+    expect(exam).toBeDefined();
+    if (exam) {
+      expect(Object.isFrozen(exam)).toBe(true);
+      expect(Object.isFrozen(exam.auditories)).toBe(true);
+    }
+
+    const first = normalized.lessons[0];
+    if (first) {
+      expect(() => {
+        normalized.lessons.push(first);
+      }).toThrow(TypeError);
+      const employees = first.employees;
+      if (Array.isArray(employees)) {
+        expect(Object.isFrozen(employees)).toBe(true);
+      }
+    }
+  });
+
+  it("does not freeze or mutate the caller's raw response", () => {
+    const response = buildScheduleResponse();
+    const normalized = normalizeSchedule(response);
+
+    expect(Object.isFrozen(response)).toBe(false);
+    const monday = response.schedules?.Понедельник;
+    expect(monday).toBeDefined();
+    if (monday) {
+      expect(Object.isFrozen(monday)).toBe(false);
+      expect(monday[0] && Object.isFrozen(monday[0])).toBe(false);
+      expect(monday[0]?.weekNumber && Object.isFrozen(monday[0].weekNumber)).toBe(false);
+    }
+
+    // Normalization happens on an owned clone; raw content stays intact and mutable.
+    expect(response.schedules?.Понедельник).toHaveLength(1);
+    expect(normalized.schedules.Понедельник?.[0]?.auditories).toEqual(["101-1"]);
   });
 
   it("default normalize excludes nextSchedules from lessons", () => {

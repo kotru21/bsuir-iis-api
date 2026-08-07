@@ -64,7 +64,12 @@ export interface ErrorHookContext extends RequestHookContext {
   error: unknown;
 }
 
-/** Optional observability hooks for the HTTP pipeline. */
+/**
+ * Optional observability hooks for the HTTP pipeline.
+ *
+ * Hook exceptions are caught and discarded: an observability callback must
+ * never break the request, trigger a retry, or mask the real outcome.
+ */
 export interface ClientHooks {
   onRequest?: (context: RequestHookContext) => void;
   onRetry?: (context: RetryHookContext) => void;
@@ -263,15 +268,21 @@ export interface BsuirClientOptions {
   /**
    * Enables runtime shape validation of API responses.
    *
-   * When `true`, each response is checked against the expected TypeScript type
-   * at runtime. A `BsuirResponseValidationError` is thrown if the payload does not match,
-   * which makes integration issues with the upstream API visible immediately
-   * instead of causing silent type-cast bugs later.
+   * When `true`, a `BsuirResponseValidationError` is thrown if the payload does not
+   * match the expected TypeScript shape, which makes integration issues with the
+   * upstream API visible immediately instead of causing silent type-cast bugs later.
    *
-   * Checked surfaces include catalog `listAll`, schedule raw/normalized fetches,
-   * announcements lists, and last-update payloads. Normalized schedule calls still
-   * apply a minimal envelope check even when this flag is `false`, so normalization
-   * cannot crash on non-objects.
+   * Checked surfaces and depth:
+   * - Schedule raw/normalized fetches: envelope plus field-level checks on every
+   *   lesson item in `schedules` / `nextSchedules` / `exams`. Fields are validated
+   *   when present — IIS may omit keys entirely on sparse payloads.
+   * - Announcements lists: array/page envelope plus field-level item checks.
+   * - Catalog lists: array of non-null objects (per-field catalog DTO checks are
+   *   intentionally out of scope).
+   * - Last-update payloads: `{ lastUpdateDate }` shape.
+   *
+   * Normalized schedule calls still apply a minimal envelope check even when this
+   * flag is `false`, so normalization cannot crash on non-objects.
    *
    * **Recommended during development and in tests.** Leave `false` in production
    * if you prefer not to fail hard on quirky IIS payloads. Use
@@ -328,6 +339,6 @@ export interface InternalClientConfig {
   maxResponseBytes: number;
   validateResponses: boolean;
   hooks: ClientHooks;
-  responseCache: Map<string, { expiresAt: number; value: unknown }>;
+  responseCache: Map<string, { expiresAt: number; value: unknown; status: number | undefined }>;
   inFlightRequests: Map<string, Promise<unknown>>;
 }

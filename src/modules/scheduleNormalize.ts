@@ -4,35 +4,12 @@ import { WEEKDAYS } from "../types/common";
 import type {
   FlattenedLessonsByDay,
   FlattenedScheduleItem,
-  LessonStudentGroup,
   NormalizeScheduleOptions,
   NormalizedScheduleResponse,
-  ScheduleItem,
   ScheduleResponse
 } from "../types/schedule";
 import { deepFreezeJson } from "../utils/deepFreezeJson";
 import { lessonAuditories } from "../utils/lessonAuditories";
-
-function cloneLessonStudentGroups(groups: ScheduleItem["studentGroups"]): LessonStudentGroup[] {
-  return groups.map((group) => ({ ...group }));
-}
-
-function cloneEmployees(employees: ScheduleItem["employees"]): ScheduleItem["employees"] {
-  if (!Array.isArray(employees)) {
-    return employees;
-  }
-  return employees.map((employee) => ({ ...employee }));
-}
-
-function cloneScheduleItem(item: ScheduleItem): ScheduleItem {
-  return {
-    ...item,
-    weekNumber: Array.isArray(item.weekNumber) ? [...item.weekNumber] : item.weekNumber,
-    studentGroups: cloneLessonStudentGroups(item.studentGroups),
-    auditories: lessonAuditories(item),
-    employees: cloneEmployees(item.employees)
-  };
-}
 
 // Minimal envelope check kept here (not in responseValidators) because the normalize
 // path always needs at least this much shape safety to avoid crashing on a non-object
@@ -56,6 +33,14 @@ function assertMinimalScheduleEnvelope(
  * By default only current-term `schedules` and `exams` are flattened. Pass
  * `includeNextSchedules: true` to also flatten `nextSchedules` with
  * `source: "nextSchedules"`.
+ *
+ * The returned payload is **deep-frozen**: every view (`lessons`,
+ * `lessonsByDay`, `scheduleLessons`, `examLessons`, `schedules`, `exams`) and
+ * all nested objects share one immutable structure, so mutating any part of it
+ * throws in strict mode. Clone a lesson explicitly if you need a mutable copy.
+ * The input `response` is never mutated or frozen — normalization works on an
+ * owned deep clone via `structuredClone`, so the input must be JSON-cloneable
+ * (plain objects, arrays and primitives; no functions or class instances).
  */
 export function normalizeSchedule(
   response: ScheduleResponse,
@@ -70,56 +55,61 @@ export function normalizeSchedule(
     // letting it through would only push a less-clear TypeError onto the caller.
     assertMinimalScheduleEnvelope(response, endpoint);
   }
+
+  // Own the data before building frozen views: freezing must never leak into the
+  // caller's raw object through shared DTO references (employeeDto, nextSchedules…).
+  const source = structuredClone(response);
+
   const scheduleLessons: FlattenedScheduleItem[] = [];
   const examLessons: FlattenedScheduleItem[] = [];
   const nextScheduleLessons: FlattenedScheduleItem[] = [];
   const lessonsByDay = Object.fromEntries(
     WEEKDAYS.map((day) => [day, [] as FlattenedScheduleItem[]])
   ) as FlattenedLessonsByDay;
-  const sourceSchedules = response.schedules ?? {};
+  const sourceSchedules = source.schedules ?? {};
   const normalizedSchedules: NonNullable<ScheduleResponse["schedules"]> = {};
-  const normalizedExams = Array.isArray(response.exams)
-    ? response.exams.map((item) => cloneScheduleItem(item))
-    : [];
+  const normalizedExams = Array.isArray(source.exams) ? source.exams : [];
 
   for (const day of WEEKDAYS) {
     const dayItems = sourceSchedules[day] ?? [];
-    const clonedDayItems = dayItems.map((item) => cloneScheduleItem(item));
+    for (const item of dayItems) {
+      item.auditories = lessonAuditories(item);
+    }
     if (Object.hasOwn(sourceSchedules, day)) {
-      normalizedSchedules[day] = clonedDayItems;
+      normalizedSchedules[day] = dayItems;
     }
 
-    const flattenedDayItems: FlattenedScheduleItem[] = clonedDayItems.map((item) =>
-      deepFreezeJson({
-        ...item,
-        day,
-        source: "schedules" as const
-      })
-    );
+    const flattenedDayItems: FlattenedScheduleItem[] = dayItems.map((item) => ({
+      ...item,
+      day,
+      source: "schedules" as const
+    }));
     lessonsByDay[day] = flattenedDayItems;
     scheduleLessons.push(...flattenedDayItems);
   }
 
   for (const exam of normalizedExams) {
-    const flattenedExam: FlattenedScheduleItem = deepFreezeJson({
+    exam.auditories = lessonAuditories(exam);
+    const flattenedExam: FlattenedScheduleItem = {
       ...exam,
       day: null,
       source: "exams"
-    });
+    };
     examLessons.push(flattenedExam);
   }
 
   if (options?.includeNextSchedules === true) {
-    const sourceNext = response.nextSchedules ?? {};
+    const sourceNext = source.nextSchedules ?? {};
     for (const day of WEEKDAYS) {
       const dayItems = sourceNext[day] ?? [];
-      const flattenedDayItems: FlattenedScheduleItem[] = dayItems.map((item) =>
-        deepFreezeJson({
-          ...cloneScheduleItem(item),
-          day,
-          source: "nextSchedules" as const
-        })
-      );
+      for (const item of dayItems) {
+        item.auditories = lessonAuditories(item);
+      }
+      const flattenedDayItems: FlattenedScheduleItem[] = dayItems.map((item) => ({
+        ...item,
+        day,
+        source: "nextSchedules" as const
+      }));
       lessonsByDay[day] = [...lessonsByDay[day], ...flattenedDayItems];
       nextScheduleLessons.push(...flattenedDayItems);
     }
@@ -127,13 +117,16 @@ export function normalizeSchedule(
 
   const lessons = [...scheduleLessons, ...examLessons, ...nextScheduleLessons];
 
-  return {
-    ...response,
+  // One freeze pass over the whole result keeps every view consistent: flattened
+  // items share nested references with `schedules` / `exams`, so freezing per-view
+  // used to leave those maps half-mutable (nested arrays frozen, item objects not).
+  return deepFreezeJson({
+    ...source,
     schedules: normalizedSchedules,
     exams: normalizedExams,
     lessons,
     lessonsByDay,
     scheduleLessons,
     examLessons
-  };
+  });
 }

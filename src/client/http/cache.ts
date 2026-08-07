@@ -23,15 +23,26 @@ function isJsonValue(value: unknown): boolean {
   return [Object.prototype, Array.prototype, null].includes(proto as object | null);
 }
 
+/** Cached entry returned by {@link tryReadCacheEntry} (value plus original HTTP status). */
+export interface CacheHit {
+  value: unknown;
+  /** Status of the original response; `undefined` for entries written without one. */
+  status: number | undefined;
+}
+
 /**
- * Reads a cached response value by key, applying TTL validation and LRU touch update.
+ * Reads a cached response entry by key, applying TTL validation and LRU touch update.
  *
  * Returns the cached value directly (deep-frozen on write) instead of cloning on every
- * read. Callers that need a mutable copy must clone explicitly. This avoids paying
- * structuredClone() cost on every cache hit, which can dominate latency for large
- * schedule payloads on a hot cache path.
+ * read, together with the original HTTP status so cache-hit observability reports
+ * the real status instead of a placeholder. Callers that need a mutable copy must
+ * clone explicitly. This avoids paying structuredClone() cost on every cache hit,
+ * which can dominate latency for large schedule payloads on a hot cache path.
  */
-export function tryReadCache(config: Readonly<InternalClientConfig>, key: string): unknown {
+export function tryReadCacheEntry(
+  config: Readonly<InternalClientConfig>,
+  key: string
+): CacheHit | undefined {
   const entry = config.responseCache.get(key);
   if (!entry) {
     return undefined;
@@ -43,7 +54,7 @@ export function tryReadCache(config: Readonly<InternalClientConfig>, key: string
   // Touch key to move it to the end (most recently used).
   config.responseCache.delete(key);
   config.responseCache.set(key, entry);
-  return entry.value;
+  return { value: entry.value, status: entry.status };
 }
 
 /**
@@ -57,7 +68,8 @@ export function tryReadCache(config: Readonly<InternalClientConfig>, key: string
 export function setCache<T>(
   config: Readonly<InternalClientConfig>,
   key: string,
-  value: T
+  value: T,
+  status?: number
 ): T | undefined {
   if (config.cacheTtlMs === undefined) {
     return undefined;
@@ -78,6 +90,7 @@ export function setCache<T>(
   config.responseCache.delete(key);
   config.responseCache.set(key, {
     value: frozen,
+    status,
     expiresAt: now + config.cacheTtlMs
   });
 

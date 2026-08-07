@@ -5,6 +5,7 @@ import {
   BsuirTimeoutError
 } from "../errors";
 import { getMergedSignalCleanup, mergeSignals } from "../mergeSignals";
+import { invokeHookSafely } from "./hooks";
 import type {
   ErrorHookContext,
   InternalClientConfig,
@@ -16,12 +17,10 @@ import type {
   RetryHookContext
 } from "../types";
 import { isAbortError } from "../../utils/guards";
-import { parseBody } from "./response";
+import { cancelResponseBody, parseBody } from "./response";
 import { getRetryDecision, getRetryDelayMs, RETRIABLE_STATUS_CODES, sleep } from "./retry";
 
-/**
- *
- */
+/** Builds the hook context shared by all lifecycle events of a single attempt. */
 export function baseHookContext(
   method: RequestMethod,
   path: string,
@@ -51,7 +50,11 @@ export interface PerformRequestParams {
   options: RequestOptions;
   maxRetries: number;
   maxAttempts: number;
-  onSuccessMeta: (meta: { hookCtx: RequestHookContext; durationMs: number }) => void;
+  onSuccessMeta: (meta: {
+    hookCtx: RequestHookContext;
+    durationMs: number;
+    status: number;
+  }) => void;
 }
 
 /**
@@ -83,7 +86,7 @@ export async function performRequestWithRetry<T>(params: PerformRequestParams): 
       options.query
     );
 
-    config.hooks.onRequest?.(hookCtx);
+    invokeHookSafely(config.hooks.onRequest, hookCtx);
 
     const requestSignal = mergeSignals([options.signal, config.signal], config.timeoutMs);
     const requestSignalCleanup = getMergedSignalCleanup(requestSignal);
@@ -101,7 +104,9 @@ export async function performRequestWithRetry<T>(params: PerformRequestParams): 
       const response = await config.fetchImpl(endpoint, requestInit);
 
       if (!response.ok) {
-        const errorBody = await parseBody(response, config.maxResponseBytes);
+        // Retries are decided before the error body is read: a retriable response
+        // does not need its body parsed, and an oversized error page must not
+        // disable retries by surfacing BsuirResponsePayloadTooLargeError instead.
         if (attempt < maxRetries && RETRIABLE_STATUS_CODES.has(response.status)) {
           const retryDecision = getRetryDecision(
             config,
@@ -115,8 +120,9 @@ export async function performRequestWithRetry<T>(params: PerformRequestParams): 
               reason: "http_status",
               status: response.status
             };
-            config.hooks.onRetry?.(retryCtx);
-            await sleep(retryDecision.delayMs);
+            invokeHookSafely(config.hooks.onRetry, retryCtx);
+            await cancelResponseBody(response);
+            await sleep(retryDecision.delayMs, [options.signal, config.signal]);
             continue;
           }
           const skipRetryCtx: RetryHookContext = {
@@ -125,8 +131,9 @@ export async function performRequestWithRetry<T>(params: PerformRequestParams): 
             reason: "retry_after_too_large",
             status: response.status
           };
-          config.hooks.onRetry?.(skipRetryCtx);
+          invokeHookSafely(config.hooks.onRetry, skipRetryCtx);
         }
+        const errorBody = await parseBody(response, config.maxResponseBytes);
         const statusLabel = `BSUIR API returned HTTP ${String(response.status)} for ${method} ${path}`;
         const message =
           typeof errorBody === "string" && errorBody.length > 0
@@ -138,7 +145,7 @@ export async function performRequestWithRetry<T>(params: PerformRequestParams): 
           durationMs: Date.now() - startedAt,
           error: apiError
         };
-        config.hooks.onError?.(errorCtx);
+        invokeHookSafely(config.hooks.onError, errorCtx);
         throw apiError;
       }
 
@@ -150,8 +157,8 @@ export async function performRequestWithRetry<T>(params: PerformRequestParams): 
         durationMs,
         fromCache: false
       };
-      config.hooks.onResponse?.(responseCtx);
-      onSuccessMeta({ hookCtx, durationMs });
+      invokeHookSafely(config.hooks.onResponse, responseCtx);
+      onSuccessMeta({ hookCtx, durationMs, status: response.status });
       return parsed;
     } catch (error: unknown) {
       if (error instanceof BsuirApiError) {
@@ -164,7 +171,7 @@ export async function performRequestWithRetry<T>(params: PerformRequestParams): 
           durationMs: Date.now() - startedAt,
           error
         };
-        config.hooks.onError?.(payloadTooLargeCtx);
+        invokeHookSafely(config.hooks.onError, payloadTooLargeCtx);
         throw error;
       }
 
@@ -175,7 +182,7 @@ export async function performRequestWithRetry<T>(params: PerformRequestParams): 
             durationMs: Date.now() - startedAt,
             error
           };
-          config.hooks.onError?.(abortCtx);
+          invokeHookSafely(config.hooks.onError, abortCtx);
           throw error;
         }
         const timeoutError = new BsuirTimeoutError(
@@ -189,7 +196,7 @@ export async function performRequestWithRetry<T>(params: PerformRequestParams): 
           durationMs: Date.now() - startedAt,
           error: timeoutError
         };
-        config.hooks.onError?.(timeoutCtx);
+        invokeHookSafely(config.hooks.onError, timeoutCtx);
         throw timeoutError;
       }
 
@@ -201,8 +208,8 @@ export async function performRequestWithRetry<T>(params: PerformRequestParams): 
           reason: "network_error",
           status: undefined
         };
-        config.hooks.onRetry?.(retryCtx);
-        await sleep(delayMs);
+        invokeHookSafely(config.hooks.onRetry, retryCtx);
+        await sleep(delayMs, [options.signal, config.signal]);
         continue;
       }
 
@@ -216,7 +223,7 @@ export async function performRequestWithRetry<T>(params: PerformRequestParams): 
         durationMs: Date.now() - startedAt,
         error: networkError
       };
-      config.hooks.onError?.(networkErrorCtx);
+      invokeHookSafely(config.hooks.onError, networkErrorCtx);
       throw networkError;
     } finally {
       requestSignalCleanup?.();

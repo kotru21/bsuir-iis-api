@@ -122,6 +122,37 @@ describe("requestJson — retry behavior", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
+  it("interrupts the Retry-After wait when the caller aborts mid-wait", async () => {
+    const controller = new AbortController();
+    const fetchImpl = vi.fn(async (_input: unknown, init?: RequestInit) => {
+      if (init?.signal?.aborted) {
+        throw new DOMException("The operation was aborted", "AbortError");
+      }
+      return createJsonResponse({
+        status: 503,
+        headers: { "Retry-After": "1" },
+        body: { message: "slow down" }
+      });
+    }) as unknown as typeof globalThis.fetch;
+    const onRetry = vi.fn(() => {
+      setTimeout(() => controller.abort(), 10);
+    });
+    const config = createRequestJsonConfig(fetchImpl, { retries: 1, hooks: { onRetry } });
+
+    const startedAt = Date.now();
+    await expect(
+      requestJson(config, "/faculties", { signal: controller.signal })
+    ).rejects.toMatchObject({ name: "AbortError" });
+
+    // The abort must cut the wait short; reaching here via the full Retry-After
+    // delay would mean the retry wait ignored the caller's signal.
+    expect(Date.now() - startedAt).toBeLessThan(1000);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(onRetry).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: "http_status", status: 503, delayMs: 1000 })
+    );
+  }, 10_000);
+
   it("treats oversized Retry-After as non-retriable and surfaces hook context", async () => {
     const fetchImpl = mockFetchSequence([
       createJsonResponse({

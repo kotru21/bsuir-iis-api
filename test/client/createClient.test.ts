@@ -75,6 +75,36 @@ describe("createBsuirClient", () => {
     ).toThrow(BsuirConfigurationError);
   });
 
+  it("allows explicit ports on loopback hosts for local dev/mock servers", () => {
+    expect(() =>
+      createBsuirClient({
+        baseUrl: "http://localhost:3000/api/v1",
+        allowInsecureHttp: true,
+        allowedBaseUrlHosts: ["localhost"]
+      })
+    ).not.toThrow();
+    expect(() =>
+      createBsuirClient({
+        baseUrl: "https://localhost:8443/api/v1",
+        allowedBaseUrlHosts: ["localhost"]
+      })
+    ).not.toThrow();
+    expect(() =>
+      createBsuirClient({
+        baseUrl: "http://127.0.0.1:8080",
+        allowInsecureHttp: true,
+        allowedBaseUrlHosts: ["127.0.0.1"]
+      })
+    ).not.toThrow();
+    expect(() =>
+      createBsuirClient({
+        baseUrl: "http://[::1]:8080",
+        allowInsecureHttp: true,
+        allowedBaseUrlHosts: ["[::1]"]
+      })
+    ).not.toThrow();
+  });
+
   it("rejects unsafe userAgent header value", () => {
     expect(() =>
       createBsuirClient({

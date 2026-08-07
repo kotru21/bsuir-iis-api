@@ -106,12 +106,21 @@ function normalizeBaseUrl(
     );
   }
 
-  if (parsed.port.length > 0) {
-    throw new BsuirConfigurationError("'baseUrl' must not include an explicit port");
+  const host = normalizeHostname(parsed.hostname);
+
+  // Explicit ports are rejected for public hosts (they usually indicate a
+  // copy-paste mistake), but allowed on loopback so local dev/mock servers —
+  // which practically always run on a non-standard port — stay usable.
+  if (parsed.port.length > 0 && !isLoopbackHost(host)) {
+    throw new BsuirConfigurationError(
+      "'baseUrl' must not include an explicit port (allowed only for loopback hosts)"
+    );
   }
 
   const normalizedAllowedHosts = new Set(
-    allowedHosts.map((host) => normalizeHostname(host)).filter((host) => host.length > 0)
+    allowedHosts
+      .map((allowedHost) => normalizeHostname(allowedHost))
+      .filter((allowedHost) => allowedHost.length > 0)
   );
   if (normalizedAllowedHosts.size === 0) {
     throw new BsuirConfigurationError("'allowedBaseUrlHosts' must contain at least one hostname");
@@ -122,7 +131,9 @@ function normalizeBaseUrl(
   // appears to have opted in to plaintext HTTP for a public host. Plaintext HTTP must stay
   // strictly local/test only.
   if (allowInsecureHttp) {
-    const nonLoopback = [...normalizedAllowedHosts].filter((host) => !isLoopbackHost(host));
+    const nonLoopback = [...normalizedAllowedHosts].filter(
+      (allowedHost) => !isLoopbackHost(allowedHost)
+    );
     if (nonLoopback.length > 0) {
       throw new BsuirConfigurationError(
         `'allowInsecureHttp: true' requires every host in 'allowedBaseUrlHosts' to be loopback (localhost/127.x/[::1]); got non-loopback: ${nonLoopback.join(", ")}`
@@ -130,7 +141,6 @@ function normalizeBaseUrl(
     }
   }
 
-  const host = normalizeHostname(parsed.hostname);
   if (host.length === 0) {
     throw new BsuirConfigurationError("'baseUrl' must include a valid hostname");
   }

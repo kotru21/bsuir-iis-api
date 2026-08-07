@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setCache, tryReadCache } from "../../../src/client/http/cache";
+import { setCache, tryReadCacheEntry } from "../../../src/client/http/cache";
 import { BsuirConfigurationError } from "../../../src/client/errors";
 import type { InternalClientConfig } from "../../../src/client/types";
 
@@ -26,13 +26,13 @@ function makeConfig(overrides: Partial<InternalClientConfig> = {}): InternalClie
   };
 }
 
-describe("tryReadCache", () => {
+describe("tryReadCacheEntry", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
   it("returns undefined for cache miss", () => {
     const config = makeConfig();
-    expect(tryReadCache(config, "key")).toBeUndefined();
+    expect(tryReadCacheEntry(config, "key")).toBeUndefined();
   });
 
   it("returns value and touches key as most recently used", () => {
@@ -41,7 +41,7 @@ describe("tryReadCache", () => {
     setCache(config, "k1", 1);
     setCache(config, "k2", 2);
 
-    expect(tryReadCache(config, "k1")).toBe(1);
+    expect(tryReadCacheEntry(config, "k1")?.value).toBe(1);
 
     setCache(config, "k3", 3);
     expect(config.responseCache.has("k1")).toBe(true);
@@ -53,12 +53,15 @@ describe("tryReadCache", () => {
     const config = makeConfig();
     setCache(config, "k1", { nested: { value: 1 }, items: [1, 2] });
 
-    const cached = tryReadCache(config, "k1") as { nested: { value: number }; items: number[] };
+    const cached = tryReadCacheEntry(config, "k1")?.value as {
+      nested: { value: number };
+      items: number[];
+    };
     expect(Object.isFrozen(cached)).toBe(true);
     expect(Object.isFrozen(cached.nested)).toBe(true);
     expect(Object.isFrozen(cached.items)).toBe(true);
 
-    const cachedAgain = tryReadCache(config, "k1") as {
+    const cachedAgain = tryReadCacheEntry(config, "k1")?.value as {
       nested: { value: number };
       items: number[];
     };
@@ -68,11 +71,25 @@ describe("tryReadCache", () => {
   it("returns undefined and deletes the entry when expired", () => {
     vi.setSystemTime(1000);
     const config = makeConfig();
-    config.responseCache.set("key", { value: "stale", expiresAt: 1000 });
+    config.responseCache.set("key", { value: "stale", status: 200, expiresAt: 1000 });
 
     vi.setSystemTime(1001);
-    expect(tryReadCache(config, "key")).toBeUndefined();
+    expect(tryReadCacheEntry(config, "key")).toBeUndefined();
     expect(config.responseCache.has("key")).toBe(false);
+  });
+
+  it("returns the original status alongside the value", () => {
+    vi.setSystemTime(1000);
+    const config = makeConfig();
+    setCache(config, "k1", { ok: true }, 201);
+
+    const hit = tryReadCacheEntry(config, "k1");
+    expect(hit?.status).toBe(201);
+    expect(hit?.value).toEqual({ ok: true });
+
+    const noStatus = makeConfig();
+    setCache(noStatus, "k1", "v");
+    expect(tryReadCacheEntry(noStatus, "k1")?.status).toBeUndefined();
   });
 });
 
@@ -113,14 +130,14 @@ describe("setCache", () => {
     setCache(config, "key", payload);
     payload.nested.value = 2;
 
-    const cached = tryReadCache(config, "key") as { nested: { value: number } };
+    const cached = tryReadCacheEntry(config, "key")?.value as { nested: { value: number } };
     expect(cached.nested.value).toBe(1);
   });
 
   it("evicts expired entries before capacity-based eviction", () => {
     vi.setSystemTime(1000);
     const config = makeConfig({ cacheTtlMs: 60_000, cacheMaxEntries: 2 });
-    config.responseCache.set("expired", { value: "old", expiresAt: 999 });
+    config.responseCache.set("expired", { value: "old", status: 200, expiresAt: 999 });
     setCache(config, "k1", 1);
     setCache(config, "k2", 2);
 

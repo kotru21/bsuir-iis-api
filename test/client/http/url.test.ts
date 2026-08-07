@@ -39,6 +39,14 @@ describe("buildUrl", () => {
     );
   });
 
+  it("sorts query keys by code point so cache keys are locale-independent", () => {
+    // Code-point order: "A"(65) < "Z"(90) < "a"(97); localeCompare would order
+    // case-insensitively and can differ across runtimes/ICU data.
+    expect(buildUrl("https://iis.bsuir.by/api/v1", "/groups", { a: "3", A: "1", Z: "2" })).toBe(
+      "https://iis.bsuir.by/api/v1/groups?A=1&Z=2&a=3"
+    );
+  });
+
   it("coerces number query param to string", () => {
     expect(buildUrl("https://iis.bsuir.by/api/v1", "/week", { n: 2 })).toBe(
       "https://iis.bsuir.by/api/v1/week?n=2"

@@ -2,6 +2,21 @@ import { BsuirApiError, BsuirResponsePayloadTooLargeError } from "../errors";
 
 const UTF8_ENCODER = new TextEncoder();
 
+/**
+ * Best-effort cancellation of an unread response body.
+ *
+ * Runtimes like undici cannot reuse the underlying keep-alive connection until
+ * the body is consumed or cancelled, so callers that abandon a response (retry
+ * of a failed status, early size-limit exit) should cancel it explicitly.
+ */
+export async function cancelResponseBody(response: Response): Promise<void> {
+  try {
+    await response.body?.cancel();
+  } catch {
+    // Cancellation is a resource hint only; failures (locked/disturbed stream) are ignored.
+  }
+}
+
 async function readBodyTextWithLimit(
   response: Response,
   maxResponseBytes: number
@@ -10,6 +25,7 @@ async function readBodyTextWithLimit(
   if (contentLengthHeader) {
     const parsedLength = Number(contentLengthHeader);
     if (Number.isFinite(parsedLength) && parsedLength > maxResponseBytes) {
+      await cancelResponseBody(response);
       throw new BsuirResponsePayloadTooLargeError(
         `Response body exceeds maxResponseBytes limit (${String(maxResponseBytes)} bytes)`,
         response.status,

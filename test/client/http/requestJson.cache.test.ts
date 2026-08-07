@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { createBsuirClient } from "../../../src";
+import { describe, expect, it, vi } from "vitest";
+import { createBsuirClient, type ResponseHookContext } from "../../../src";
 import { createJsonResponse, mockFetchSequence } from "../../helpers/fetchMock";
 
 describe("requestJson — cache write semantics", () => {
@@ -25,5 +25,26 @@ describe("requestJson — cache write semantics", () => {
     const second = await client.groups.listAll();
     expect(second).toEqual([1, 2, 3]);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports the original response status (not a hardcoded 200) on cache hits", async () => {
+    const fetchImpl = mockFetchSequence([createJsonResponse({ status: 201, body: [1] })]);
+    const contexts: ResponseHookContext[] = [];
+    const client = createBsuirClient({
+      fetch: fetchImpl,
+      cache: { ttlMs: 1000 },
+      hooks: {
+        onResponse: vi.fn((ctx: ResponseHookContext) => {
+          contexts.push(ctx);
+        })
+      }
+    });
+
+    await client.groups.listAll();
+    await client.groups.listAll();
+
+    expect(contexts).toHaveLength(2);
+    expect(contexts[0]).toMatchObject({ status: 201, fromCache: false });
+    expect(contexts[1]).toMatchObject({ status: 201, fromCache: true });
   });
 });

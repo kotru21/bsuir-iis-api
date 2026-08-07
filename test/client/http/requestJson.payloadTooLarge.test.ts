@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createBsuirClient } from "../../../src";
-import { createJsonResponse } from "../../helpers/fetchMock";
+import { createJsonResponse, mockFetchSequence } from "../../helpers/fetchMock";
 import { BsuirResponsePayloadTooLargeError } from "../../../src/client/errors";
 import type { ErrorHookContext } from "../../../src";
 
@@ -23,5 +23,22 @@ describe("requestJson — payload-too-large should trigger onError", () => {
     expect(onError).toHaveBeenCalled();
     const calledWith = onError.mock.calls.at(0)?.[0];
     expect(calledWith?.error).toBeInstanceOf(BsuirResponsePayloadTooLargeError);
+  });
+
+  it("still retries retriable statuses whose oversized error body is never read", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({
+        status: 503,
+        headers: { "Content-Length": "1000" },
+        body: { message: "unavailable" }
+      }),
+      createJsonResponse({ body: [] })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl, maxResponseBytes: 10, retries: 1 });
+
+    // The retry decision precedes body parsing, so the oversized error page must
+    // not surface BsuirResponsePayloadTooLargeError and kill the retry.
+    await expect(client.groups.listAll()).resolves.toEqual([]);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 });

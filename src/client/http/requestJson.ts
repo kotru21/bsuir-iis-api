@@ -5,7 +5,8 @@ import type {
   RequestOptions,
   ResponseHookContext
 } from "../types";
-import { setCache, tryReadCache } from "./cache";
+import { setCache, tryReadCacheEntry } from "./cache";
+import { invokeHookSafely } from "./hooks";
 import { baseHookContext, performRequestWithRetry } from "./performRequest";
 import { hasPrivateHeaders } from "./privateHeaders";
 import { buildRequestKey } from "./requestCacheKey";
@@ -70,20 +71,23 @@ export async function requestJson<T>(
   };
 
   if (canReadFromCache) {
-    const cached = tryReadCache(config, ensureRequestKey());
+    const cached = tryReadCacheEntry(config, ensureRequestKey());
     if (cached !== undefined) {
       const cacheHitCtx: ResponseHookContext = {
         ...baseHookContext(method, path, endpoint, 1, maxAttempts, options.query),
-        status: 200,
+        // Entries written by this pipeline always carry the real status; the 200
+        // fallback only covers hand-populated cache maps.
+        status: cached.status ?? 200,
         durationMs: 0,
         fromCache: true
       };
-      config.hooks.onResponse?.(cacheHitCtx);
-      return cached as T;
+      invokeHookSafely(config.hooks.onResponse, cacheHitCtx);
+      return cached.value as T;
     }
   }
 
-  let lastSuccessResponse: { hookCtx: RequestHookContext; durationMs: number } | undefined;
+  let lastSuccessResponse:
+    { hookCtx: RequestHookContext; durationMs: number; status: number } | undefined;
 
   const runResponseValidator = (payload: T): void => {
     if (!options.responseValidator) {
@@ -101,7 +105,7 @@ export async function requestJson<T>(
         durationMs: responseMeta.durationMs,
         error
       };
-      config.hooks.onError?.(errorCtx);
+      invokeHookSafely(config.hooks.onError, errorCtx);
       throw error;
     }
   };
@@ -123,7 +127,7 @@ export async function requestJson<T>(
     });
     runResponseValidator(payload);
     if (canWriteToCache) {
-      const cached = setCache(config, ensureRequestKey(), payload);
+      const cached = setCache(config, ensureRequestKey(), payload, lastSuccessResponse?.status);
       if (cached !== undefined) {
         return cached;
       }

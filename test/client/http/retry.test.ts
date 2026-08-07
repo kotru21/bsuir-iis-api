@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { getRetryDecision, getRetryDelayMs } from "../../../src/client/http/retry";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getRetryDecision, getRetryDelayMs, sleep } from "../../../src/client/http/retry";
 import type { InternalClientConfig } from "../../../src/client/types";
 
 const baseConfig: InternalClientConfig = {
@@ -31,13 +31,23 @@ describe("retry parsing — Retry-After header", () => {
     }
   });
 
-  it("parses HTTP-date correctly when in future (capped by retryMaxDelayMs)", () => {
+  it("parses HTTP-date correctly when in future (honored beyond retryMaxDelayMs)", () => {
     const future = new Date(Date.now() + 20_000).toUTCString();
     const decision = getRetryDecision(baseConfig, 0, future);
     expect(decision.retryable).toBe(true);
     if (decision.retryable) {
-      // Should be capped by retryMaxDelayMs (10_000)
-      expect(decision.delayMs).toBe(baseConfig.retryMaxDelayMs);
+      // Server hints are honored in full up to the 60s ceiling; retryMaxDelayMs
+      // (10_000 here) caps only the client's own exponential backoff.
+      expect(decision.delayMs).toBeGreaterThan(baseConfig.retryMaxDelayMs);
+      expect(decision.delayMs).toBeLessThanOrEqual(20_000);
+    }
+  });
+
+  it("honors numeric Retry-After beyond retryMaxDelayMs", () => {
+    const decision = getRetryDecision(baseConfig, 0, "30");
+    expect(decision.retryable).toBe(true);
+    if (decision.retryable) {
+      expect(decision.delayMs).toBe(30_000);
     }
   });
 
@@ -65,5 +75,58 @@ describe("retry parsing — Retry-After header", () => {
     if (decision.retryable) {
       expect(decision.delayMs).toBe(baseConfig.retryDelayMs);
     }
+  });
+});
+
+describe("sleep — abort-aware waiting", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("resolves after the delay when no signals are given", async () => {
+    let resolved = false;
+    const observed = (async () => {
+      await sleep(500);
+      resolved = true;
+    })();
+
+    await vi.advanceTimersByTimeAsync(499);
+    expect(resolved).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(resolved).toBe(true);
+    await observed;
+  });
+
+  it("resolves immediately when a signal is already aborted", async () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    let resolved = false;
+    const observed = (async () => {
+      await sleep(60_000, [controller.signal]);
+      resolved = true;
+    })();
+
+    await vi.advanceTimersByTimeAsync(0);
+    expect(resolved).toBe(true);
+    await observed;
+  });
+
+  it("resolves early when a signal aborts mid-wait", async () => {
+    const controller = new AbortController();
+
+    let resolved = false;
+    const observed = (async () => {
+      await sleep(60_000, [undefined, controller.signal]);
+      resolved = true;
+    })();
+
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(resolved).toBe(false);
+
+    controller.abort();
+    // No timer advancement: if abort did not wake the sleep, this await would hang.
+    await vi.advanceTimersByTimeAsync(0);
+    expect(resolved).toBe(true);
+    await observed;
   });
 });

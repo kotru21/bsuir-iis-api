@@ -76,7 +76,9 @@ export function buildUrl(baseUrl: string, path: string, query?: QueryParams): st
   if (query) {
     const sortedEntries = Object.entries(query)
       .filter(([, value]) => value !== undefined && value !== null)
-      .toSorted((a, b) => a[0].localeCompare(b[0]));
+      // Code-point comparison, not localeCompare: cache keys must be identical
+      // across runtimes regardless of ICU data or the user's locale.
+      .toSorted(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
     for (const [key, value] of sortedEntries) {
       assertSafeQueryKey(key);
       url.searchParams.set(key, String(value));

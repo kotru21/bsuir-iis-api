@@ -52,11 +52,12 @@ describe("getRetryDelayMs", () => {
     expect(delay).toBe(5000);
   });
 
-  it("caps Retry-After at retryMaxDelayMs when header value exceeds it (line 48)", () => {
-    // retryMaxDelayMs = 3000, Retry-After = 5s (5000ms) → capped at 3000
+  it("honors Retry-After beyond retryMaxDelayMs (server hint wins over backoff cap)", () => {
+    // retryMaxDelayMs = 3000 caps only the client's own backoff; Retry-After = 5s
+    // is honored in full (up to the internal 60s ceiling).
     const config = makeConfig({ retryJitter: false, retryMaxDelayMs: 3000 });
     const delay = getRetryDelayMs(config, 0, "5");
-    expect(delay).toBe(3000);
+    expect(delay).toBe(5000);
   });
 
   it("ignores Retry-After HTTP date in the past (line 31)", () => {

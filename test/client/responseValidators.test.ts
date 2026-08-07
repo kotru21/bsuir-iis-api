@@ -6,6 +6,7 @@ import {
   assertScheduleResponse
 } from "../../src/client/responseValidators";
 import { BsuirResponseValidationError } from "../../src/client/errors";
+import { buildScheduleResponse } from "../modules/scheduleFixtures";
 
 describe("response validators", () => {
   it("accepts array payloads", () => {
@@ -112,5 +113,99 @@ describe("response validators", () => {
         "/schedule"
       )
     ).toThrow(BsuirResponseValidationError);
+  });
+
+  it("rejects catalog arrays with non-object elements", () => {
+    expect(() => assertArrayResponse([1, 2], "/student-groups")).toThrow(
+      BsuirResponseValidationError
+    );
+    expect(() => assertArrayResponse([null], "/student-groups")).toThrow(
+      BsuirResponseValidationError
+    );
+    expect(() => assertArrayResponse([{ id: 1 }], "/student-groups")).not.toThrow();
+  });
+
+  it("rejects announcement items with wrong field types", () => {
+    expect(() =>
+      assertAnnouncementListResponse([{ id: "x", content: "c", date: "d" }], "/announcements")
+    ).toThrow(BsuirResponseValidationError);
+    expect(() =>
+      assertAnnouncementListResponse(
+        [{ id: 1, content: "c", date: "d", employeeDepartments: [1] }],
+        "/announcements"
+      )
+    ).toThrow(BsuirResponseValidationError);
+    expect(() =>
+      assertAnnouncementListResponse(
+        { content: [{ id: 1, studentGroups: "nope" }] },
+        "/announcements"
+      )
+    ).toThrow(BsuirResponseValidationError);
+  });
+
+  it("accepts announcement items with omitted fields (validate-when-present)", () => {
+    expect(() => assertAnnouncementListResponse([{ id: 1 }], "/announcements")).not.toThrow();
+  });
+});
+
+describe("response validators — schedule item level", () => {
+  it("accepts a fully populated schedule payload", () => {
+    expect(() => assertScheduleResponse(buildScheduleResponse(), "/schedule")).not.toThrow();
+  });
+
+  it("rejects lesson with non-array weekNumber", () => {
+    const payload = buildScheduleResponse();
+    const lesson = payload.schedules?.Понедельник?.[0];
+    if (lesson) {
+      (lesson as { weekNumber: unknown }).weekNumber = "1";
+    }
+    expect(() => assertScheduleResponse(payload, "/schedule")).toThrow(/weekNumber/);
+  });
+
+  it("rejects lesson with non-string auditories element", () => {
+    const payload = buildScheduleResponse();
+    const lesson = payload.schedules?.Понедельник?.[0];
+    if (lesson) {
+      (lesson as { auditories: unknown }).auditories = [101];
+    }
+    expect(() => assertScheduleResponse(payload, "/schedule")).toThrow(/auditories\[0\]/);
+  });
+
+  it("rejects lesson with wrong scalar field types", () => {
+    const payload = buildScheduleResponse();
+    const lesson = payload.schedules?.Понедельник?.[0];
+    if (lesson) {
+      (lesson as { numSubgroup: unknown }).numSubgroup = "0";
+    }
+    expect(() => assertScheduleResponse(payload, "/schedule")).toThrow(/numSubgroup/);
+  });
+
+  it("rejects lesson with non-object employees element", () => {
+    const payload = buildScheduleResponse();
+    const lesson = payload.schedules?.Понедельник?.[0];
+    if (lesson) {
+      (lesson as { employees: unknown }).employees = [null];
+    }
+    expect(() => assertScheduleResponse(payload, "/schedule")).toThrow(/employees\[0\]/);
+  });
+
+  it("rejects malformed exam items with location in message", () => {
+    const payload = buildScheduleResponse();
+    (payload.exams as unknown[])[0] = { announcement: "yes" };
+    expect(() => assertScheduleResponse(payload, "/schedule")).toThrow(/exams\[0\]\.announcement/);
+  });
+
+  it("rejects malformed nextSchedules map values", () => {
+    const payload = buildScheduleResponse();
+    (payload as { nextSchedules?: unknown }).nextSchedules = { Понедельник: "nope" };
+    expect(() => assertScheduleResponse(payload, "/schedule")).toThrow(
+      /nextSchedules\.Понедельник/
+    );
+  });
+
+  it("rejects non-object schedule day items", () => {
+    const payload = buildScheduleResponse();
+    (payload.schedules as unknown as Record<string, unknown>).Среда = [null];
+    expect(() => assertScheduleResponse(payload, "/schedule")).toThrow(/schedules\.Среда\[0\]/);
   });
 });

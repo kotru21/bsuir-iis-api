@@ -9,9 +9,36 @@ const MAX_ACCEPTED_RETRY_AFTER_MS = 60_000;
 // upstreams from being propagated further.
 const RETRY_AFTER_INTERNAL_CAP_MS = 86_400_000;
 
-/** Delays execution for a specified number of milliseconds. */
-export function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+/**
+ * Delays execution for a specified number of milliseconds.
+ *
+ * When `signals` are provided, the wait resolves early once any of them aborts:
+ * retry backoff must not stall caller cancellation. The abort itself is not
+ * re-thrown here — the next request attempt observes the aborted signal and
+ * maps it to the proper abort/timeout error.
+ */
+export function sleep(
+  ms: number,
+  signals: readonly (AbortSignal | undefined)[] = []
+): Promise<void> {
+  return new Promise((resolve) => {
+    const active = signals.filter((signal): signal is AbortSignal => signal !== undefined);
+    const finish = (): void => {
+      clearTimeout(timer);
+      for (const signal of active) {
+        signal.removeEventListener("abort", finish);
+      }
+      resolve();
+    };
+    const timer = setTimeout(finish, ms);
+    for (const signal of active) {
+      if (signal.aborted) {
+        finish();
+        return;
+      }
+      signal.addEventListener("abort", finish, { once: true });
+    }
+  });
 }
 
 function parseRetryAfterMs(retryAfter: string | null): number | null {
@@ -60,8 +87,11 @@ export type RetryDecision =
 /**
  * Calculates retry behavior for the current attempt.
  *
- * If server-provided `Retry-After` exceeds a sane safety bound, retry is rejected
- * to avoid long caller stalls caused by hostile or misconfigured upstreams.
+ * A server-provided `Retry-After` is honored in full up to
+ * `MAX_ACCEPTED_RETRY_AFTER_MS` (60 s) — `retryMaxDelayMs` caps only the
+ * client's own exponential backoff, not the server's explicit hint.
+ * Beyond that bound the retry is rejected to avoid long caller stalls caused
+ * by hostile or misconfigured upstreams.
  */
 export function getRetryDecision(
   config: Readonly<InternalClientConfig>,
@@ -73,7 +103,7 @@ export function getRetryDecision(
     if (retryAfterDelay > MAX_ACCEPTED_RETRY_AFTER_MS) {
       return { retryable: false, rejectedDelayMs: retryAfterDelay };
     }
-    return { retryable: true, delayMs: Math.min(retryAfterDelay, config.retryMaxDelayMs) };
+    return { retryable: true, delayMs: retryAfterDelay };
   }
   return { retryable: true, delayMs: getBackoffDelayMs(config, attempt) };
 }

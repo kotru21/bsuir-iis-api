@@ -60,15 +60,15 @@ const client = createBsuirClient({
 ```
 
 - `fetch` can be passed for custom runtime/testing.
-- `baseUrl` is normalized and validated (absolute URL, no credentials/query/hash, host allowlist).
+- `baseUrl` is normalized and validated (absolute URL, no credentials/query/hash, host allowlist). Explicit ports are rejected for public hosts but allowed on loopback (`localhost`, `127.0.0.1`, `[::1]`) so local dev/mock servers stay usable.
 - `allowedBaseUrlHosts` controls which hosts are allowed for `baseUrl` (defaults to `["iis.bsuir.by"]`).
 - `allowInsecureHttp` enables `http://` only for trusted local/test endpoints.
 - `signal` in `createBsuirClient({ signal })` acts as a global cancellation signal for all requests made by that client.
 - `cache` stores successful GET responses in-memory for the configured TTL. A live `AbortSignal` can still use cache; an already-aborted signal skips cache. Cache hits return **deep-frozen** JSON (same reference on repeat reads); clone the payload if you need to mutate it. Use a separate client instance per identity in multi-tenant apps.
 - `dedupeInFlight` reuses the same in-flight GET request for concurrent callers. It is disabled for per-request signals, non-default cache modes, private credential headers, and already-aborted signals.
 - `maxResponseBytes` limits body size per response to protect against memory spikes.
-- `validateResponses` enables runtime payload-shape checks for list, schedule, announcement, and last-update endpoints when set to `true` (default: `false`). Normalized schedule calls still apply a minimal envelope check so normalization cannot crash on non-objects. Prefer enabling in development/tests; use `createBsuirClient.strict(options?)` as a shorthand that forces `validateResponses: true` without changing the default for `createBsuirClient()`.
-- `hooks` provides lifecycle callbacks (`onRequest`, `onRetry`, `onResponse`, `onError`) for observability.
+- `validateResponses` enables runtime payload-shape checks for list, schedule, announcement, and last-update endpoints when set to `true` (default: `false`). Schedule responses are validated down to every lesson item (`schedules` / `nextSchedules` / `exams`) and announcements down to each item — fields are checked when present, since IIS may omit keys on sparse payloads; catalog items are checked as objects. Normalized schedule calls still apply a minimal envelope check so normalization cannot crash on non-objects. Prefer enabling in development/tests; use `createBsuirClient.strict(options?)` as a shorthand that forces `validateResponses: true` without changing the default for `createBsuirClient()`.
+- `hooks` provides lifecycle callbacks (`onRequest`, `onRetry`, `onResponse`, `onError`) for observability. Hook exceptions are caught and discarded — an observability callback never breaks the request, triggers a retry, or masks the real outcome.
 - `AbortSignal` is supported by all read methods.
 
 ## API
@@ -149,8 +149,8 @@ Validation rules:
   Retry and abort behavior:
 
 - Retries are applied to GET requests for transport/network errors and HTTP `429`, `500`, `502`, `503`, `504`
-- `Retry-After` is respected for retriable responses
-- Caller-provided aborted `AbortSignal` is re-thrown as native `AbortError`
+- `Retry-After` is respected for retriable responses: the server's hint is honored in full up to a 60s safety ceiling, independently of `retryMaxDelayMs` (which caps only the SDK's own exponential backoff). A `Retry-After` beyond 60s disables the retry (`onRetry` fires with `reason: "retry_after_too_large"`).
+- Caller-provided aborted `AbortSignal` is re-thrown as native `AbortError`; aborting during a retry wait stops the wait immediately instead of stalling until the delay elapses.
 - Internal timeout is mapped to `BsuirTimeoutError`
 
 `createBsuirClient()` throws `BsuirConfigurationError` if no `fetch` implementation is available.
@@ -175,6 +175,8 @@ For **non-2xx** responses the client still attempts `JSON.parse`, but does **not
 ## Raw vs normalized schedule response
 
 By default, schedule methods return a **normalized** `NormalizedScheduleResponse`: `lessons` is all flattened items (weekly + exams), each tagged with `source: "schedules" | "exams"`; `scheduleLessons` / `examLessons` are the same rows split by source; `lessonsByDay` groups by weekday.
+
+**Normalized payloads are deep-frozen.** Every view (`lessons`, `lessonsByDay`, `scheduleLessons`, `examLessons`, `schedules`, `exams`) and all nested objects share one immutable structure — mutating any part of it throws `TypeError` in strict mode. Clone a lesson explicitly if you need a mutable copy. The raw `ScheduleResponse` you pass to `normalizeSchedule()` is never mutated or frozen (normalization works on an owned deep clone).
 
 **Current term only by default.** IIS may also send `nextSchedules` (next academic term). Normalization and `getGroup` / `getEmployee` **ignore** that map unless you opt in:
 

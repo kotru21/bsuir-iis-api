@@ -33,6 +33,12 @@ jobs:
       - run: npm run build
       - run: npx --yes @cyclonedx/cyclonedx-npm --output-file sbom.cdx.json
         if: matrix.node-version == 24
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: matrix.node-version == 24
+        with:
+          name: sbom
+          path: sbom.cdx.json
       # Only verify the committed API report against the freshly built types. Do NOT run
       # `api:report` (--local) here: it overwrites etc/*.api.md before the check, so any
       # drift in the public API surface would be silently regenerated and never fail CI.
