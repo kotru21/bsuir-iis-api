@@ -16,7 +16,7 @@ export function formatLessonTimeRange(
 ): string {
   const start = lesson.startLessonTime.trim();
   const end = lesson.endLessonTime.trim();
-  if (start && end) return `${start}\u2013${end}`;
+  if (start && end) return `${start}\u{2013}${end}`;
   if (start) return start;
   if (end) return end;
   return "";
@@ -49,7 +49,7 @@ export function formatLessonType(lesson: Pick<FlattenedScheduleItem, "lessonType
  */
 export function formatLessonSubgroup(lesson: Pick<FlattenedScheduleItem, "numSubgroup">): string {
   if (!lesson.numSubgroup) return "";
-  return `${String(lesson.numSubgroup)} \u043F\u043E\u0434\u0433\u0440\u0443\u043F\u043F\u0430`;
+  return `${String(lesson.numSubgroup)} \u{43F}\u{43E}\u{434}\u{433}\u{440}\u{443}\u{43F}\u{43F}\u{430}`;
 }
 
 /**
@@ -66,9 +66,9 @@ export function formatLessonSubgroup(lesson: Pick<FlattenedScheduleItem, "numSub
  */
 export function formatLessonWeekNumbers(lesson: Pick<FlattenedScheduleItem, "weekNumber">): string {
   if (!lesson.weekNumber || lesson.weekNumber.length === 0) {
-    return "\u043A\u0430\u0436\u0434. \u043D\u0435\u0434.";
+    return "\u{43A}\u{430}\u{436}\u{434}. \u{43D}\u{435}\u{434}.";
   }
-  return `${lesson.weekNumber.join(", ")} \u043D\u0435\u0434.`;
+  return `${lesson.weekNumber.join(", ")} \u{43D}\u{435}\u{434}.`;
 }
 
 /**

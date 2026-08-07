@@ -92,9 +92,6 @@ export function assertScheduleResponse(
 ): asserts payload is ScheduleResponse {
   const record = ensureRecord(payload, endpoint, "object");
   const schedules = record.schedules;
-  const exams = record.exams;
-  const employeeDto = record.employeeDto;
-  const studentGroupDto = record.studentGroupDto;
 
   // undefined treated as absent field — API may omit schedules/exams for exam-only or schedule-only entries
   if (
@@ -110,6 +107,7 @@ export function assertScheduleResponse(
     );
   }
 
+  const exams = record.exams;
   if (exams !== null && exams !== undefined && !Array.isArray(exams)) {
     throw new BsuirResponseValidationError(
       `Invalid response payload for ${endpoint}: 'exams' must be array or null, got ${typeof exams}`,
@@ -117,12 +115,15 @@ export function assertScheduleResponse(
     );
   }
 
+  const employeeDto = record.employeeDto;
   if (!isNullableObject(employeeDto)) {
     throw new BsuirResponseValidationError(
       `Invalid response payload for ${endpoint}: 'employeeDto' must be object or null, got ${typeof employeeDto}`,
       endpoint
     );
   }
+
+  const studentGroupDto = record.studentGroupDto;
 
   if (!isNullableObject(studentGroupDto)) {
     throw new BsuirResponseValidationError(

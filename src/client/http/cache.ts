@@ -20,10 +20,7 @@ function isJsonValue(value: unknown): boolean {
   // but the cache layer is designed to hold parsed JSON only; anything else indicates a
   // misconfigured value reaching the cache.
   const proto: unknown = Object.getPrototypeOf(value);
-  if (proto !== Object.prototype && proto !== Array.prototype && proto !== null) {
-    return false;
-  }
-  return true;
+  return [Object.prototype, Array.prototype, null].includes(proto as object | null);
 }
 
 /**

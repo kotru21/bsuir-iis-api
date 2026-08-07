@@ -118,7 +118,9 @@ describe("requestJson — additional branches", () => {
     });
 
     const cached = await client.groups.listAll();
-    const push = (): number => cached.push({ id: 2 } as (typeof cached)[number]);
+    const push = (): void => {
+      cached.push({ id: 2 } as (typeof cached)[number]);
+    };
     expect(push).toThrow();
     expect(cached).toHaveLength(1);
   });

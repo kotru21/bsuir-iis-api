@@ -30,7 +30,12 @@ describe("requestJson — response and transport errors", () => {
     ]);
     const config = createRequestJsonConfig(fetchImpl, { retries: 0 });
 
-    const error = await requestJson(config, "/faculties").catch((error_: unknown) => error_);
+    let error: unknown;
+    try {
+      await requestJson(config, "/faculties");
+    } catch (error_) {
+      error = error_;
+    }
     expect(error).toBeInstanceOf(BsuirApiError);
     expect(error).toMatchObject({
       message: "Invalid JSON response payload",
@@ -51,7 +56,12 @@ describe("requestJson — response and transport errors", () => {
     ]);
     const config = createRequestJsonConfig(fetchImpl, { retries: 0, maxResponseBytes: 10 });
 
-    const error = await requestJson(config, "/faculties").catch((error_: unknown) => error_);
+    let error: unknown;
+    try {
+      await requestJson(config, "/faculties");
+    } catch (error_) {
+      error = error_;
+    }
     expect(error).toBeInstanceOf(BsuirResponsePayloadTooLargeError);
     expect(error).toMatchObject({
       message: "Response body exceeds maxResponseBytes limit (10 bytes)"
@@ -83,7 +93,12 @@ describe("requestJson — response and transport errors", () => {
     ]);
     const config = createRequestJsonConfig(fetchImpl, { retries: 0 });
 
-    const error = await requestJson(config, "/faculties").catch((error_: unknown) => error_);
+    let error: unknown;
+    try {
+      await requestJson(config, "/faculties");
+    } catch (error_) {
+      error = error_;
+    }
     expect(error).toBeInstanceOf(BsuirApiError);
     expect(error).toMatchObject({
       status: 503,
@@ -112,7 +127,12 @@ describe("requestJson — response and transport errors", () => {
     const fetchImpl = mockFetchSequence([first, second, second]);
     const config = createRequestJsonConfig(fetchImpl, { retries: 2 });
 
-    const error = await requestJson(config, "/faculties").catch((error_: unknown) => error_);
+    let error: unknown;
+    try {
+      await requestJson(config, "/faculties");
+    } catch (error_) {
+      error = error_;
+    }
     expect(error).toBeInstanceOf(BsuirNetworkError);
     expect(error).toMatchObject({
       endpoint: "https://iis.bsuir.by/api/v1/faculties",

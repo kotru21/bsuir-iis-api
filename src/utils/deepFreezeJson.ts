@@ -15,8 +15,8 @@ export function deepFreezeJson<T>(value: T): T {
       deepFreezeJson(item);
     }
   } else {
-    for (const key of Object.keys(value)) {
-      deepFreezeJson((value as Record<string, unknown>)[key]);
+    for (const value_ of Object.values(value as Record<string, unknown>)) {
+      deepFreezeJson(value_);
     }
   }
   return value;

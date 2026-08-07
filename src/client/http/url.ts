@@ -5,7 +5,7 @@ import { BsuirValidationError } from "../errors";
 // (`?`, `#`, `&`, `=`). Other printable characters are allowed and will be percent-encoded
 // by URLSearchParams as needed.
 // eslint-disable-next-line no-control-regex
-const UNSAFE_QUERY_KEY = /[\u0000-\u0020\u007F&=?#]/;
+const UNSAFE_QUERY_KEY = /[\u{0}-\u{20}\u{7F}&=?#]/u;
 const SCHEME_PREFIX = /^[A-Za-z][A-Za-z\d+.-]*:/;
 
 function assertSafeQueryKey(key: string): void {
@@ -76,12 +76,12 @@ export function buildUrl(baseUrl: string, path: string, query?: QueryParams): st
   if (query) {
     const sortedEntries = Object.entries(query)
       .filter(([, value]) => value !== undefined && value !== null)
-      .toSorted((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+      .toSorted((a, b) => a[0].localeCompare(b[0]));
     for (const [key, value] of sortedEntries) {
       assertSafeQueryKey(key);
       url.searchParams.set(key, String(value));
     }
   }
 
-  return url.toString();
+  return url.href;
 }

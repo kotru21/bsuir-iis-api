@@ -52,11 +52,7 @@ function matchesFilter(item: FlattenedScheduleItem, filter: ScheduleFilterOption
     }
   }
 
-  if (filter.auditory && !lessonAuditories(item).includes(filter.auditory)) {
-    return false;
-  }
-
-  return true;
+  return !filter.auditory || lessonAuditories(item).includes(filter.auditory);
 }
 
 /**

@@ -42,7 +42,7 @@ function assertIntegerOption(
   if (value === undefined) {
     return undefined;
   }
-  if (!Number.isFinite(value) || !Number.isInteger(value) || value < minInclusive) {
+  if (!Number.isFinite(value) || !Number.isSafeInteger(value) || value < minInclusive) {
     throw new BsuirConfigurationError(
       `'${name}' must be an integer greater than or equal to ${String(minInclusive)}`
     );
@@ -134,7 +134,7 @@ function normalizeBaseUrl(
   if (host.length === 0) {
     throw new BsuirConfigurationError("'baseUrl' must include a valid hostname");
   }
-  if (parsed.protocol === "http:" && allowInsecureHttp && !isLoopbackHost(host)) {
+  if (allowInsecureHttp && parsed.protocol === "http:" && !isLoopbackHost(host)) {
     throw new BsuirConfigurationError(
       "'allowInsecureHttp: true' is restricted to localhost/loopback HTTP endpoints only"
     );
@@ -158,10 +158,17 @@ function createInternalConfig(options: BsuirClientOptions): InternalClientConfig
     );
   }
 
-  const retries = assertIntegerOption(options.retries, "retries", 0) ?? 1;
   const retryDelayMs = assertIntegerOption(options.retryDelayMs, "retryDelayMs", 0) ?? 300;
   const retryMaxDelayMs =
     assertIntegerOption(options.retryMaxDelayMs, "retryMaxDelayMs", 0) ?? 3000;
+
+  if (retryDelayMs > retryMaxDelayMs) {
+    throw new BsuirConfigurationError(
+      "'retryDelayMs' must be less than or equal to 'retryMaxDelayMs'"
+    );
+  }
+
+  const retries = assertIntegerOption(options.retries, "retries", 0) ?? 1;
   const cacheTtlMs = assertIntegerOption(options.cache?.ttlMs, "cache.ttlMs", 1);
   const cacheMaxEntries =
     assertIntegerOption(options.cache?.maxEntries, "cache.maxEntries", 1) ?? 200;
@@ -170,12 +177,6 @@ function createInternalConfig(options: BsuirClientOptions): InternalClientConfig
     DEFAULT_MAX_RESPONSE_BYTES;
   const allowInsecureHttp = options.allowInsecureHttp ?? false;
   const allowedBaseUrlHosts = options.allowedBaseUrlHosts ?? DEFAULT_ALLOWED_BASE_URL_HOSTS;
-
-  if (retryDelayMs > retryMaxDelayMs) {
-    throw new BsuirConfigurationError(
-      "'retryDelayMs' must be less than or equal to 'retryMaxDelayMs'"
-    );
-  }
 
   return {
     baseUrl: normalizeBaseUrl(

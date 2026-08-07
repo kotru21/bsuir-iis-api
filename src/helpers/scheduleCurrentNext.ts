@@ -32,8 +32,8 @@ function parseTimeToMinutes(value: string): number | null {
   const hours = Number(hourPart);
   const minutes = Number(minutePart);
   if (
-    !Number.isInteger(hours) ||
-    !Number.isInteger(minutes) ||
+    !Number.isSafeInteger(hours) ||
+    !Number.isSafeInteger(minutes) ||
     hours < 0 ||
     hours > 23 ||
     minutes < 0 ||
@@ -135,7 +135,8 @@ export function getCurrentLesson<T extends LessonWithTime>(
   const current = toDateOrThrow(now, "now");
   const nowMinutes = current.getHours() * 60 + current.getMinutes();
   const hook = options?.onInvalidTime;
-  for (const lesson of sortLessonsByTime(lessons, { onInvalidTime: hook })) {
+  const sortedLessons = sortLessonsByTime(lessons, { onInvalidTime: hook });
+  for (const lesson of sortedLessons) {
     const start = parseLessonTime(lesson, "startLessonTime", hook);
     const end = parseLessonTime(lesson, "endLessonTime", hook);
     if (start === null || end === null || end <= start) {
@@ -171,7 +172,8 @@ export function getNextLesson<T extends LessonWithTime>(
   const current = toDateOrThrow(now, "now");
   const nowMinutes = current.getHours() * 60 + current.getMinutes();
   const hook = options?.onInvalidTime;
-  for (const lesson of sortLessonsByTime(lessons, { onInvalidTime: hook })) {
+  const sortedLessons = sortLessonsByTime(lessons, { onInvalidTime: hook });
+  for (const lesson of sortedLessons) {
     const start = parseLessonTime(lesson, "startLessonTime", hook);
     if (start === null) {
       continue;

@@ -35,7 +35,34 @@ export default defineConfig(
   },
   js.configs.recommended,
   ...typedConfigs,
-  unicorn.configs["flat/recommended"],
+  unicorn.configs.recommended,
+  {
+    rules: {
+      // Существующие исключения для библиотеки
+      "unicorn/no-null": "off",
+      "unicorn/prefer-module": "off",
+      "unicorn/filename-case": "off",
+      "unicorn/no-array-reduce": "off",
+
+      // Нейминг ломает публичный API (BsuirConfigurationError, allowInsecureHttp, …)
+      "unicorn/name-replacements": "off",
+      "unicorn/consistent-boolean-name": "off",
+
+      // globalThis.fetch — осознанный isomorphic паттерн
+      "unicorn/no-unnecessary-global-this": "off",
+
+      // Стиль / шум без выигрыша для SDK
+      "unicorn/single-line-block-comment-style": "off",
+      "unicorn/no-top-level-assignment-in-function": "off",
+      "unicorn/max-nested-calls": "off",
+      "unicorn/prefer-global-number-constants": "off",
+      "unicorn/consistent-conditional-object-spread": "off",
+
+      // Runtime floor: Node 20 / browsers — эти API ещё нельзя требовать
+      "unicorn/prefer-promise-with-resolvers": "off",
+      "unicorn/prefer-iterator-to-array": "off"
+    }
+  },
   {
     files: TS_FILES,
     languageOptions: {
@@ -69,14 +96,7 @@ export default defineConfig(
 
       // --- General ---
       "no-console": "warn",
-      eqeqeq: ["error", "always", { null: "ignore" }],
-
-      // --- Unicorn (опinionated правила отключены для библиотеки) ---
-      "unicorn/prevent-abbreviations": "off",
-      "unicorn/no-null": "off",
-      "unicorn/prefer-module": "off",
-      "unicorn/filename-case": "off",
-      "unicorn/no-array-reduce": "off"
+      eqeqeq: ["error", "always", { null: "ignore" }]
     }
   },
   {

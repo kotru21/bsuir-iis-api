@@ -33,7 +33,8 @@ export async function requestJson<T>(
     headers.set("User-Agent", config.userAgent);
   }
   if (options.headers) {
-    for (const [key, value] of new Headers(options.headers)) {
+    const requestHeaders = new Headers(options.headers);
+    for (const [key, value] of requestHeaders) {
       headers.set(key, value);
     }
   }
@@ -105,8 +106,8 @@ export async function requestJson<T>(
     }
   };
 
-  const requestAndMaybeCache = (): Promise<T> =>
-    performRequestWithRetry<T>({
+  const requestAndMaybeCache = async (): Promise<T> => {
+    const payload = await performRequestWithRetry<T>({
       config,
       path,
       endpoint,
@@ -119,16 +120,16 @@ export async function requestJson<T>(
       onSuccessMeta: (meta) => {
         lastSuccessResponse = meta;
       }
-    }).then((payload) => {
-      runResponseValidator(payload);
-      if (canWriteToCache) {
-        const cached = setCache(config, ensureRequestKey(), payload);
-        if (cached !== undefined) {
-          return cached;
-        }
-      }
-      return payload;
     });
+    runResponseValidator(payload);
+    if (canWriteToCache) {
+      const cached = setCache(config, ensureRequestKey(), payload);
+      if (cached !== undefined) {
+        return cached;
+      }
+    }
+    return payload;
+  };
 
   if (canUseDedup) {
     const key = ensureRequestKey();
@@ -137,9 +138,13 @@ export async function requestJson<T>(
       return (await inFlight) as T;
     }
 
-    const inFlightPromise: Promise<T> = requestAndMaybeCache().finally(() => {
-      config.inFlightRequests.delete(key);
-    });
+    const inFlightPromise: Promise<T> = (async () => {
+      try {
+        return await requestAndMaybeCache();
+      } finally {
+        config.inFlightRequests.delete(key);
+      }
+    })();
     config.inFlightRequests.set(key, inFlightPromise);
     return await inFlightPromise;
   }

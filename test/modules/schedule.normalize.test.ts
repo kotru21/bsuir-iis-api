@@ -140,7 +140,7 @@ describe("schedule module — normalize and raw", () => {
 
     const employees = normalized.lessons[0]?.employees;
     if (Array.isArray(employees)) {
-      expect(() =>
+      expect(() => {
         employees.push({
           firstName: "New",
           lastName: "Teacher",
@@ -154,8 +154,8 @@ describe("schedule module — normalize and raw", () => {
           id: 1,
           urlId: "new-teacher",
           jobPositions: null
-        })
-      ).toThrow(TypeError);
+        });
+      }).toThrow(TypeError);
     }
 
     expect(payload.schedules?.Понедельник).toHaveLength(1);

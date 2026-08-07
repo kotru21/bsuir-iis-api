@@ -35,7 +35,7 @@ function createEmptyLessonsByDay(): FlattenedLessonsByDay {
 function usesFourWeekCycle(response: NormalizedScheduleResponse): boolean {
   const values = response.scheduleLessons
     .flatMap((lesson) => lesson.weekNumber ?? [])
-    .filter((value): value is number => Number.isInteger(value) && value > 0);
+    .filter((value): value is number => Number.isSafeInteger(value) && value > 0);
   if (values.length === 0) {
     return false;
   }

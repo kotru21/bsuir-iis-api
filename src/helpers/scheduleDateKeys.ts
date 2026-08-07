@@ -83,12 +83,9 @@ export function isWithinLessonDateRange(
   endDate: string | null
 ): boolean {
   const startOrdinal = toLessonDayOrdinal(startDate);
-  const endOrdinal = toLessonDayOrdinal(endDate);
   if (startOrdinal !== null && targetOrdinal < startOrdinal) {
     return false;
   }
-  if (endOrdinal !== null && targetOrdinal > endOrdinal) {
-    return false;
-  }
-  return true;
+  const endOrdinal = toLessonDayOrdinal(endDate);
+  return endOrdinal === null || !(targetOrdinal > endOrdinal);
 }

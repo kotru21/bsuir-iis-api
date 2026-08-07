@@ -18,7 +18,7 @@ export function assertNonEmptyString(value: unknown, fieldName: string): asserts
  * Asserts that a value is a positive integer.
  */
 export function assertPositiveInt(value: unknown, fieldName: string): asserts value is number {
-  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value <= 0) {
     throw new BsuirValidationError(`'${fieldName}' must be a positive integer`, fieldName, value);
   }
 }

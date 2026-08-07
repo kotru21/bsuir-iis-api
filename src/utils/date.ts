@@ -21,7 +21,7 @@ export function parseDdMmYyyyParts(value: string | null): DdMmYyyyParts | null {
   const day = Number(dayPart);
   const month = Number(monthPart);
   const year = Number(yearPart);
-  if (!Number.isInteger(day) || !Number.isInteger(month) || !Number.isInteger(year)) {
+  if (!Number.isSafeInteger(day) || !Number.isSafeInteger(month) || !Number.isSafeInteger(year)) {
     return null;
   }
   const utcDate = new Date(Date.UTC(year, month - 1, day));

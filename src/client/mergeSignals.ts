@@ -44,7 +44,7 @@ export function mergeSignals(
     return new AbortController().signal;
   }
 
-  if (parts.length === 1 && timeoutMs === undefined) {
+  if (timeoutMs === undefined && parts.length === 1) {
     return getOnlySignal(parts);
   }
 
@@ -58,10 +58,10 @@ export function mergeSignals(
 
 /** Used when `AbortSignal.any` is unavailable; exposed for unit tests. */
 export function mergeSignalsManual(signals: AbortSignal[], timeoutMs?: number): AbortSignal {
-  if (signals.length === 0 && timeoutMs === undefined) {
+  if (timeoutMs === undefined && signals.length === 0) {
     return new AbortController().signal;
   }
-  if (signals.length === 1 && timeoutMs === undefined) {
+  if (timeoutMs === undefined && signals.length === 1) {
     return getOnlySignal(signals);
   }
 
@@ -71,13 +71,15 @@ export function mergeSignalsManual(signals: AbortSignal[], timeoutMs?: number): 
   let cleanedUp = false;
 
   const onAnyAbort = (): void => {
-    if (!combined.signal.aborted) {
-      if (timeoutId !== undefined) {
-        clearTimeout(timeoutId);
-        timeoutId = undefined;
-      }
-      combined.abort();
+    if (combined.signal.aborted) {
+      return;
     }
+
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
+      timeoutId = undefined;
+    }
+    combined.abort();
   };
 
   const cleanup = (): void => {
