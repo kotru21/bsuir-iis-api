@@ -73,6 +73,12 @@ export interface ScheduleFilterOptions {
   source?: FlattenedScheduleSource;
   weekday?: Weekday;
   weekNumber?: number;
+  /**
+   * Positive subgroup number (1 or 2 on typical IIS payloads).
+   *
+   * Lessons with `numSubgroup === 0` are shared across subgroups and always
+   * match when this filter is set. Passing `0` or a negative value is rejected.
+   */
   subgroup?: number;
   lessonTypeAbbrev?: string | string[];
   subjectQuery?: string;

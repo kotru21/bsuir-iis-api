@@ -11,11 +11,6 @@ export const WEEKDAYS = [
 /** One of the six BSUIR weekday labels in {@link WEEKDAYS}. */
 export type Weekday = (typeof WEEKDAYS)[number];
 
-/** Payload from IIS legacy `last-update-date/*` endpoints (`schedule.getLastUpdateByGroup` / `getLastUpdateByEmployee`). */
-export interface ApiDateResponse {
-  lastUpdateDate: string;
-}
-
 /** Compact student-group reference nested under announcements. */
 export interface StudentGroupShort {
   id: number;

@@ -79,4 +79,13 @@ describe("public api", () => {
     expect(err).toBeInstanceOf(BsuirResponsePayloadTooLargeError);
     expect(err.maxResponseBytes).toBe(1024);
   });
+
+  it("does not expose removed 2.0 last-update helpers", () => {
+    const client = createBsuirClient({
+      fetch: (async () => Response.json(2, { status: 200 })) as typeof fetch
+    });
+
+    expect(client.schedule).not.toHaveProperty("getLastUpdateByGroup");
+    expect(client.schedule).not.toHaveProperty("getLastUpdateByEmployee");
+  });
 });

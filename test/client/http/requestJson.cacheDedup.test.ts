@@ -124,12 +124,11 @@ describe("requestJson — cache and private headers", () => {
 describe("requestJson — in-flight deduplication", () => {
   it("does not deduplicate default and no-store concurrent requests", async () => {
     const resolvers: Array<(value: Response) => void> = [];
-    const fetchImpl = vi.fn(
-      () =>
-        new Promise<Response>((resolve) => {
-          resolvers.push(resolve);
-        })
-    ) as unknown as typeof globalThis.fetch;
+    const fetchImpl = vi.fn(() => {
+      const { promise, resolve } = Promise.withResolvers<Response>();
+      resolvers.push(resolve);
+      return promise;
+    }) as unknown as typeof globalThis.fetch;
     const config = createRequestJsonConfig(fetchImpl, {
       cacheTtlMs: 60_000,
       dedupeInFlight: true
@@ -155,12 +154,11 @@ describe("requestJson — in-flight deduplication", () => {
 
   it("deduplicates concurrent in-flight GET requests", async () => {
     let resolveFetch: ((value: Response) => void) | undefined;
-    const fetchImpl = vi.fn(
-      () =>
-        new Promise<Response>((resolve) => {
-          resolveFetch = resolve;
-        })
-    ) as unknown as typeof globalThis.fetch;
+    const fetchImpl = vi.fn(() => {
+      const { promise, resolve } = Promise.withResolvers<Response>();
+      resolveFetch = resolve;
+      return promise;
+    }) as unknown as typeof globalThis.fetch;
     const config = createRequestJsonConfig(fetchImpl);
 
     const firstPromise = requestJson<{ ok: boolean }>(config, "/faculties");
@@ -179,12 +177,11 @@ describe("requestJson — in-flight deduplication", () => {
 
   it("does not deduplicate concurrent requests when headers differ", async () => {
     const resolvers: Array<(value: Response) => void> = [];
-    const fetchImpl = vi.fn(
-      () =>
-        new Promise<Response>((resolve) => {
-          resolvers.push(resolve);
-        })
-    ) as unknown as typeof globalThis.fetch;
+    const fetchImpl = vi.fn(() => {
+      const { promise, resolve } = Promise.withResolvers<Response>();
+      resolvers.push(resolve);
+      return promise;
+    }) as unknown as typeof globalThis.fetch;
     const config = createRequestJsonConfig(fetchImpl);
 
     const firstPromise = requestJson<{ ok: boolean }>(config, "/faculties", {

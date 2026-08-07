@@ -1,7 +1,6 @@
 import { requestJson } from "../client/http";
-import { assertApiDateResponse, assertScheduleResponse } from "../client/responseValidators";
+import { assertScheduleResponse } from "../client/responseValidators";
 import type { InternalClientConfig } from "../client/types";
-import type { ApiDateResponse } from "../types/common";
 import type {
   FlattenedScheduleItem,
   NormalizedScheduleResponse,
@@ -9,7 +8,7 @@ import type {
   ScheduleItem,
   ScheduleResponse
 } from "../types/schedule";
-import { assertEmployeeUrlId, assertGroupNumber, assertPositiveInt } from "../utils/guards";
+import { assertEmployeeUrlId, assertGroupNumber } from "../utils/guards";
 import { parseCurrentWeek } from "../utils/week";
 import { normalizeSchedule } from "./scheduleNormalize";
 import { createScheduleSubjectMethods } from "./scheduleApiSubject";
@@ -27,8 +26,7 @@ export interface ScheduleReadOptions extends ReadOptions {
 }
 
 /**
- * Schedule module: raw/normalized fetches, filters, subgroup helpers, current week,
- * and deprecated last-update endpoints.
+ * Schedule module: raw/normalized fetches, filters, subgroup helpers, current week.
  */
 export interface ScheduleModule {
   getGroup(groupNumber: string, options?: ScheduleReadOptions): Promise<NormalizedScheduleResponse>;
@@ -88,30 +86,6 @@ export interface ScheduleModule {
   ): Promise<ScheduleResponse>;
 
   getCurrentWeek(options?: ReadOptions): Promise<number>;
-
-  /**
-   * Calls IIS `/last-update-date/student-group`.
-   *
-   * @deprecated Legacy IIS endpoint; no longer maintained upstream. Six-digit
-   * group numbers may fail. Prefer schedule date fields or your own cache TTL.
-   * Planned for removal in a future major.
-   */
-  getLastUpdateByGroup(
-    params: { groupNumber: string } | { id: number },
-    options?: ReadOptions
-  ): Promise<ApiDateResponse>;
-
-  /**
-   * Calls IIS `/last-update-date/employee`.
-   *
-   * @deprecated Legacy IIS endpoint; no longer maintained upstream. Prefer
-   * schedule date fields or your own cache TTL. Planned for removal in a
-   * future major.
-   */
-  getLastUpdateByEmployee(
-    params: { urlId: string } | { id: number },
-    options?: ReadOptions
-  ): Promise<ApiDateResponse>;
 }
 
 /**
@@ -243,35 +217,37 @@ export function createScheduleModule(config: Readonly<InternalClientConfig>): Sc
     getEmployeeFiltered: (id, filter, options) => employeeMethods.getFiltered(id, filter, options),
     /**
      * Returns flattened regular schedule lessons for a subgroup.
-     * Use `getGroupBySubgroupRaw` / `getGroupBySubgroupEnvelope` for raw shapes.
+     * Shared lessons (`numSubgroup === 0`) are included. Use raw/envelope helpers for other shapes.
      */
     getGroupBySubgroup: (id, subgroup, options) =>
       groupMethods.getBySubgroup(id, subgroup, options),
     /**
      * Returns raw `ScheduleItem[]` for a group subgroup (no day/source metadata).
+     * Shared lessons (`numSubgroup === 0`) are included.
      */
     getGroupBySubgroupRaw: (id, subgroup, options) =>
       groupMethods.getBySubgroupRaw(id, subgroup, options),
     /**
      * Returns the full `ScheduleResponse` with `schedules` arrays filtered to the subgroup.
-     * Preserves envelope fields (`employeeDto`, exams, date ranges).
+     * Shared lessons (`numSubgroup === 0`) are included. Preserves envelope fields.
      */
     getGroupBySubgroupEnvelope: (id, subgroup, options) =>
       groupMethods.getBySubgroupEnvelope(id, subgroup, options),
     /**
      * Returns flattened regular schedule lessons for an employee filtered by subgroup.
-     * Use `getEmployeeBySubgroupRaw` / `getEmployeeBySubgroupEnvelope` for raw shapes.
+     * Shared lessons (`numSubgroup === 0`) are included. Use raw/envelope helpers for other shapes.
      */
     getEmployeeBySubgroup: (id, subgroup, options) =>
       employeeMethods.getBySubgroup(id, subgroup, options),
     /**
      * Returns raw `ScheduleItem[]` for an employee subgroup filter.
+     * Shared lessons (`numSubgroup === 0`) are included.
      */
     getEmployeeBySubgroupRaw: (id, subgroup, options) =>
       employeeMethods.getBySubgroupRaw(id, subgroup, options),
     /**
      * Returns the full `ScheduleResponse` with `schedules` arrays filtered to the subgroup.
-     * Preserves envelope fields (`employeeDto`, exams, date ranges).
+     * Shared lessons (`numSubgroup === 0`) are included. Preserves envelope fields.
      */
     getEmployeeBySubgroupEnvelope: (id, subgroup, options) =>
       employeeMethods.getBySubgroupEnvelope(id, subgroup, options),
@@ -285,70 +261,6 @@ export function createScheduleModule(config: Readonly<InternalClientConfig>): Sc
     /**
      * Returns exams for an employee.
      */
-    getEmployeeExams: (id, options) => employeeMethods.getExams(id, options),
-
-    /**
-     * Calls IIS `/last-update-date/student-group`.
-     *
-     * @deprecated Legacy IIS endpoint; no longer maintained upstream. Six-digit
-     * group numbers may fail. Prefer schedule date fields or your own cache TTL.
-     * Planned for removal in a future major.
-     */
-    async getLastUpdateByGroup(
-      params: { groupNumber: string } | { id: number },
-      options: ReadOptions = {}
-    ): Promise<ApiDateResponse> {
-      let query: Record<string, string | number>;
-      if ("groupNumber" in params) {
-        assertGroupNumber(params.groupNumber, "groupNumber");
-        query = { groupNumber: params.groupNumber };
-      } else {
-        assertPositiveInt(params.id, "id");
-        query = { id: params.id };
-      }
-      const payload = await requestJson<unknown>(config, "/last-update-date/student-group", {
-        query,
-        signal: options.signal,
-        cache: options.cache,
-        responseValidator: config.validateResponses
-          ? (value) => {
-              assertApiDateResponse(value, "/last-update-date/student-group");
-            }
-          : undefined
-      });
-      return payload as ApiDateResponse;
-    },
-
-    /**
-     * Calls IIS `/last-update-date/employee`.
-     *
-     * @deprecated Legacy IIS endpoint; no longer maintained upstream. Prefer
-     * schedule date fields or your own cache TTL. Planned for removal in a
-     * future major.
-     */
-    async getLastUpdateByEmployee(
-      params: { urlId: string } | { id: number },
-      options: ReadOptions = {}
-    ): Promise<ApiDateResponse> {
-      let query: Record<string, string | number>;
-      if ("urlId" in params) {
-        assertEmployeeUrlId(params.urlId, "urlId");
-        query = { "url-id": params.urlId };
-      } else {
-        assertPositiveInt(params.id, "id");
-        query = { id: params.id };
-      }
-      const payload = await requestJson<unknown>(config, "/last-update-date/employee", {
-        query,
-        signal: options.signal,
-        cache: options.cache,
-        responseValidator: config.validateResponses
-          ? (value) => {
-              assertApiDateResponse(value, "/last-update-date/employee");
-            }
-          : undefined
-      });
-      return payload as ApiDateResponse;
-    }
+    getEmployeeExams: (id, options) => employeeMethods.getExams(id, options)
   };
 }

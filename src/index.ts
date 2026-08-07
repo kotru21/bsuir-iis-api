@@ -7,12 +7,8 @@ export type {
   CacheStore,
   ClientHooks,
   ErrorHookContext,
-  QueryParams,
-  QueryValue,
   RequestCacheMode,
   RequestHookContext,
-  RequestMethod,
-  RequestOptions,
   ResponseCacheEntry,
   ResponseHookContext,
   RetryHookContext
@@ -66,7 +62,7 @@ export type {
   StudentGroupCatalogItem
 } from "./types/catalog";
 export { WEEKDAYS } from "./types/common";
-export type { ApiDateResponse, Maybe, StudentGroupShort, Weekday } from "./types/common";
+export type { Maybe, StudentGroupShort, Weekday } from "./types/common";
 export type { Employee, EmployeeCatalogItem } from "./types/employee";
 export type {
   BuildScheduleDaysOptions,

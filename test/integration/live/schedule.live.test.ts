@@ -1,11 +1,6 @@
 import { beforeAll, expect, it } from "vitest";
-import { BsuirApiError } from "../../../src/client/errors";
 import { createLiveClient } from "./client";
-import {
-  LIVE_EMPLOYEE_URL_ID,
-  resolveWorkingScheduleEntities,
-  SCHEDULE_PROBE_WARN
-} from "./fixtures";
+import { resolveWorkingScheduleEntities, SCHEDULE_PROBE_WARN } from "./fixtures";
 import { describeLive } from "./gate";
 
 describeLive("live schedule contract", () => {
@@ -113,31 +108,5 @@ describeLive("live schedule contract", () => {
 
     const currentWeek = await client.schedule.getCurrentWeek();
     expect(currentWeek).toEqual(expect.any(Number));
-  }, 60_000);
-
-  it("soft last-update checks (deprecated until removal)", async ({ skip }) => {
-    if (!scheduleAvailable || !groupNumber) {
-      skip();
-      return;
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-deprecated -- testing soft-deprecated last-update until removal
-    const employeeUpdate = await client.schedule.getLastUpdateByEmployee({
-      urlId: LIVE_EMPLOYEE_URL_ID
-    });
-    expect(employeeUpdate.lastUpdateDate).toEqual(expect.any(String));
-
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-deprecated -- testing soft-deprecated last-update until removal
-      const groupUpdate = await client.schedule.getLastUpdateByGroup({
-        groupNumber
-      });
-      expect(groupUpdate.lastUpdateDate).toEqual(expect.any(String));
-    } catch (error) {
-      if (!(error instanceof BsuirApiError)) {
-        throw error;
-      }
-      // Legacy IIS endpoint; may fail for newer group identifiers (e.g. six-digit 524404).
-    }
   }, 60_000);
 });

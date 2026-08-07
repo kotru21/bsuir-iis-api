@@ -26,12 +26,6 @@ export interface AnnouncementReadOptions extends ReadOptions {
 }
 
 // @public
-export interface ApiDateResponse {
-    // (undocumented)
-    lastUpdateDate: string;
-}
-
-// @public
 export interface Auditory {
     // (undocumented)
     auditoryType: AuditoryType;
@@ -468,12 +462,6 @@ export interface NormalizeScheduleOptions {
 }
 
 // @public
-export type QueryParams = Record<string, QueryValue>;
-
-// @public
-export type QueryValue = string | number | boolean | null | undefined;
-
-// @public
 export interface ReadOptions {
     cache?: RequestCacheMode | undefined;
     signal?: AbortSignal | undefined;
@@ -491,25 +479,11 @@ export interface RequestHookContext {
     // (undocumented)
     maxAttempts: number;
     // (undocumented)
-    method: RequestMethod;
+    method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
     // (undocumented)
     path: string;
     // (undocumented)
-    query: QueryParams | undefined;
-}
-
-// @public
-export type RequestMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-
-// @public
-export interface RequestOptions {
-    body?: unknown;
-    cache?: RequestCacheMode | undefined;
-    headers?: HeadersInit | undefined;
-    method?: RequestMethod | undefined;
-    query?: QueryParams | undefined;
-    responseValidator?: ((payload: unknown) => void) | undefined;
-    signal?: AbortSignal | undefined;
+    query: Record<string, string | number | boolean | null | undefined> | undefined;
 }
 
 // @public
@@ -562,7 +536,6 @@ export interface ScheduleFilterOptions {
     lessonTypeAbbrev?: string | string[];
     // (undocumented)
     source?: FlattenedScheduleSource;
-    // (undocumented)
     subgroup?: number;
     // (undocumented)
     subjectQuery?: string;
@@ -640,18 +613,6 @@ export interface ScheduleModule {
     getGroupFiltered(groupNumber: string, filter: ScheduleFilterOptions, options?: ScheduleReadOptions): Promise<FlattenedScheduleItem[]>;
     // (undocumented)
     getGroupRaw(groupNumber: string, options?: ReadOptions): Promise<ScheduleResponse>;
-    // @deprecated
-    getLastUpdateByEmployee(params: {
-        urlId: string;
-    } | {
-        id: number;
-    }, options?: ReadOptions): Promise<ApiDateResponse>;
-    // @deprecated
-    getLastUpdateByGroup(params: {
-        groupNumber: string;
-    } | {
-        id: number;
-    }, options?: ReadOptions): Promise<ApiDateResponse>;
 }
 
 // @public

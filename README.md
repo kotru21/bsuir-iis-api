@@ -9,9 +9,10 @@ Type-safe ESM SDK for [BSUIR IIS API](https://iis.bsuir.by/api/) with support fo
 
 ## Runtime requirements
 
-- **Node.js** `>=20` as declared in `package.json` (`engines`). CI runs runtime checks on Node 20, 22, and 24; lint runs on Node 22+ (`eslint-plugin-unicorn` / `eslint-plugin-jsdoc` require it).
+- **Node.js** `>=22.18` as declared in `package.json` (`engines`). CI runs the full pipeline (lint, typecheck, tests, build) on Node 22, 24 (active LTS), and 26 (current, early-warning).
 - A global **`fetch`** implementation, or pass `fetch` into `createBsuirClient({ fetch })` (for tests or polyfills).
 - **`AbortController` / `AbortSignal`** for cancellation and timeouts. When `AbortSignal.any` is available (current Node and modern browsers), the client combines the per-request timeout with your `signal` using the platform API; otherwise it merges them manually with `setTimeout`, so timeouts still apply together with a caller-provided `AbortSignal`.
+- **`Promise.withResolvers`** and **`Iterator` helpers** (e.g. `.toArray()`) — required by the HTTP pipeline; present in Node 22.18+ and current evergreen browsers.
 
 ## Install
 
@@ -75,7 +76,7 @@ const clientB = createBsuirClient({ cache: { ttlMs: 60_000, store } }); // share
 
 - `dedupeInFlight` reuses the same in-flight GET request for concurrent callers. It is disabled for per-request signals, non-default cache modes, private credential headers, and already-aborted signals.
 - `maxResponseBytes` limits body size per response to protect against memory spikes.
-- `validateResponses` enables runtime payload-shape checks for list, schedule, announcement, and last-update endpoints when set to `true` (default: `false`). Schedule responses are validated down to every lesson item (`schedules` / `nextSchedules` / `exams`) and announcements down to each item — fields are checked when present, since IIS may omit keys on sparse payloads; catalog items are checked as objects. Normalized schedule calls still apply a minimal envelope check so normalization cannot crash on non-objects. Prefer enabling in development/tests; use `createBsuirClient.strict(options?)` as a shorthand that forces `validateResponses: true` without changing the default for `createBsuirClient()`.
+- `validateResponses` enables runtime payload-shape checks for list, schedule, and announcement endpoints when set to `true` (default: `false`). Schedule responses are validated down to every lesson item (`schedules` / `nextSchedules` / `exams`) and announcements down to each item — fields are checked when present, since IIS may omit keys on sparse payloads; catalog items are checked as objects. Normalized schedule calls still apply a minimal envelope check so normalization cannot crash on non-objects. Prefer enabling in development/tests; use `createBsuirClient.strict(options?)` as a shorthand that forces `validateResponses: true` without changing the default for `createBsuirClient()`.
 - `hooks` provides lifecycle callbacks (`onRequest`, `onRetry`, `onResponse`, `onError`) for observability. Hook exceptions are caught and discarded — an observability callback never breaks the request, triggers a retry, or masks the real outcome.
 - `AbortSignal` is supported by all read methods.
 
@@ -98,10 +99,6 @@ const clientB = createBsuirClient({ cache: { ttlMs: 60_000, store } }); // share
 - `client.schedule.getEmployeeBySubgroupRaw(urlId, subgroup, options?)` — `ScheduleItem[]`
 - `client.schedule.getEmployeeBySubgroupEnvelope(urlId, subgroup, options?)` — filtered `ScheduleResponse`
 - `client.schedule.getCurrentWeek(options?)`
-- `client.schedule.getLastUpdateByGroup({ groupNumber } | { id }, options?)` — **deprecated**
-- `client.schedule.getLastUpdateByEmployee({ urlId } | { id }, options?)` — **deprecated**
-
-**Last update (legacy IIS, deprecated).** The upstream routes `/last-update-date/student-group` and `/last-update-date/employee` are legacy on the BSUIR IIS side and are no longer maintained. The SDK marks these helpers `@deprecated`; behavior is unchanged for now. Removal is planned for the **next major (2.0)**. Until then helpers remain callable but `@deprecated`. Prefer schedule date fields or your own cache TTL. For newer group identifiers (six-digit numbers such as `524404`), the student-group endpoint may respond with an error; do not rely on these calls for cache freshness or invalidation.
 
 ### Catalogs
 
@@ -131,11 +128,11 @@ When IIS responds with HTTP `404` (the employee or department has no announcemen
 ### Public exports (runtime utilities and types)
 
 - Core runtime API: `createBsuirClient`, `BsuirClient`
-- Client/runtime option types: `BsuirClientOptions`, `CacheOptions`, `CacheStore`, `ResponseCacheEntry`, `ClientHooks`, `RequestOptions`, `ReadOptions`, `AnnouncementReadOptions`, `ScheduleReadOptions`, `RequestHookContext`, `RetryHookContext`, `ResponseHookContext`, `ErrorHookContext`
+- Client/runtime option types: `BsuirClientOptions`, `CacheOptions`, `CacheStore`, `ResponseCacheEntry`, `ClientHooks`, `RequestCacheMode`, `ReadOptions`, `AnnouncementReadOptions`, `ScheduleReadOptions`, `RequestHookContext`, `RetryHookContext`, `ResponseHookContext`, `ErrorHookContext`
 - Schedule utilities: `normalizeSchedule`, `filterLessons`, `getLessonsForDate`, `getTodayLessons`, `getTomorrowLessons`, `getLessonsForWeek`, `sortLessonsByTime`, `groupLessonsByDay`, `getCurrentLesson`, `getNextLesson`, `buildScheduleDays`, `ScheduleFilterOptions`, `NormalizeScheduleOptions`, `InvalidLessonTimeHook`
 - Formatters: `formatEmployeeShortName`, `formatLessonAuditories`, `formatLessonEmployees`, `formatLessonSubgroup`, `formatLessonTimeRange`, `formatLessonType`, `formatLessonWeekNumbers`
 - Error classes: `BsuirApiError`, `BsuirNetworkError`, `BsuirTimeoutError`, `BsuirValidationError`, `BsuirResponseValidationError`, `BsuirResponsePayloadTooLargeError`, `BsuirConfigurationError`
-- Domain types: `Announcement`, `ApiDateResponse`, `Auditory`, `AuditoryDepartment`, `AuditoryType`, `BuildingNumber`, `Department`, `EducationForm`, `Employee`, `EmployeeCatalogItem`, `Faculty`, `FlattenedLessonsByDay`, `FlattenedScheduleItem`, `FlattenedScheduleSource`, `LessonStudentGroup`, `Maybe`, `NormalizedScheduleResponse`, `ScheduleItem`, `ScheduleResponse`, `Speciality`, `StudentGroupCatalogItem`, `StudentGroupShort`, `Weekday`, `WeekScheduleMap`
+- Domain types: `Announcement`, `Auditory`, `AuditoryDepartment`, `AuditoryType`, `BuildingNumber`, `Department`, `EducationForm`, `Employee`, `EmployeeCatalogItem`, `Faculty`, `FlattenedLessonsByDay`, `FlattenedScheduleItem`, `FlattenedScheduleSource`, `LessonStudentGroup`, `Maybe`, `NormalizedScheduleResponse`, `ScheduleItem`, `ScheduleResponse`, `Speciality`, `StudentGroupCatalogItem`, `StudentGroupShort`, `Weekday`, `WeekScheduleMap`
 
 ## Errors
 
@@ -153,8 +150,9 @@ Validation rules:
 
 - `groupNumber` must contain digits only
 - `urlId` must be a slug with letters/digits/hyphens (for example `s-nesterenkov`)
-- `id` and `subgroup` parameters must be positive integers
-  Retry and abort behavior:
+- `id` and `subgroup` parameters must be positive integers; subgroup filters also include shared lessons (`numSubgroup === 0`)
+
+Retry and abort behavior:
 
 - Retries are applied to GET requests for transport/network errors and HTTP `429`, `500`, `502`, `503`, `504`
 - `Retry-After` is respected for retriable responses: the server's hint is honored in full up to a 60s safety ceiling, independently of `retryMaxDelayMs` (which caps only the SDK's own exponential backoff). A `Retry-After` beyond 60s disables the retry (`onRetry` fires with `reason: "retry_after_too_large"`).
@@ -304,9 +302,30 @@ When this package ships a **major** changeset, include a short note with:
 2. **Mapping table** — old call → new call
 3. **Search hints** — strings to find in consuming repos
 
-### Planned 2.0 (not released)
+### 2.0.0 — Node.js floor, last-update removal, subgroup shared lessons
 
-Intended breaking items (see local quality backlog): remove `schedule.getLastUpdateByGroup` / `getLastUpdateByEmployee`; change subgroup filter so `numSubgroup === 0` is treated as shared lessons; trim leaked low-level request types from the public surface. Exact mapping will land in this section when 2.0 ships.
+**Removed / renamed**
+
+- `client.schedule.getLastUpdateByGroup()` / `client.schedule.getLastUpdateByEmployee()` — removed; the upstream `/last-update-date/*` routes are legacy and unmaintained on the IIS side.
+- `ApiDateResponse` type — removed.
+- Low-level HTTP types removed from the public surface: `RequestOptions`, `QueryParams`, `QueryValue`, `RequestMethod` (still used internally; hook contexts keep their field shapes).
+- Runtime floor raised: **Node.js >=22.18** (Node 20 is EOL).
+
+**Behavior change**
+
+- Subgroup filters (`filterLessons` / `get*Filtered` / `get*BySubgroup*`) treat `numSubgroup === 0` as **shared** lessons included for every positive subgroup. Filtering with `subgroup: 0` remains invalid.
+
+**Mapping**
+
+| Before (1.x)                                                      | After (2.0)                                                   |
+| ----------------------------------------------------------------- | ------------------------------------------------------------- |
+| `schedule.getLastUpdateByGroup(...)`                              | no SDK replacement — use your own cache TTL / re-fetch policy |
+| `schedule.getLastUpdateByEmployee(...)`                           | same                                                          |
+| `ApiDateResponse`                                                 | no replacement needed                                         |
+| `RequestOptions` / `QueryParams` / `QueryValue` / `RequestMethod` | not exported — use `ReadOptions` / hook context types         |
+| subgroup filter exact `numSubgroup` match                         | also includes shared lessons (`numSubgroup === 0`)            |
+
+**Search hints** for consuming repos: `getLastUpdateBy`, `ApiDateResponse`, `last-update-date`, `RequestOptions`, `QueryParams`, `RequestMethod`.
 
 ### 1.0.0 — subgroup schedule helpers
 

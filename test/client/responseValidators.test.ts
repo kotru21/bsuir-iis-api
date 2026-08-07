@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   assertAnnouncementListResponse,
-  assertApiDateResponse,
   assertArrayResponse,
   assertScheduleResponse
 } from "../../src/client/responseValidators";
@@ -39,16 +38,6 @@ describe("response validators", () => {
       BsuirResponseValidationError
     );
     expect(() => assertAnnouncementListResponse({ content: "nope" }, "/announcements")).toThrow(
-      BsuirResponseValidationError
-    );
-  });
-
-  it("accepts valid api date payload", () => {
-    expect(() => assertApiDateResponse({ lastUpdateDate: "23.02.2022" }, "/date")).not.toThrow();
-  });
-
-  it("rejects invalid api date payload", () => {
-    expect(() => assertApiDateResponse({ lastUpdateDate: 123 }, "/date")).toThrow(
       BsuirResponseValidationError
     );
   });

@@ -56,11 +56,7 @@ export default defineConfig(
       "unicorn/no-top-level-assignment-in-function": "off",
       "unicorn/max-nested-calls": "off",
       "unicorn/prefer-global-number-constants": "off",
-      "unicorn/consistent-conditional-object-spread": "off",
-
-      // Runtime floor: Node 20 / browsers — эти API ещё нельзя требовать
-      "unicorn/prefer-promise-with-resolvers": "off",
-      "unicorn/prefer-iterator-to-array": "off"
+      "unicorn/consistent-conditional-object-spread": "off"
     }
   },
   {

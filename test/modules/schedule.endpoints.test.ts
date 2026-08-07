@@ -15,22 +15,6 @@ describe("schedule module — endpoints and helpers", () => {
     expect(week).toBe(2);
   });
 
-  it("supports last update endpoints", async () => {
-    const fetchImpl = mockFetchSequence([
-      createJsonResponse({ body: { lastUpdateDate: "23.02.2022" } }),
-      createJsonResponse({ body: { lastUpdateDate: "24.02.2022" } })
-    ]);
-    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
-
-    // eslint-disable-next-line @typescript-eslint/no-deprecated -- testing soft-deprecated last-update until removal
-    const byGroup = await client.schedule.getLastUpdateByGroup({ groupNumber: "053503" });
-    // eslint-disable-next-line @typescript-eslint/no-deprecated -- testing soft-deprecated last-update until removal
-    const byEmployee = await client.schedule.getLastUpdateByEmployee({ id: 123 });
-
-    expect(byGroup.lastUpdateDate).toBe("23.02.2022");
-    expect(byEmployee.lastUpdateDate).toBe("24.02.2022");
-  });
-
   it("exposes exams and subgroup helper methods", async () => {
     const fetchImpl = mockFetchSequence([
       createJsonResponse({ body: buildScheduleResponse() }),
@@ -43,8 +27,11 @@ describe("schedule module — endpoints and helpers", () => {
 
     expect(exams).toHaveLength(1);
     expect(exams[0]?.source).toBe("exams");
-    expect(subgroupLessons).toHaveLength(1);
-    expect(subgroupLessons[0]?.numSubgroup).toBe(1);
+    // Fixture: Monday numSubgroup 1 + Wednesday shared (0).
+    expect(subgroupLessons).toHaveLength(2);
+    expect(subgroupLessons.map((item) => item.numSubgroup).toSorted((a, b) => a - b)).toEqual([
+      0, 1
+    ]);
   });
 
   it("supports raw subgroup helper via getGroupBySubgroupRaw", async () => {
@@ -52,9 +39,12 @@ describe("schedule module — endpoints and helpers", () => {
     const client = createBsuirClient({ fetch: fetchImpl });
 
     const subgroupLessons = await client.schedule.getGroupBySubgroupRaw("053503", 1);
-    const first = subgroupLessons[0] as ScheduleItem | undefined;
-    expect(subgroupLessons).toHaveLength(1);
-    expect(first?.numSubgroup).toBe(1);
+    const first = subgroupLessons.find((item) => item.numSubgroup === 1) as
+      ScheduleItem | undefined;
+    expect(subgroupLessons).toHaveLength(2);
+    expect(subgroupLessons.map((item) => item.numSubgroup).toSorted((a, b) => a - b)).toEqual([
+      0, 1
+    ]);
     expect(first && "source" in first).toBe(false);
   });
 });

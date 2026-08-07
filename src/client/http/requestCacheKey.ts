@@ -3,9 +3,11 @@ import type { RequestMethod } from "../types";
 const CACHE_KEY_HEADER_ALLOWLIST = new Set<string>(["accept", "accept-language"]);
 
 function normalizeHeadersForRequestKey(headers: Headers): string {
-  return [...headers.entries()]
+  return headers
+    .entries()
     .map(([key, value]) => [key.toLowerCase(), value] as const)
     .filter(([key]) => CACHE_KEY_HEADER_ALLOWLIST.has(key))
+    .toArray()
     .toSorted((a, b) => {
       if (a[0] !== b[0]) {
         return a[0] < b[0] ? -1 : 1;

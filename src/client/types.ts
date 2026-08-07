@@ -80,12 +80,12 @@ export interface CacheOptions {
 
 /** Context passed to `hooks.onRequest` before each attempt. */
 export interface RequestHookContext {
-  method: RequestMethod;
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   path: string;
   endpoint: string;
   attempt: number;
   maxAttempts: number;
-  query: QueryParams | undefined;
+  query: Record<string, string | number | boolean | null | undefined> | undefined;
 }
 
 /** Context passed to `hooks.onRetry` when a GET will be retried. */
@@ -122,7 +122,9 @@ export interface ClientHooks {
 }
 
 /**
- * Low-level HTTP request options used by internal request pipeline.
+ * Low-level HTTP request options used by the internal request pipeline.
+ *
+ * @internal Not part of the public SDK surface — do not import from package root.
  */
 export interface RequestOptions {
   /**
@@ -323,7 +325,6 @@ export interface BsuirClientOptions {
    * - Announcements lists: array/page envelope plus field-level item checks.
    * - Catalog lists: array of non-null objects (per-field catalog DTO checks are
    *   intentionally out of scope).
-   * - Last-update payloads: `{ lastUpdateDate }` shape.
    *
    * Normalized schedule calls still apply a minimal envelope check even when this
    * flag is `false`, so normalization cannot crash on non-objects.

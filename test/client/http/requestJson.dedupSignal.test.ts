@@ -3,13 +3,12 @@ import { createBsuirClient } from "../../../src";
 
 describe("requestJson — dedup + per-call signal", () => {
   it("does not deduplicate in-flight requests when per-call signal is provided", async () => {
-    const resolves: Array<(res: unknown) => void> = [];
-    const fetchImpl = vi.fn(
-      async () =>
-        new Promise((res) => {
-          resolves.push(res);
-        })
-    ) as unknown as typeof fetch;
+    const resolves: Array<(res: Response) => void> = [];
+    const fetchImpl = vi.fn(async () => {
+      const { promise, resolve } = Promise.withResolvers<Response>();
+      resolves.push(resolve);
+      return promise;
+    }) as unknown as typeof fetch;
 
     const client = createBsuirClient({ fetch: fetchImpl, dedupeInFlight: true });
 

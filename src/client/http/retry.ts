@@ -21,24 +21,24 @@ export function sleep(
   ms: number,
   signals: readonly (AbortSignal | undefined)[] = []
 ): Promise<void> {
-  return new Promise((resolve) => {
-    const active = signals.filter((signal): signal is AbortSignal => signal !== undefined);
-    const finish = (): void => {
-      clearTimeout(timer);
-      for (const signal of active) {
-        signal.removeEventListener("abort", finish);
-      }
-      resolve();
-    };
-    const timer = setTimeout(finish, ms);
+  const { promise, resolve } = Promise.withResolvers<undefined>();
+  const active = signals.filter((signal): signal is AbortSignal => signal !== undefined);
+  const finish = (): void => {
+    clearTimeout(timer);
     for (const signal of active) {
-      if (signal.aborted) {
-        finish();
-        return;
-      }
-      signal.addEventListener("abort", finish, { once: true });
+      signal.removeEventListener("abort", finish);
     }
-  });
+    resolve(undefined);
+  };
+  const timer = setTimeout(finish, ms);
+  for (const signal of active) {
+    if (signal.aborted) {
+      finish();
+      return promise;
+    }
+    signal.addEventListener("abort", finish, { once: true });
+  }
+  return promise;
 }
 
 function parseRetryAfterMs(retryAfter: string | null): number | null {

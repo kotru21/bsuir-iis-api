@@ -58,22 +58,6 @@ describe("requestJson — responseValidator and onError", () => {
     expect(onError).toHaveBeenCalledOnce();
   });
 
-  it("calls onError when validateResponses rejects last-update payload", async () => {
-    const fetchImpl = mockFetchSequence([createJsonResponse({ body: { lastUpdateDate: "" } })]);
-    const onError = vi.fn<(context: ErrorHookContext) => void>();
-    const client = createBsuirClient({
-      fetch: fetchImpl,
-      validateResponses: true,
-      hooks: { onError }
-    });
-
-    // eslint-disable-next-line @typescript-eslint/no-deprecated -- testing soft-deprecated last-update until removal
-    await expect(client.schedule.getLastUpdateByGroup({ id: 123 })).rejects.toBeInstanceOf(
-      BsuirResponseValidationError
-    );
-    expect(onError).toHaveBeenCalledOnce();
-  });
-
   it("does not cache responses that fail responseValidator", async () => {
     const fetchImpl = mockFetchSequence([
       createJsonResponse({ body: { schedules: [] } }),

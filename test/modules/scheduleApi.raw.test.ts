@@ -63,7 +63,7 @@ function buildSubgroupPayload(): ScheduleResponse {
     employeeDto: null,
     studentGroupDto: null,
     schedules: {
-      Понедельник: [makeLesson(1, "Math"), makeLesson(2, "Physics")],
+      Понедельник: [makeLesson(0, "Shared"), makeLesson(1, "Math"), makeLesson(2, "Physics")],
       Вторник: [makeLesson(1, "Chem")]
     },
     exams: [makeLesson(2, "Exam")],
@@ -126,7 +126,7 @@ describe("scheduleApi — explicit raw/envelope behavior", () => {
     expect(response.startDate).toBe("01.09.2025");
     expect(response.endDate).toBe("30.12.2025");
     expect(response.exams).toHaveLength(1);
-    expect(response.schedules?.Понедельник?.map((item) => item.numSubgroup)).toEqual([1]);
+    expect(response.schedules?.Понедельник?.map((item) => item.numSubgroup)).toEqual([0, 1]);
     expect(response.schedules?.Вторник?.map((item) => item.numSubgroup)).toEqual([1]);
   });
 
@@ -139,18 +139,17 @@ describe("scheduleApi — explicit raw/envelope behavior", () => {
     expect(response.startDate).toBe("01.09.2025");
     expect(response.endDate).toBe("30.12.2025");
     expect(response.exams).toHaveLength(1);
-    expect(response.schedules?.Понедельник?.map((item) => item.numSubgroup)).toEqual([1]);
+    expect(response.schedules?.Понедельник?.map((item) => item.numSubgroup)).toEqual([0, 1]);
     expect(response.schedules?.Вторник?.map((item) => item.numSubgroup)).toEqual([1]);
   });
 
-  it("getGroupBySubgroupRaw returns filtered ScheduleItem array", async () => {
+  it("getGroupBySubgroupRaw returns filtered ScheduleItem array including shared lessons", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildSubgroupPayload() })]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
 
     const lessons = await client.schedule.getGroupBySubgroupRaw("053503", 2);
     expect(Array.isArray(lessons)).toBe(true);
-    expect(lessons).toHaveLength(1);
-    expect(lessons[0]?.numSubgroup).toBe(2);
-    expect(lessons[0]?.subject).toBe("Physics");
+    expect(lessons.map((item) => item.subject)).toEqual(["Shared", "Physics"]);
+    expect(lessons.map((item) => item.numSubgroup)).toEqual([0, 2]);
   });
 });

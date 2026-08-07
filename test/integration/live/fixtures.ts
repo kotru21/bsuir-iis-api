@@ -2,7 +2,7 @@ import { createBsuirClient } from "../../../src";
 import { BsuirApiError } from "../../../src/client/errors";
 import type { LiveClient } from "./client";
 
-/** Known employee fixture used by announcements + soft last-update. */
+/** Known employee fixture used by announcements + schedule probes. */
 export const LIVE_EMPLOYEE_URL_ID = "s-nesterenkov";
 
 /** Known department id used by announcements.byDepartment. */

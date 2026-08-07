@@ -1,5 +1,4 @@
 import { BsuirResponseValidationError } from "./errors";
-import type { ApiDateResponse } from "../types/common";
 import type { ScheduleResponse } from "../types/schedule";
 
 function asRecord(payload: unknown): Record<string, unknown> | null {
@@ -271,22 +270,6 @@ export function assertAnnouncementListResponse(
     `Invalid response payload for ${endpoint}: expected array or paginated envelope with content`,
     endpoint
   );
-}
-
-/**
- * Asserts that payload matches `{ lastUpdateDate: string }`.
- */
-export function assertApiDateResponse(
-  payload: unknown,
-  endpoint: string
-): asserts payload is ApiDateResponse {
-  const record = ensureRecord(payload, endpoint, "object with lastUpdateDate");
-  if (typeof record.lastUpdateDate !== "string" || record.lastUpdateDate.trim().length === 0) {
-    throw new BsuirResponseValidationError(
-      `Invalid response payload for ${endpoint}: 'lastUpdateDate' must be a non-empty string, got ${typeof record.lastUpdateDate}`,
-      endpoint
-    );
-  }
 }
 
 /**

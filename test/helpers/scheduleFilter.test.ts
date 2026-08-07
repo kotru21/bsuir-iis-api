@@ -72,6 +72,18 @@ describe("scheduleFilter", () => {
     expect(filterLessons(schedule, { subgroup: 1 })).toHaveLength(0);
   });
 
+  it("treats numSubgroup 0 as shared across subgroup filters", () => {
+    const schedule = makeSchedule({
+      schedules: {
+        Понедельник: [makeItem({ numSubgroup: 0, subject: "Shared" }), makeItem({ numSubgroup: 1 })]
+      }
+    });
+    expect(filterLessons(schedule, { subgroup: 1 })).toHaveLength(2);
+    expect(filterLessons(schedule, { subgroup: 2 }).map((item) => item.subject)).toEqual([
+      "Shared"
+    ]);
+  });
+
   it("rejects non-positive subgroup filter values", () => {
     const schedule = makeSchedule();
     expect(() => filterLessons(schedule, { subgroup: 0 })).toThrow(BsuirValidationError);

@@ -6,7 +6,7 @@ import type {
   ScheduleResponse
 } from "../types/schedule";
 import { assertPositiveInt } from "../utils/guards";
-import { filterLessons } from "../helpers/scheduleFilter";
+import { filterLessons, lessonMatchesSubgroup } from "../helpers/scheduleFilter";
 import type { ScheduleReadOptions } from "./scheduleApi";
 import type { ReadOptions } from "./types";
 
@@ -38,7 +38,8 @@ export interface ScheduleSubjectMethods {
 }
 
 /**
- *
+ * Collects raw schedule lessons for `subgroup`, including shared lessons
+ * (`numSubgroup === 0`).
  */
 export function filterRawSubgroupLessons(
   response: ScheduleResponse,
@@ -48,7 +49,7 @@ export function filterRawSubgroupLessons(
   const schedules = response.schedules ?? {};
   for (const dayItems of Object.values(schedules)) {
     for (const lesson of dayItems) {
-      if (lesson.numSubgroup === subgroup) {
+      if (lessonMatchesSubgroup(lesson.numSubgroup, subgroup)) {
         items.push(structuredClone(lesson));
       }
     }
@@ -57,7 +58,8 @@ export function filterRawSubgroupLessons(
 }
 
 /**
- *
+ * Returns a cloned envelope with `schedules` arrays filtered to `subgroup`,
+ * including shared lessons (`numSubgroup === 0`).
  */
 export function filterRawSubgroupEnvelope(
   response: ScheduleResponse,
@@ -67,7 +69,7 @@ export function filterRawSubgroupEnvelope(
   const schedules = cloned.schedules ?? {};
   for (const day of Object.keys(schedules) as (keyof typeof schedules)[]) {
     const items = schedules[day] ?? [];
-    schedules[day] = items.filter((lesson) => lesson.numSubgroup === subgroup);
+    schedules[day] = items.filter((lesson) => lessonMatchesSubgroup(lesson.numSubgroup, subgroup));
   }
   return cloned;
 }
