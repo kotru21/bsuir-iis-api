@@ -1,5 +1,36 @@
 # Changelog
 
+## 2.0.0
+
+### Major Changes
+
+- d672ab7: **Breaking: Node.js 20 support dropped** (EOL). `engines` now requires **Node >=22.18.0**; CI runs the full pipeline on Node 22, 24 (active LTS), and 26 (current, early-warning).
+
+  **Breaking: deprecated last-update helpers removed.** `client.schedule.getLastUpdateByGroup()` and `client.schedule.getLastUpdateByEmployee()` are gone together with the `ApiDateResponse` type, as announced in 1.x (`@deprecated`, removal in 2.0). The upstream `/last-update-date/*` routes are legacy and unmaintained on the IIS side. There is no SDK replacement for freshness — use your own cache TTL / re-fetch policy.
+
+  **Breaking: subgroup filters include shared lessons.** `filterLessons`, `get*Filtered`, and `get*BySubgroup*` treat `numSubgroup === 0` as shared (included for every positive subgroup). Passing `subgroup: 0` / non-positive values is still rejected.
+
+  **Breaking: low-level HTTP types removed from the public surface.** `RequestOptions`, `QueryParams`, `QueryValue`, and `RequestMethod` are no longer exported from the package root. Use `ReadOptions` / `ScheduleReadOptions` / hook context types instead; `RequestCacheMode` remains public for per-call `cache` options.
+
+### Minor Changes
+
+- ae14add: Hardening and consistency wave across the HTTP engine and normalization:
+
+  - Lifecycle hooks (`onRequest`/`onRetry`/`onResponse`/`onError`) are now invoked safely: a throwing observability callback can no longer break the request, trigger a retry of an already-finished exchange, or mask the real error.
+  - `validateResponses` now validates schedule payloads down to every lesson item (`schedules` / `nextSchedules` / `exams`) and announcement lists down to each item; catalog items are checked as objects. Fields are validated when present, since IIS may omit keys on sparse payloads.
+  - Normalized schedule payloads are now consistently deep-frozen across all views (`lessons`, `lessonsByDay`, `scheduleLessons`, `examLessons`, `schedules`, `exams`) — mutating any part throws `TypeError` in strict mode. The raw `ScheduleResponse` passed to `normalizeSchedule()` is never mutated or frozen; normalization works on an owned deep clone.
+  - Retry decisions for retriable HTTP statuses are now made before the error body is read, so an oversized error page no longer disables retries by surfacing `BsuirResponsePayloadTooLargeError`. Abandoned response bodies are cancelled to free keep-alive connections.
+  - `Retry-After` is honored in full up to a 60 s safety ceiling instead of being capped by `retryMaxDelayMs` (which now caps only the SDK's own exponential backoff). Retry waits are abort-aware: a caller abort interrupts the wait immediately instead of stalling until the delay elapses.
+  - Cache-hit `onResponse` contexts now report the original response status instead of a hardcoded `200`.
+  - `baseUrl` with an explicit port is now accepted on loopback hosts (`localhost`, `127.0.0.1`, `[::1]`) for local dev/mock servers; ports remain rejected for public hosts.
+  - Query keys are now sorted by code point (locale-independent), so cache keys are deterministic across runtimes.
+
+- 14ccd37: **Pluggable cache store**: `cache.store` accepts any synchronous Map-compatible backend (a shared `Map`, `lru-cache`, or a custom adapter) instead of the SDK-managed per-client `Map`. The SDK still handles TTL, LRU eviction, and entry freezing itself; the store is a plain container and can be shared across client instances. New public types: `CacheStore` and `ResponseCacheEntry`. A malformed store is rejected at client creation with `BsuirConfigurationError`.
+
+### Patch Changes
+
+- 14ccd37: Build pipeline migrated from tsup to tsdown (rolldown-based). The published artifact layout is unchanged (`dist/index.js` + `dist/index.d.ts`, ESM, es2022 target) and the public API surface is identical (verified by API Extractor report).
+
 ## 1.1.1
 
 ### Patch Changes
