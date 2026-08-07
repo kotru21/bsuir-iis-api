@@ -58,23 +58,21 @@
     "release:dry": "npm pack --dry-run"
   },
   "devDependencies": {
-    "@changesets/cli": "2.31.0",
+    "@changesets/cli": "2.31.1",
     "@eslint/js": "10.0.1",
-    "@microsoft/api-extractor": "7.58.8",
-    "@vitest/browser-playwright": "4.1.8",
-    "@types/node": "25.9.2",
-    "@typescript-eslint/eslint-plugin": "8.61.0",
-    "@typescript-eslint/parser": "8.61.0",
-    "@vitest/coverage-v8": "4.1.8",
-    "eslint": "10.4.1",
+    "@microsoft/api-extractor": "7.58.12",
+    "@vitest/browser-playwright": "4.1.10",
+    "@types/node": "25.9.5",
+    "@vitest/coverage-v8": "4.1.10",
+    "eslint": "10.8.0",
     "eslint-config-prettier": "10.1.8",
-    "eslint-plugin-jsdoc": "^63.0.2",
-    "eslint-plugin-unicorn": "^65.0.1",
-    "globals": "17.6.0",
-    "prettier": "3.8.3",
+    "eslint-plugin-jsdoc": "63.3.3",
+    "eslint-plugin-unicorn": "65.0.1",
+    "globals": "17.9.0",
+    "prettier": "3.9.6",
     "tsup": "8.5.1",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.61.0",
-    "vitest": "4.1.8"
+    "typescript-eslint": "8.66.0",
+    "vitest": "4.1.10"
   }
 }

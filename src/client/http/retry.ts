@@ -55,8 +55,7 @@ function getBackoffDelayMs(config: Readonly<InternalClientConfig>, attempt: numb
 
 /** Whether the current attempt should retry, and after how long. */
 export type RetryDecision =
-  | { retryable: true; delayMs: number }
-  | { retryable: false; rejectedDelayMs: number };
+  { retryable: true; delayMs: number } | { retryable: false; rejectedDelayMs: number };
 
 /**
  * Calculates retry behavior for the current attempt.
