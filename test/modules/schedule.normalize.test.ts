@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createBsuirClient, normalizeSchedule } from "../../src";
+import { BsuirResponseValidationError } from "../../src/client/errors";
 import { createJsonResponse, mockFetchSequence } from "../helpers/fetchMock";
 import { buildNextTermMondayLesson, buildScheduleResponse } from "./scheduleFixtures";
 
@@ -213,5 +214,40 @@ describe("schedule module — normalize and raw", () => {
     const normalized = await client.schedule.getGroup("053503", { includeNextSchedules: true });
 
     expect(normalized.lessons.some((lesson) => lesson.source === "nextSchedules")).toBe(true);
+  });
+
+  it("throws typed error for non-array weekday buckets when validation is off", () => {
+    const response = buildScheduleResponse({
+      schedules: {
+        Понедельник: null as unknown as []
+      }
+    });
+    // null is treated as empty (same as missing); non-array objects must not TypeError.
+    expect(() => normalizeSchedule(response, { validate: false })).not.toThrow();
+
+    const malformed = buildScheduleResponse({
+      schedules: {
+        Понедельник: { not: "an array" } as unknown as []
+      }
+    });
+    expect(() => normalizeSchedule(malformed, { validate: false })).toThrow(
+      BsuirResponseValidationError
+    );
+  });
+
+  it("getGroup with validateResponses false throws typed error for non-array day bucket", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({
+        body: buildScheduleResponse({
+          schedules: {
+            Понедельник: "bad" as unknown as []
+          }
+        })
+      })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
+    await expect(client.schedule.getGroup("053503")).rejects.toBeInstanceOf(
+      BsuirResponseValidationError
+    );
   });
 });

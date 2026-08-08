@@ -52,6 +52,17 @@ describe("createBsuirClient — baseUrl validation (lines 61, 65, 69, 82)", () =
     ).toThrow(/loopback/);
   });
 
+  it("rejects 127.* hostname prefix spoof (not a real IPv4 loopback)", () => {
+    expect(() =>
+      createBsuirClient({
+        // eslint-disable-next-line unicorn/prefer-https -- testing insecure HTTP rejection
+        baseUrl: "http://127.evil.com/api/v1",
+        allowInsecureHttp: true,
+        allowedBaseUrlHosts: ["127.evil.com"]
+      })
+    ).toThrow(BsuirConfigurationError);
+  });
+
   it("throws when allowedBaseUrlHosts contains only blank strings (line 82)", () => {
     expect(() =>
       createBsuirClient({

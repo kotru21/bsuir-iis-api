@@ -31,10 +31,22 @@ function hasMorePages(meta: SpringPageMeta, nextPage: number): boolean {
   return meta.last === false;
 }
 
+/** Cap is expressed as 0-based page index (`nextPage >= maxPages`). */
 function assertNextPageWithinCap(nextPage: number, maxPages: number, resourceLabel: string): void {
   if (nextPage >= maxPages) {
     throw new BsuirConfigurationError(
       `${resourceLabel} pagination exceeded safety cap of ${String(maxPages)} pages`
+    );
+  }
+}
+
+function assertPageItemsArray(
+  pageItems: unknown,
+  resourceLabel: string
+): asserts pageItems is unknown[] {
+  if (!Array.isArray(pageItems)) {
+    throw new BsuirConfigurationError(
+      `${resourceLabel} pagination returned a non-array page payload`
     );
   }
 }
@@ -56,6 +68,7 @@ export async function fetchAllSpringPages<T>(
   }
 
   assertWithinPageCap(firstMeta.totalPages, maxPages, resourceLabel);
+  // firstMeta is only set when `content` is an array, so unwrap is safe here.
   const items = [...(unwrapSpringPageContent(firstPayload) as T[])];
   let pageNumber = firstMeta.pageNumber;
   let meta = firstMeta;
@@ -69,9 +82,19 @@ export async function fetchAllSpringPages<T>(
       size: firstMeta.pageSize
     });
     const pageMeta = readSpringPageMeta(pagePayload);
-    items.push(...(unwrapSpringPageContent(pagePayload) as T[]));
+    const pageItems = unwrapSpringPageContent(pagePayload);
+    assertPageItemsArray(pageItems, resourceLabel);
+    items.push(...(pageItems as T[]));
     if (!pageMeta) {
+      // Plain-array follow-up (or non-page envelope): accept items and stop.
       break;
+    }
+    // Cap checks use nextPage = pageNumber + 1; if the envelope never advances
+    // pageNumber while last remains false, the loop would otherwise never end.
+    if (pageMeta.pageNumber <= pageNumber) {
+      throw new BsuirConfigurationError(
+        `${resourceLabel} pagination did not advance (pageNumber stayed at ${String(pageMeta.pageNumber)})`
+      );
     }
     pageNumber = pageMeta.pageNumber;
     meta = pageMeta;

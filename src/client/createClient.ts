@@ -1,5 +1,8 @@
 import { BsuirConfigurationError } from "./errors";
 import type { BsuirClientOptions, CacheStore, InternalClientConfig } from "./types";
+import type { AnnouncementsModule } from "../modules/announcements";
+import type { ListModule } from "../modules/createListModule";
+import type { ScheduleModule } from "../modules/scheduleApi";
 import {
   createAnnouncementsModule,
   createAuditoriesModule,
@@ -10,6 +13,14 @@ import {
   createScheduleModule,
   createSpecialitiesModule
 } from "../modules";
+import type {
+  Auditory,
+  Department,
+  Faculty,
+  Speciality,
+  StudentGroupCatalogItem
+} from "../types/catalog";
+import type { EmployeeCatalogItem } from "../types/employee";
 
 const DEFAULT_BASE_URL = "https://iis.bsuir.by/api/v1";
 const DEFAULT_ALLOWED_BASE_URL_HOSTS = ["iis.bsuir.by"];
@@ -61,8 +72,21 @@ function normalizeHostname(rawHostname: string): string {
   return trimmed;
 }
 
+function isIpv4Loopback(hostname: string): boolean {
+  // 127.0.0.0/8 — require four decimal octets so "127.evil.com" is never treated as loopback.
+  const match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(hostname);
+  if (!match) {
+    return false;
+  }
+  const octets = match.slice(1, 5).map(Number);
+  if (octets.some((octet) => !Number.isSafeInteger(octet) || octet < 0 || octet > 255)) {
+    return false;
+  }
+  return octets[0] === 127;
+}
+
 function isLoopbackHost(hostname: string): boolean {
-  return hostname === "localhost" || hostname === "::1" || hostname.startsWith("127.");
+  return hostname === "localhost" || hostname === "::1" || isIpv4Loopback(hostname);
 }
 
 // Per-request `options.headers` go through the platform `Headers` constructor in
@@ -136,7 +160,7 @@ function normalizeBaseUrl(
     );
     if (nonLoopback.length > 0) {
       throw new BsuirConfigurationError(
-        `'allowInsecureHttp: true' requires every host in 'allowedBaseUrlHosts' to be loopback (localhost/127.x/[::1]); got non-loopback: ${nonLoopback.join(", ")}`
+        `'allowInsecureHttp: true' requires every host in 'allowedBaseUrlHosts' to be loopback (localhost/127.0.0.0/8/[::1]); got non-loopback: ${nonLoopback.join(", ")}`
       );
     }
   }
@@ -242,7 +266,6 @@ function createInternalConfig(options: BsuirClientOptions): InternalClientConfig
 
 /**
  * Fully-typed public shape of the BSUIR API client.
- * All module types are inlined so API Extractor never needs to reach into private helpers.
  *
  * Use explicit raw/envelope helpers on the `schedule` module to obtain the
  * API's raw `ScheduleResponse` when required (e.g. `getGroupRaw`,
@@ -250,14 +273,14 @@ function createInternalConfig(options: BsuirClientOptions): InternalClientConfig
  * `getGroup`/`getEmployee` return a normalized payload.
  */
 export interface BsuirClientShape {
-  schedule: ReturnType<typeof createScheduleModule>;
-  groups: ReturnType<typeof createGroupsModule>;
-  employees: ReturnType<typeof createEmployeesModule>;
-  faculties: ReturnType<typeof createFacultiesModule>;
-  departments: ReturnType<typeof createDepartmentsModule>;
-  specialities: ReturnType<typeof createSpecialitiesModule>;
-  announcements: ReturnType<typeof createAnnouncementsModule>;
-  auditories: ReturnType<typeof createAuditoriesModule>;
+  schedule: ScheduleModule;
+  groups: ListModule<StudentGroupCatalogItem>;
+  employees: ListModule<EmployeeCatalogItem>;
+  faculties: ListModule<Faculty>;
+  departments: ListModule<Department>;
+  specialities: ListModule<Speciality>;
+  announcements: AnnouncementsModule;
+  auditories: ListModule<Auditory>;
 }
 
 /**

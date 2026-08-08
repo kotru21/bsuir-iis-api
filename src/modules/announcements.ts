@@ -1,4 +1,4 @@
-import { BsuirApiError } from "../client/errors";
+import { BsuirApiError, BsuirResponseValidationError } from "../client/errors";
 import { fetchAllSpringPages } from "../client/fetchAllPages";
 import { requestJson } from "../client/http";
 import { assertAnnouncementListResponse } from "../client/responseValidators";
@@ -81,10 +81,17 @@ async function requestAnnouncementList(
     });
 
   try {
-    return await fetchAllSpringPages<Announcement>(fetchPage, baseQuery, {
+    const items = await fetchAllSpringPages<Announcement>(fetchPage, baseQuery, {
       maxPages: MAX_ANNOUNCEMENT_PAGES,
       resourceLabel: "Announcements"
     });
+    if (!Array.isArray(items)) {
+      throw new BsuirResponseValidationError(
+        `Invalid response payload for ${path}: expected array, got ${typeof items}`,
+        path
+      );
+    }
+    return items;
   } catch (error) {
     if (error instanceof BsuirApiError && isFirstPageNotFound(error, path, treat404AsEmpty)) {
       return [];
@@ -93,13 +100,18 @@ async function requestAnnouncementList(
   }
 }
 
+/** Announcements module: employee / department list helpers. */
+export interface AnnouncementsModule {
+  byEmployee(urlId: string, options?: AnnouncementReadOptions): Promise<Announcement[]>;
+  byDepartment(id: number, options?: AnnouncementReadOptions): Promise<Announcement[]>;
+}
+
 /**
  * Creates the announcements module (`byEmployee`, `byDepartment`).
  */
-export function createAnnouncementsModule(config: Readonly<InternalClientConfig>): {
-  byEmployee(urlId: string, options?: AnnouncementReadOptions): Promise<Announcement[]>;
-  byDepartment(id: number, options?: AnnouncementReadOptions): Promise<Announcement[]>;
-} {
+export function createAnnouncementsModule(
+  config: Readonly<InternalClientConfig>
+): AnnouncementsModule {
   return {
     /**
      * Lists announcements for an employee.

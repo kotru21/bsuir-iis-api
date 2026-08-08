@@ -1,3 +1,4 @@
+import { BsuirResponseValidationError } from "../client/errors";
 import { fetchAllSpringPages } from "../client/fetchAllPages";
 import { requestJson } from "../client/http";
 import { assertArrayResponse } from "../client/responseValidators";
@@ -12,6 +13,17 @@ const MAX_CATALOG_PAGES = 50;
 export interface ListModule<T> {
   listAll(options?: ReadOptions): Promise<T[]>;
   listAllPages(options?: ReadOptions): Promise<T[]>;
+}
+
+function assertUnwrappedList(payload: unknown, endpoint: string): unknown[] {
+  const unwrapped = unwrapSpringPageContent(payload);
+  if (!Array.isArray(unwrapped)) {
+    throw new BsuirResponseValidationError(
+      `Invalid response payload for ${endpoint}: expected array, got ${typeof unwrapped}`,
+      endpoint
+    );
+  }
+  return unwrapped;
 }
 
 /**
@@ -40,7 +52,7 @@ export function createListModule<T>(
         cache: options.cache,
         responseValidator: config.validateResponses ? responseValidator : undefined
       });
-      return unwrapSpringPageContent(payload) as T[];
+      return assertUnwrappedList(payload, endpoint) as T[];
     },
 
     /**
@@ -58,7 +70,7 @@ export function createListModule<T>(
           responseValidator: config.validateResponses ? responseValidator : undefined
         });
 
-      return fetchAllSpringPages<T>(
+      const items = await fetchAllSpringPages<T>(
         fetchPage,
         {},
         {
@@ -66,6 +78,13 @@ export function createListModule<T>(
           resourceLabel: "Catalog"
         }
       );
+      if (!Array.isArray(items)) {
+        throw new BsuirResponseValidationError(
+          `Invalid response payload for ${endpoint}: expected array, got ${typeof items}`,
+          endpoint
+        );
+      }
+      return items;
     }
   };
 }

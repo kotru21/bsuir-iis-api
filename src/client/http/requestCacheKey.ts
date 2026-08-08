@@ -22,7 +22,8 @@ function normalizeHeadersForRequestKey(headers: Headers): string {
 }
 
 /**
- *
+ * Builds a stable cache / in-flight dedup key from HTTP method, absolute endpoint URL,
+ * and allowlisted request headers (`Accept`, `Accept-Language`).
  */
 export function buildRequestKey(method: RequestMethod, endpoint: string, headers: Headers): string {
   return `${method}\n${endpoint}\n${normalizeHeadersForRequestKey(headers)}`;

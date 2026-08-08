@@ -11,9 +11,10 @@ describe("createBsuirClient.strict", () => {
   });
 
   it("keeps default createBsuirClient validateResponses off", async () => {
-    const fetchImpl = mockFetchSequence([createJsonResponse({ body: { not: "an-array" } })]);
+    // Array shape is still required; full per-item object checks stay off when validation is off.
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: [1, 2, 3] })]);
     const client = createBsuirClient({ fetch: fetchImpl });
 
-    await expect(client.groups.listAll()).resolves.toEqual({ not: "an-array" });
+    await expect(client.groups.listAll()).resolves.toEqual([1, 2, 3]);
   });
 });

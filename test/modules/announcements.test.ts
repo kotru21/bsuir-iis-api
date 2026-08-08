@@ -81,11 +81,13 @@ describe("announcements module", () => {
     expect(result).toHaveLength(1);
   });
 
-  it("skips validation when validateResponses: false", async () => {
-    const fetchImpl = mockFetchSequence([createJsonResponse({ body: { not: "array" } })]);
+  it("skips item field validation when validateResponses: false", async () => {
+    // Array unwrap is still required; per-item announcement fields are not checked.
+    const body = [{ id: 1 }];
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body })]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
     const result = await client.announcements.byEmployee("v-petrov");
-    expect(result).toEqual({ not: "array" });
+    expect(result).toEqual(body);
   });
 
   it("returns empty array for department 404 when treat404AsEmpty is default", async () => {

@@ -14,16 +14,16 @@ const validScheduleBody = {
 };
 
 describe("validateResponses contract", () => {
-  it("catalog listAll skips array check when validateResponses is false", async () => {
-    const fetchImpl = mockFetchSequence([createJsonResponse({ body: { not: "array" } })]);
-    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
-    await expect(client.groups.listAll()).resolves.toEqual({ not: "array" });
-  });
+  it("catalog listAll always enforces Array.isArray after unwrap", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ body: { not: "array" } }),
+      createJsonResponse({ body: { not: "array" } })
+    ]);
+    const loose = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
+    await expect(loose.groups.listAll()).rejects.toBeInstanceOf(BsuirResponseValidationError);
 
-  it("catalog listAll enforces array check when validateResponses is true", async () => {
-    const fetchImpl = mockFetchSequence([createJsonResponse({ body: { not: "array" } })]);
-    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
-    await expect(client.groups.listAll()).rejects.toBeInstanceOf(BsuirResponseValidationError);
+    const strict = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
+    await expect(strict.groups.listAll()).rejects.toBeInstanceOf(BsuirResponseValidationError);
   });
 
   it("catalog listAll unwraps paginated envelope when validateResponses is true", async () => {
@@ -35,10 +35,20 @@ describe("validateResponses contract", () => {
     await expect(client.groups.listAll()).resolves.toEqual(items);
   });
 
-  it("announcements skip array check when validateResponses is false", async () => {
-    const fetchImpl = mockFetchSequence([createJsonResponse({ body: { not: "array" } })]);
-    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
-    await expect(client.announcements.byEmployee("v-petrov")).resolves.toEqual({ not: "array" });
+  it("announcements always enforce Array.isArray after unwrap", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ body: { not: "array" } }),
+      createJsonResponse({ body: { not: "array" } })
+    ]);
+    const loose = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
+    await expect(loose.announcements.byEmployee("v-petrov")).rejects.toBeInstanceOf(
+      BsuirResponseValidationError
+    );
+
+    const strict = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
+    await expect(strict.announcements.byEmployee("v-petrov")).rejects.toBeInstanceOf(
+      BsuirResponseValidationError
+    );
   });
 
   it("announcements unwrap paginated envelope when validateResponses is false", async () => {
@@ -49,14 +59,6 @@ describe("validateResponses contract", () => {
     await expect(client.announcements.byEmployee("v-petrov")).resolves.toEqual([
       { id: 1, content: "test" }
     ]);
-  });
-
-  it("announcements enforce array check when validateResponses is true", async () => {
-    const fetchImpl = mockFetchSequence([createJsonResponse({ body: { not: "array" } })]);
-    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
-    await expect(client.announcements.byEmployee("v-petrov")).rejects.toBeInstanceOf(
-      BsuirResponseValidationError
-    );
   });
 
   it("announcements accept paginated envelope when validateResponses is true", async () => {

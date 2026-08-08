@@ -1,5 +1,6 @@
 import { BsuirResponseValidationError } from "../client/errors";
 import { assertScheduleResponse } from "../client/responseValidators";
+import { asDayLessonArray } from "../helpers/scheduleDayLessons";
 import { WEEKDAYS } from "../types/common";
 import type {
   FlattenedLessonsByDay,
@@ -71,7 +72,7 @@ export function normalizeSchedule(
   const normalizedExams = Array.isArray(source.exams) ? source.exams : [];
 
   for (const day of WEEKDAYS) {
-    const dayItems = sourceSchedules[day] ?? [];
+    const dayItems = asDayLessonArray(sourceSchedules[day], endpoint, `schedules.${day}`);
     for (const item of dayItems) {
       item.auditories = lessonAuditories(item);
     }
@@ -101,7 +102,7 @@ export function normalizeSchedule(
   if (options?.includeNextSchedules === true) {
     const sourceNext = source.nextSchedules ?? {};
     for (const day of WEEKDAYS) {
-      const dayItems = sourceNext[day] ?? [];
+      const dayItems = asDayLessonArray(sourceNext[day], endpoint, `nextSchedules.${day}`);
       for (const item of dayItems) {
         item.auditories = lessonAuditories(item);
       }

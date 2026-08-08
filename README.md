@@ -76,7 +76,10 @@ const clientB = createBsuirClient({ cache: { ttlMs: 60_000, store } }); // share
 
 - `dedupeInFlight` reuses the same in-flight GET request for concurrent callers. It is disabled for per-request signals, non-default cache modes, private credential headers, and already-aborted signals.
 - `maxResponseBytes` limits body size per response to protect against memory spikes.
-- `validateResponses` enables runtime payload-shape checks for list, schedule, and announcement endpoints when set to `true` (default: `false`). Schedule responses are validated down to every lesson item (`schedules` / `nextSchedules` / `exams`) and announcements down to each item — fields are checked when present, since IIS may omit keys on sparse payloads; catalog items are checked as objects. Normalized schedule calls still apply a minimal envelope check so normalization cannot crash on non-objects. Prefer enabling in development/tests; use `createBsuirClient.strict(options?)` as a shorthand that forces `validateResponses: true` without changing the default for `createBsuirClient()`.
+- Response checking is two-tier:
+  - **Always on (structural):** catalog/announcement unwraps must resolve to arrays, and schedule day buckets (`schedules` / `nextSchedules`) must be arrays (or nullish → empty). These guards throw `BsuirResponseValidationError` even when `validateResponses` is `false`, so the SDK can honor `T[]` return types and avoid raw `TypeError`s on malformed IIS payloads. Normalized schedule calls also keep a minimal envelope check for the same reason.
+  - **Opt-in (`validateResponses: true`, default `false`):** deep payload-shape checks — schedule responses down to every lesson item (`schedules` / `nextSchedules` / `exams`), announcements down to each item (fields checked when present; IIS may omit keys on sparse payloads), and catalog items as objects. Prefer enabling in development/tests; use `createBsuirClient.strict(options?)` as a shorthand that forces `validateResponses: true` without changing the default for `createBsuirClient()`.
+- Cache hits re-run any configured `responseValidator` (including when `validateResponses` is enabled), so a shared or hand-populated `cache.store` cannot bypass validation for the current client.
 - `hooks` provides lifecycle callbacks (`onRequest`, `onRetry`, `onResponse`, `onError`) for observability. Hook exceptions are caught and discarded — an observability callback never breaks the request, triggers a retry, or masks the real outcome.
 - `AbortSignal` is supported by all read methods.
 
@@ -128,7 +131,7 @@ When IIS responds with HTTP `404` (the employee or department has no announcemen
 ### Public exports (runtime utilities and types)
 
 - Core runtime API: `createBsuirClient`, `BsuirClient`
-- Client/runtime option types: `BsuirClientOptions`, `CacheOptions`, `CacheStore`, `ResponseCacheEntry`, `ClientHooks`, `RequestCacheMode`, `ReadOptions`, `AnnouncementReadOptions`, `ScheduleReadOptions`, `RequestHookContext`, `RetryHookContext`, `ResponseHookContext`, `ErrorHookContext`
+- Client/runtime option types: `BsuirClientOptions`, `CacheOptions`, `CacheStore`, `ResponseCacheEntry`, `ClientHooks`, `RequestCacheMode`, `ReadOptions`, `AnnouncementReadOptions`, `AnnouncementsModule`, `ListModule`, `ScheduleModule`, `ScheduleReadOptions`, `RequestHookContext`, `RetryHookContext`, `ResponseHookContext`, `ErrorHookContext`
 - Schedule utilities: `normalizeSchedule`, `filterLessons`, `getLessonsForDate`, `getTodayLessons`, `getTomorrowLessons`, `getLessonsForWeek`, `sortLessonsByTime`, `groupLessonsByDay`, `getCurrentLesson`, `getNextLesson`, `buildScheduleDays`, `ScheduleFilterOptions`, `NormalizeScheduleOptions`, `InvalidLessonTimeHook`
 - Formatters: `formatEmployeeShortName`, `formatLessonAuditories`, `formatLessonEmployees`, `formatLessonSubgroup`, `formatLessonTimeRange`, `formatLessonType`, `formatLessonWeekNumbers`
 - Error classes: `BsuirApiError`, `BsuirNetworkError`, `BsuirTimeoutError`, `BsuirValidationError`, `BsuirResponseValidationError`, `BsuirResponsePayloadTooLargeError`, `BsuirConfigurationError`
@@ -141,7 +144,7 @@ SDK throws typed errors:
 - `BsuirApiError` for HTTP errors (contains `status`, `endpoint`, `body`). Non-2xx plain-text bodies are preserved even when IIS mislabels them as JSON. **Exception:** `client.announcements.byEmployee` / `byDepartment` resolve to `[]` on IIS HTTP `404` (unless `treat404AsEmpty: false`) instead of throwing (see Announcements above).
 - `BsuirResponsePayloadTooLargeError` when response body size exceeds configured `maxResponseBytes`.
 - `BsuirNetworkError` for transport errors (contains `endpoint` and standard `cause`)
-- `BsuirResponseValidationError` for invalid payload shapes when `validateResponses: true`
+- `BsuirResponseValidationError` for invalid payload shapes: always-on structural guards (non-array catalog/announcement unwraps, non-array schedule day buckets, minimal schedule envelope on normalize), and deep item/field checks when `validateResponses: true`
 - `BsuirTimeoutError` for timeouts (contains `endpoint`, `timeoutMs`)
 - `BsuirValidationError` for invalid input parameters
 - `BsuirConfigurationError` when the runtime has no `fetch` and none was passed to `createBsuirClient({ fetch })`, or when announcements / catalog `listAllPages` pagination exceeds the 50-page safety cap

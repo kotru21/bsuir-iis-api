@@ -14,7 +14,8 @@ export type {
   RetryHookContext
 } from "./client/types";
 export type { ReadOptions } from "./modules/types";
-export type { AnnouncementReadOptions } from "./modules/announcements";
+export type { AnnouncementReadOptions, AnnouncementsModule } from "./modules/announcements";
+export type { ListModule } from "./modules/createListModule";
 export type { ScheduleModule, ScheduleReadOptions } from "./modules/scheduleApi";
 export type { InvalidLessonTimeHook } from "./helpers/schedule";
 export {

@@ -66,11 +66,10 @@ describe("requestJson — additional branches", () => {
     expect(result).toEqual([]);
   });
 
-  it("skips list array validation when validateResponses=false", async () => {
+  it("keeps Array.isArray guard when validateResponses=false", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: { not: "array" } })]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
-    const result = await client.groups.listAll();
-    expect(result).toEqual({ not: "array" });
+    await expect(client.groups.listAll()).rejects.toBeInstanceOf(BsuirResponseValidationError);
   });
 
   it("rejects non-array catalog payloads when validateResponses=true", async () => {

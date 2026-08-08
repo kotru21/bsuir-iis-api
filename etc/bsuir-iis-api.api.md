@@ -26,6 +26,14 @@ export interface AnnouncementReadOptions extends ReadOptions {
 }
 
 // @public
+export interface AnnouncementsModule {
+    // (undocumented)
+    byDepartment(id: number, options?: AnnouncementReadOptions): Promise<Announcement[]>;
+    // (undocumented)
+    byEmployee(urlId: string, options?: AnnouncementReadOptions): Promise<Announcement[]>;
+}
+
+// @public
 export interface Auditory {
     // (undocumented)
     auditoryType: AuditoryType;
@@ -101,38 +109,22 @@ export interface BsuirClientOptions {
 
 // @public
 export interface BsuirClientShape {
-    // Warning: (ae-forgotten-export) The symbol "createAnnouncementsModule" needs to be exported by the entry point index.d.ts
-    //
     // (undocumented)
-    announcements: ReturnType<typeof createAnnouncementsModule>;
-    // Warning: (ae-forgotten-export) The symbol "createAuditoriesModule" needs to be exported by the entry point index.d.ts
-    //
+    announcements: AnnouncementsModule;
     // (undocumented)
-    auditories: ReturnType<typeof createAuditoriesModule>;
-    // Warning: (ae-forgotten-export) The symbol "createDepartmentsModule" needs to be exported by the entry point index.d.ts
-    //
+    auditories: ListModule<Auditory>;
     // (undocumented)
-    departments: ReturnType<typeof createDepartmentsModule>;
-    // Warning: (ae-forgotten-export) The symbol "createEmployeesModule" needs to be exported by the entry point index.d.ts
-    //
+    departments: ListModule<Department>;
     // (undocumented)
-    employees: ReturnType<typeof createEmployeesModule>;
-    // Warning: (ae-forgotten-export) The symbol "createFacultiesModule" needs to be exported by the entry point index.d.ts
-    //
+    employees: ListModule<EmployeeCatalogItem>;
     // (undocumented)
-    faculties: ReturnType<typeof createFacultiesModule>;
-    // Warning: (ae-forgotten-export) The symbol "createGroupsModule" needs to be exported by the entry point index.d.ts
-    //
+    faculties: ListModule<Faculty>;
     // (undocumented)
-    groups: ReturnType<typeof createGroupsModule>;
-    // Warning: (ae-forgotten-export) The symbol "createScheduleModule" needs to be exported by the entry point index.d.ts
-    //
+    groups: ListModule<StudentGroupCatalogItem>;
     // (undocumented)
-    schedule: ReturnType<typeof createScheduleModule>;
-    // Warning: (ae-forgotten-export) The symbol "createSpecialitiesModule" needs to be exported by the entry point index.d.ts
-    //
+    schedule: ScheduleModule;
     // (undocumented)
-    specialities: ReturnType<typeof createSpecialitiesModule>;
+    specialities: ListModule<Speciality>;
 }
 
 // @public
@@ -433,6 +425,14 @@ export interface LessonStudentGroup {
 export type LessonWithTime = Pick<FlattenedScheduleItem, "startLessonTime" | "endLessonTime">;
 
 // @public
+export interface ListModule<T> {
+    // (undocumented)
+    listAll(options?: ReadOptions): Promise<T[]>;
+    // (undocumented)
+    listAllPages(options?: ReadOptions): Promise<T[]>;
+}
+
+// @public
 export type Maybe<T> = T | null;
 
 // @public
@@ -590,9 +590,9 @@ export interface ScheduleModule {
     // (undocumented)
     getEmployeeBySubgroup(urlId: string, subgroup: number, options?: ScheduleReadOptions): Promise<FlattenedScheduleItem[]>;
     // (undocumented)
-    getEmployeeBySubgroupEnvelope(urlId: string, subgroup: number, options?: ReadOptions): Promise<ScheduleResponse>;
+    getEmployeeBySubgroupEnvelope(urlId: string, subgroup: number, options?: ScheduleReadOptions): Promise<ScheduleResponse>;
     // (undocumented)
-    getEmployeeBySubgroupRaw(urlId: string, subgroup: number, options?: ReadOptions): Promise<ScheduleItem[]>;
+    getEmployeeBySubgroupRaw(urlId: string, subgroup: number, options?: ScheduleReadOptions): Promise<ScheduleItem[]>;
     // (undocumented)
     getEmployeeExams(urlId: string, options?: ScheduleReadOptions): Promise<FlattenedScheduleItem[]>;
     // (undocumented)
@@ -604,9 +604,9 @@ export interface ScheduleModule {
     // (undocumented)
     getGroupBySubgroup(groupNumber: string, subgroup: number, options?: ScheduleReadOptions): Promise<FlattenedScheduleItem[]>;
     // (undocumented)
-    getGroupBySubgroupEnvelope(groupNumber: string, subgroup: number, options?: ReadOptions): Promise<ScheduleResponse>;
+    getGroupBySubgroupEnvelope(groupNumber: string, subgroup: number, options?: ScheduleReadOptions): Promise<ScheduleResponse>;
     // (undocumented)
-    getGroupBySubgroupRaw(groupNumber: string, subgroup: number, options?: ReadOptions): Promise<ScheduleItem[]>;
+    getGroupBySubgroupRaw(groupNumber: string, subgroup: number, options?: ScheduleReadOptions): Promise<ScheduleItem[]>;
     // (undocumented)
     getGroupExams(groupNumber: string, options?: ScheduleReadOptions): Promise<FlattenedScheduleItem[]>;
     // (undocumented)

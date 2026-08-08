@@ -61,12 +61,12 @@ export interface ScheduleModule {
   getGroupBySubgroupRaw(
     groupNumber: string,
     subgroup: number,
-    options?: ReadOptions
+    options?: ScheduleReadOptions
   ): Promise<ScheduleItem[]>;
   getGroupBySubgroupEnvelope(
     groupNumber: string,
     subgroup: number,
-    options?: ReadOptions
+    options?: ScheduleReadOptions
   ): Promise<ScheduleResponse>;
 
   getEmployeeBySubgroup(
@@ -77,12 +77,12 @@ export interface ScheduleModule {
   getEmployeeBySubgroupRaw(
     urlId: string,
     subgroup: number,
-    options?: ReadOptions
+    options?: ScheduleReadOptions
   ): Promise<ScheduleItem[]>;
   getEmployeeBySubgroupEnvelope(
     urlId: string,
     subgroup: number,
-    options?: ReadOptions
+    options?: ScheduleReadOptions
   ): Promise<ScheduleResponse>;
 
   getCurrentWeek(options?: ReadOptions): Promise<number>;
@@ -201,11 +201,13 @@ export function createScheduleModule(config: Readonly<InternalClientConfig>): Sc
 
   const groupMethods = createScheduleSubjectMethods({
     getNormalized: getGroup,
-    getRaw: getGroupRaw
+    getRaw: getGroupRaw,
+    endpoint: () => "/schedule"
   });
   const employeeMethods = createScheduleSubjectMethods({
     getNormalized: getEmployee,
-    getRaw: getEmployeeRaw
+    getRaw: getEmployeeRaw,
+    endpoint: (urlId) => `/employees/schedule/${encodeURIComponent(urlId)}`
   });
 
   return {
@@ -217,7 +219,8 @@ export function createScheduleModule(config: Readonly<InternalClientConfig>): Sc
     getEmployeeFiltered: (id, filter, options) => employeeMethods.getFiltered(id, filter, options),
     /**
      * Returns flattened regular schedule lessons for a subgroup.
-     * Shared lessons (`numSubgroup === 0`) are included. Use raw/envelope helpers for other shapes.
+     * Shared lessons (`numSubgroup === 0`) are included. When `includeNextSchedules` is true,
+     * matching `nextSchedules` lessons are included as well. Use raw/envelope helpers for other shapes.
      */
     getGroupBySubgroup: (id, subgroup, options) =>
       groupMethods.getBySubgroup(id, subgroup, options),
@@ -235,7 +238,8 @@ export function createScheduleModule(config: Readonly<InternalClientConfig>): Sc
       groupMethods.getBySubgroupEnvelope(id, subgroup, options),
     /**
      * Returns flattened regular schedule lessons for an employee filtered by subgroup.
-     * Shared lessons (`numSubgroup === 0`) are included. Use raw/envelope helpers for other shapes.
+     * Shared lessons (`numSubgroup === 0`) are included. When `includeNextSchedules` is true,
+     * matching `nextSchedules` lessons are included as well. Use raw/envelope helpers for other shapes.
      */
     getEmployeeBySubgroup: (id, subgroup, options) =>
       employeeMethods.getBySubgroup(id, subgroup, options),

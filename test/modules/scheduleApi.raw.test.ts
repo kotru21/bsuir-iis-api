@@ -152,4 +152,31 @@ describe("scheduleApi — explicit raw/envelope behavior", () => {
     expect(lessons.map((item) => item.subject)).toEqual(["Shared", "Physics"]);
     expect(lessons.map((item) => item.numSubgroup)).toEqual([0, 2]);
   });
+
+  it("subgroup helpers throw typed error for non-array weekday buckets", async () => {
+    const { BsuirResponseValidationError } = await import("../../src/client/errors");
+    const payload = buildSubgroupPayload();
+    (payload.schedules as Record<string, unknown>).Понедельник = { bad: true };
+
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ body: payload }),
+      createJsonResponse({ body: payload }),
+      createJsonResponse({ body: payload })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
+
+    await expect(client.schedule.getGroupBySubgroupRaw("053503", 1)).rejects.toMatchObject({
+      name: "BsuirResponseValidationError",
+      endpoint: "/schedule"
+    });
+    await expect(client.schedule.getGroupBySubgroupEnvelope("053503", 1)).rejects.toBeInstanceOf(
+      BsuirResponseValidationError
+    );
+    await expect(
+      client.schedule.getEmployeeBySubgroupRaw("s-nesterenkov", 1)
+    ).rejects.toMatchObject({
+      name: "BsuirResponseValidationError",
+      endpoint: "/employees/schedule/s-nesterenkov"
+    });
+  });
 });

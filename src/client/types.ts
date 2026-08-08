@@ -29,8 +29,8 @@ export interface ResponseCacheEntry {
  *
  * Entries are written and read as frozen {@link ResponseCacheEntry} objects —
  * never mutate them. TTL and LRU bookkeeping stay in the SDK; the store is a
- * plain container. A store may be shared across client instances (cache keys
- * are full request URLs).
+ * plain container. A store may be shared across client instances (cache keys are
+ * method + full request URL + allowlisted headers `Accept` / `Accept-Language`).
  */
 export interface CacheStore {
   get(key: string): ResponseCacheEntry | undefined;
@@ -312,13 +312,13 @@ export interface BsuirClientOptions {
    */
   maxResponseBytes?: number;
   /**
-   * Enables runtime shape validation of API responses.
+   * Enables **deep** runtime shape validation of API responses.
    *
    * When `true`, a `BsuirResponseValidationError` is thrown if the payload does not
    * match the expected TypeScript shape, which makes integration issues with the
    * upstream API visible immediately instead of causing silent type-cast bugs later.
    *
-   * Checked surfaces and depth:
+   * Checked surfaces and depth (opt-in):
    * - Schedule raw/normalized fetches: envelope plus field-level checks on every
    *   lesson item in `schedules` / `nextSchedules` / `exams`. Fields are validated
    *   when present — IIS may omit keys entirely on sparse payloads.
@@ -326,11 +326,14 @@ export interface BsuirClientOptions {
    * - Catalog lists: array of non-null objects (per-field catalog DTO checks are
    *   intentionally out of scope).
    *
-   * Normalized schedule calls still apply a minimal envelope check even when this
-   * flag is `false`, so normalization cannot crash on non-objects.
+   * Independent of this flag, the SDK always applies lightweight **structural**
+   * guards so return types stay honest and normalization cannot throw raw
+   * `TypeError`: catalog/announcement unwraps must be arrays, schedule day buckets
+   * must be arrays (nullish → empty), and normalized schedule calls keep a minimal
+   * envelope check. Those guards also throw `BsuirResponseValidationError`.
    *
    * **Recommended during development and in tests.** Leave `false` in production
-   * if you prefer not to fail hard on quirky IIS payloads. Use
+   * if you prefer not to fail hard on quirky IIS lesson/item fields. Use
    * `createBsuirClient.strict()` as a shorthand for `{ validateResponses: true }`.
    *
    * @defaultValue false

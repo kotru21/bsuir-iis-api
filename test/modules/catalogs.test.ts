@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { BsuirConfigurationError, createBsuirClient } from "../../src";
+import {
+  BsuirConfigurationError,
+  BsuirResponseValidationError,
+  createBsuirClient
+} from "../../src";
 import { createJsonResponse, mockFetchSequence } from "../helpers/fetchMock";
 
 describe("catalog modules", () => {
@@ -39,6 +43,12 @@ describe("catalog modules", () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: {} })]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
     await expect(client.departments.listAll()).rejects.toThrow();
+  });
+
+  it("rejects non-array catalog payloads even when validateResponses is false", async () => {
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: { not: "array" } })]);
+    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
+    await expect(client.departments.listAll()).rejects.toBeInstanceOf(BsuirResponseValidationError);
   });
 
   it("unwraps Spring page envelope for listAll", async () => {

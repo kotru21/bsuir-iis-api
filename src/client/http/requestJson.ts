@@ -70,22 +70,6 @@ export async function requestJson<T>(
     return requestKey;
   };
 
-  if (canReadFromCache) {
-    const cached = tryReadCacheEntry(config, ensureRequestKey());
-    if (cached !== undefined) {
-      const cacheHitCtx: ResponseHookContext = {
-        ...baseHookContext(method, path, endpoint, 1, maxAttempts, options.query),
-        // Entries written by this pipeline always carry the real status; the 200
-        // fallback only covers hand-populated cache maps.
-        status: cached.status ?? 200,
-        durationMs: 0,
-        fromCache: true
-      };
-      invokeHookSafely(config.hooks.onResponse, cacheHitCtx);
-      return cached.value as T;
-    }
-  }
-
   let lastSuccessResponse:
     { hookCtx: RequestHookContext; durationMs: number; status: number } | undefined;
 
@@ -109,6 +93,26 @@ export async function requestJson<T>(
       throw error;
     }
   };
+
+  if (canReadFromCache) {
+    const cached = tryReadCacheEntry(config, ensureRequestKey());
+    if (cached !== undefined) {
+      const cacheHitCtx: ResponseHookContext = {
+        ...baseHookContext(method, path, endpoint, 1, maxAttempts, options.query),
+        // Entries written by this pipeline always carry the real status; the 200
+        // fallback only covers hand-populated cache maps.
+        status: cached.status ?? 200,
+        durationMs: 0,
+        fromCache: true
+      };
+      invokeHookSafely(config.hooks.onResponse, cacheHitCtx);
+      // Re-validate on cache hit so a shared/hand-populated store cannot bypass
+      // responseValidator when the current client has validation configured.
+      const cachedValue = cached.value as T;
+      runResponseValidator(cachedValue);
+      return cachedValue;
+    }
+  }
 
   const requestAndMaybeCache = async (): Promise<T> => {
     const payload = await performRequestWithRetry<T>({

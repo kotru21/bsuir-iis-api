@@ -50,4 +50,55 @@ describe("fetchAllSpringPages", () => {
       fetchAllSpringPages(fetchPage, {}, { maxPages: 50, resourceLabel: "Announcements" })
     ).rejects.toBeInstanceOf(BsuirConfigurationError);
   });
+
+  it("throws when pageNumber does not advance while last is false", async () => {
+    const fetchPage = vi.fn(async () => ({
+      content: [{ id: 1 }],
+      pageable: { pageNumber: 0, pageSize: 1 },
+      last: false
+    }));
+    await expect(
+      fetchAllSpringPages(fetchPage, {}, { maxPages: 50, resourceLabel: "Announcements" })
+    ).rejects.toThrow(BsuirConfigurationError);
+    // First page + one stuck follow-up — must not keep looping toward maxPages.
+    expect(fetchPage.mock.calls.length).toBeLessThanOrEqual(2);
+  });
+
+  it("throws when pageNumber stays stuck across follow-up fetches", async () => {
+    const fetchPage = vi.fn(async (query: Record<string, string | number>) => {
+      const requested = typeof query.page === "number" ? query.page : 0;
+      return {
+        content: [{ id: requested }],
+        // Server acknowledges the request page in content but reports pageNumber=0 forever.
+        pageable: { pageNumber: 0, pageSize: 1 },
+        last: false
+      };
+    });
+    await expect(
+      fetchAllSpringPages(fetchPage, { size: 1 }, { maxPages: 10, resourceLabel: "Catalog" })
+    ).rejects.toBeInstanceOf(BsuirConfigurationError);
+    expect(fetchPage.mock.calls.length).toBeLessThanOrEqual(2);
+  });
+
+  it("throws when a follow-up page has non-array content", async () => {
+    const fetchPage = vi.fn(async (query: Record<string, string | number>) => {
+      const page = typeof query.page === "number" ? query.page : 0;
+      if (page === 0) {
+        return {
+          content: [{ id: 0 }],
+          pageable: { pageNumber: 0, pageSize: 1 },
+          last: false
+        };
+      }
+      return {
+        content: { not: "an array" },
+        pageable: { pageNumber: 1, pageSize: 1 },
+        last: true
+      };
+    });
+    await expect(
+      fetchAllSpringPages(fetchPage, { size: 1 }, { maxPages: 50, resourceLabel: "Catalog" })
+    ).rejects.toThrow(/non-array page payload/);
+    expect(fetchPage).toHaveBeenCalledTimes(2);
+  });
 });
