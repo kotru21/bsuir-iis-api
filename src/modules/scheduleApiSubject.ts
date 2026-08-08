@@ -85,7 +85,8 @@ export function filterRawSubgroupLessons(
 /**
  * Returns a cloned envelope with `schedules` arrays filtered to `subgroup`,
  * including shared lessons (`numSubgroup === 0`).
- * When `includeNextSchedules` is true, `nextSchedules` is filtered the same way.
+ * When `includeNextSchedules` is true, `nextSchedules` is filtered the same way;
+ * otherwise `nextSchedules` is stripped (current-term only, matching flattened helpers).
  */
 export function filterRawSubgroupEnvelope(
   response: ScheduleResponse,
@@ -106,6 +107,8 @@ export function filterRawSubgroupEnvelope(
         lessonMatchesSubgroup(lesson.numSubgroup, subgroup)
       );
     }
+  } else {
+    delete cloned.nextSchedules;
   }
   return cloned;
 }

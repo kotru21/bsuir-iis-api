@@ -250,4 +250,70 @@ describe("schedule module — normalize and raw", () => {
       BsuirResponseValidationError
     );
   });
+
+  it("rejects schedules array envelope instead of silent empty success", () => {
+    const response = buildScheduleResponse({
+      schedules: [] as unknown as Record<string, never>
+    });
+    expect(() => normalizeSchedule(response, { validate: false })).toThrow(
+      BsuirResponseValidationError
+    );
+  });
+
+  it("rejects nextSchedules array envelope instead of silent empty success", () => {
+    const response = buildScheduleResponse({
+      nextSchedules: [] as unknown as Record<string, never>
+    });
+    expect(() =>
+      normalizeSchedule(response, { validate: false, includeNextSchedules: true })
+    ).toThrow(BsuirResponseValidationError);
+    // Structural map check is always-on, even when nextSchedules are not flattened.
+    expect(() => normalizeSchedule(response, { validate: false })).toThrow(
+      BsuirResponseValidationError
+    );
+  });
+
+  it("rejects non-array exams instead of silently dropping them", () => {
+    const response = buildScheduleResponse({
+      exams: { not: "an array" } as unknown as []
+    });
+    expect(() => normalizeSchedule(response, { validate: false })).toThrow(
+      BsuirResponseValidationError
+    );
+  });
+
+  it("treats null exams as empty on the always-on path", () => {
+    const response = buildScheduleResponse({ exams: null });
+    const normalized = normalizeSchedule(response, { validate: false });
+    expect(normalized.exams).toEqual([]);
+    expect(normalized.examLessons).toEqual([]);
+  });
+
+  it("getGroup with validateResponses false rejects schedules array envelope", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({
+        body: buildScheduleResponse({
+          schedules: [] as unknown as Record<string, never>
+        })
+      })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
+    await expect(client.schedule.getGroup("053503")).rejects.toBeInstanceOf(
+      BsuirResponseValidationError
+    );
+  });
+
+  it("getGroup with validateResponses false rejects non-array exams", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({
+        body: buildScheduleResponse({
+          exams: "lost" as unknown as []
+        })
+      })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
+    await expect(client.schedule.getGroup("053503")).rejects.toBeInstanceOf(
+      BsuirResponseValidationError
+    );
+  });
 });

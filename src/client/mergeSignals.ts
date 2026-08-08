@@ -24,9 +24,43 @@ export function getMergedSignalCleanup(signal: AbortSignal): (() => void) | unde
 }
 
 /**
+ * Combines `parts` with a clearable timeout via platform `AbortSignal.any`,
+ * registering cleanup on the combined signal (same WeakMap contract as
+ * {@link mergeSignalsManual}). Falls back to manual merge if `any` is missing.
+ */
+function mergeWithTimeout(parts: AbortSignal[], timeoutMs: number): AbortSignal {
+  if (typeof AbortSignalCtor.any !== "function") {
+    return mergeSignalsManual(parts, timeoutMs);
+  }
+
+  const timeoutController = new AbortController();
+  let cleanedUp = false;
+  const timeoutId = setTimeout(() => {
+    if (!timeoutController.signal.aborted) {
+      timeoutController.abort();
+    }
+  }, timeoutMs);
+  const combined = AbortSignalCtor.any([...parts, timeoutController.signal]);
+  const cleanup = (): void => {
+    if (cleanedUp) {
+      return;
+    }
+    cleanedUp = true;
+    clearTimeout(timeoutId);
+    mergedSignalCleanupMap.delete(combined);
+  };
+  mergedSignalCleanupMap.set(combined, cleanup);
+  return combined;
+}
+
+/**
  * Combines multiple abort signals and/or a timeout into a single signal.
  * When `AbortSignal.any` exists at runtime, delegates to the platform implementation.
  * Otherwise uses a manual merge so all signals are respected.
+ *
+ * Timeout timers are always clearable via {@link getMergedSignalCleanup} —
+ * including on the `AbortSignal.any` path (uses a local `setTimeout` instead of
+ * uncancellable `AbortSignal.timeout`).
  */
 export function mergeSignals(
   signals: readonly (AbortSignal | undefined)[],
@@ -36,10 +70,7 @@ export function mergeSignals(
 
   if (parts.length === 0) {
     if (timeoutMs !== undefined) {
-      if (typeof AbortSignalCtor.any === "function") {
-        return AbortSignalCtor.any([AbortSignal.timeout(timeoutMs)]);
-      }
-      return mergeSignalsManual([], timeoutMs);
+      return mergeWithTimeout([], timeoutMs);
     }
     return new AbortController().signal;
   }
@@ -48,12 +79,15 @@ export function mergeSignals(
     return getOnlySignal(parts);
   }
 
-  if (typeof AbortSignalCtor.any === "function") {
-    const all = timeoutMs === undefined ? parts : [...parts, AbortSignal.timeout(timeoutMs)];
-    return AbortSignalCtor.any(all);
+  if (timeoutMs !== undefined) {
+    return mergeWithTimeout(parts, timeoutMs);
   }
 
-  return mergeSignalsManual(parts, timeoutMs);
+  if (typeof AbortSignalCtor.any === "function") {
+    return AbortSignalCtor.any(parts);
+  }
+
+  return mergeSignalsManual(parts);
 }
 
 /** Used when `AbortSignal.any` is unavailable; exposed for unit tests. */

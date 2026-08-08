@@ -75,6 +75,17 @@ describe("formatLessonTimeRange", () => {
       formatLessonTimeRange(makeLesson({ startLessonTime: " 09:00 ", endLessonTime: " 10:20 " }))
     ).toBe("09:00–10:20");
   });
+
+  it("returns empty string when time fields are nullish", () => {
+    expect(
+      formatLessonTimeRange(
+        makeLesson({
+          startLessonTime: null as unknown as string,
+          endLessonTime: undefined as unknown as string
+        })
+      )
+    ).toBe("");
+  });
 });
 
 describe("formatLessonType", () => {
@@ -128,6 +139,12 @@ describe("formatLessonAuditories", () => {
     expect(formatLessonAuditories(makeLesson({ auditories: [] }))).toBe("");
   });
 
+  it("returns empty string when auditories is nullish", () => {
+    expect(
+      formatLessonAuditories(makeLesson({ auditories: null as unknown as string[] }))
+    ).toBe("");
+  });
+
   it("returns single auditory", () => {
     expect(formatLessonAuditories(makeLesson({ auditories: ["101-2"] }))).toBe("101-2");
   });
@@ -158,6 +175,18 @@ describe("formatEmployeeShortName", () => {
         makeEmployee({ lastName: " Петров ", firstName: " Пётр ", middleName: " Петрович " })
       )
     ).toBe("Петров П.П.");
+  });
+
+  it("treats nullish name parts as empty", () => {
+    expect(
+      formatEmployeeShortName(
+        makeEmployee({
+          lastName: null as unknown as string,
+          firstName: undefined as unknown as string,
+          middleName: null as unknown as string
+        })
+      )
+    ).toBe("");
   });
 });
 

@@ -21,14 +21,23 @@ function assertWithinPageCap(
   }
 }
 
-function hasMorePages(meta: SpringPageMeta, nextPage: number): boolean {
+function hasMorePages(
+  meta: SpringPageMeta,
+  nextPage: number,
+  contentLength: number
+): boolean {
   if (meta.last === true) {
     return false;
   }
   if (typeof meta.totalPages === "number") {
     return nextPage < meta.totalPages;
   }
-  return meta.last === false;
+  if (meta.last === false) {
+    return true;
+  }
+  // Neither `last` nor `totalPages`: a full page is the Spring heuristic for
+  // "maybe more" — stop on a short/empty page to avoid silent first-page truncation.
+  return contentLength >= meta.pageSize;
 }
 
 /** Cap is expressed as 0-based page index (`nextPage >= maxPages`). */
@@ -69,11 +78,13 @@ export async function fetchAllSpringPages<T>(
 
   assertWithinPageCap(firstMeta.totalPages, maxPages, resourceLabel);
   // firstMeta is only set when `content` is an array, so unwrap is safe here.
-  const items = [...(unwrapSpringPageContent(firstPayload) as T[])];
+  const firstItems = unwrapSpringPageContent(firstPayload) as T[];
+  const items = [...firstItems];
   let pageNumber = firstMeta.pageNumber;
   let meta = firstMeta;
+  let pageContentLength = firstItems.length;
 
-  while (hasMorePages(meta, pageNumber + 1)) {
+  while (hasMorePages(meta, pageNumber + 1, pageContentLength)) {
     const nextPage = pageNumber + 1;
     assertNextPageWithinCap(nextPage, maxPages, resourceLabel);
     const pagePayload = await fetchPage({
@@ -98,6 +109,7 @@ export async function fetchAllSpringPages<T>(
     }
     pageNumber = pageMeta.pageNumber;
     meta = pageMeta;
+    pageContentLength = pageItems.length;
   }
 
   return items;

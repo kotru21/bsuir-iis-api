@@ -183,7 +183,11 @@ function assertScheduleItem(item: unknown, endpoint: string, location: string): 
   assertObjectArrayField(record, "employees", location, endpoint, { nullable: true });
 }
 
-function assertWeekScheduleMap(value: unknown, endpoint: string, field: string): void {
+/**
+ * Map + day-bucket shape only (no lesson-item fields).
+ * Nullish maps and nullish day buckets are allowed; non-array buckets fail.
+ */
+function assertWeekScheduleMapShape(value: unknown, endpoint: string, field: string): void {
   if (value === null || value === undefined) {
     return;
   }
@@ -197,6 +201,22 @@ function assertWeekScheduleMap(value: unknown, endpoint: string, field: string):
     }
     if (!Array.isArray(dayItems)) {
       failField(endpoint, `${field}.${day}`, "an array of lessons", dayItems);
+    }
+  }
+}
+
+function assertWeekScheduleMap(value: unknown, endpoint: string, field: string): void {
+  assertWeekScheduleMapShape(value, endpoint, field);
+  if (value === null || value === undefined) {
+    return;
+  }
+  const record = asRecord(value);
+  if (!record) {
+    return;
+  }
+  for (const [day, dayItems] of Object.entries(record)) {
+    if (!Array.isArray(dayItems)) {
+      continue;
     }
     for (const [index, item] of dayItems.entries()) {
       assertScheduleItem(item, endpoint, `${field}.${day}[${String(index)}]`);
@@ -272,6 +292,38 @@ export function assertAnnouncementListResponse(
   );
 }
 
+function assertNullableExamsField(value: unknown, endpoint: string): void {
+  if (value !== null && value !== undefined && !Array.isArray(value)) {
+    throw new BsuirResponseValidationError(
+      `Invalid response payload for ${endpoint}: 'exams' must be array or null, got ${typeof value}`,
+      endpoint
+    );
+  }
+}
+
+/**
+ * Always-on structural schedule envelope checks (no deep lesson-item validation).
+ *
+ * Ensures the payload is a non-null object, `schedules` / `nextSchedules` are
+ * maps (object|null|absent) with array|nullish day buckets, and `exams` is
+ * array|null|absent. Does **not** prove a full {@link ScheduleResponse} (DTO
+ * fields and lesson items remain unchecked — use {@link assertScheduleResponse}).
+ */
+export function assertScheduleStructuralEnvelope(payload: unknown, endpoint: string): void {
+  readScheduleStructuralEnvelope(payload, endpoint);
+}
+
+function readScheduleStructuralEnvelope(
+  payload: unknown,
+  endpoint: string
+): Record<string, unknown> {
+  const record = ensureRecord(payload, endpoint, "object");
+  assertWeekScheduleMapShape(record.schedules, endpoint, "schedules");
+  assertWeekScheduleMapShape(record.nextSchedules, endpoint, "nextSchedules");
+  assertNullableExamsField(record.exams, endpoint);
+  return record;
+}
+
 /**
  * Asserts that payload is a schedule response envelope.
  *
@@ -283,32 +335,12 @@ export function assertScheduleResponse(
   payload: unknown,
   endpoint: string
 ): asserts payload is ScheduleResponse {
-  const record = ensureRecord(payload, endpoint, "object");
-  const schedules = record.schedules;
+  const record = readScheduleStructuralEnvelope(payload, endpoint);
 
-  // undefined treated as absent field — API may omit schedules/exams for exam-only or schedule-only entries
-  if (
-    schedules !== null &&
-    schedules !== undefined &&
-    (typeof schedules !== "object" || Array.isArray(schedules))
-  ) {
-    throw new BsuirResponseValidationError(
-      `Invalid response payload for ${endpoint}: 'schedules' must be object or null, got ${
-        Array.isArray(schedules) ? "array" : typeof schedules
-      }`,
-      endpoint
-    );
-  }
-  assertWeekScheduleMap(schedules, endpoint, "schedules");
+  assertWeekScheduleMap(record.schedules, endpoint, "schedules");
   assertWeekScheduleMap(record.nextSchedules, endpoint, "nextSchedules");
 
   const exams = record.exams;
-  if (exams !== null && exams !== undefined && !Array.isArray(exams)) {
-    throw new BsuirResponseValidationError(
-      `Invalid response payload for ${endpoint}: 'exams' must be array or null, got ${typeof exams}`,
-      endpoint
-    );
-  }
   if (Array.isArray(exams)) {
     for (const [index, exam] of exams.entries()) {
       assertScheduleItem(exam, endpoint, `exams[${String(index)}]`);

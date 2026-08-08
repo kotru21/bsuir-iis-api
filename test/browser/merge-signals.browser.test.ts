@@ -6,9 +6,18 @@ describe("browser — platform AbortSignal.any", () => {
     expect(typeof AbortSignal.any).toBe("function");
   });
 
-  it("does not attach manual cleanup when platform merge is used", () => {
+  it("attaches timeout cleanup when platform AbortSignal.any merge is used", () => {
     const caller = new AbortController();
     const merged = mergeSignals([caller.signal], 60_000);
+    const cleanup = getMergedSignalCleanup(merged);
+    expect(cleanup).toBeTypeOf("function");
+    cleanup!();
+  });
+
+  it("does not attach cleanup when platform merge has no timeout", () => {
+    const a = new AbortController();
+    const b = new AbortController();
+    const merged = mergeSignals([a.signal, b.signal]);
     expect(getMergedSignalCleanup(merged)).toBeUndefined();
   });
 

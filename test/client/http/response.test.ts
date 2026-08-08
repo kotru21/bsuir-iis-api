@@ -59,6 +59,18 @@ describe("parseBody", () => {
     await expect(parseBody(res, limit)).rejects.toBeInstanceOf(BsuirApiError);
   });
 
+  it("treats application/json with parameters as JSON media type", async () => {
+    const res = makeResponse("", { contentType: "application/json; charset=utf-8" });
+    await expect(parseBody(res, limit)).rejects.toBeInstanceOf(BsuirApiError);
+  });
+
+  it("does not treat application/json as a substring of another media type", async () => {
+    const res = makeResponse("", {
+      contentType: "text/plain; profile=application/json"
+    });
+    expect(await parseBody(res, limit)).toBeNull();
+  });
+
   it("returns null for empty body when content-type is not JSON", async () => {
     const res = makeResponse("", { contentType: "text/plain" });
     expect(await parseBody(res, limit)).toBeNull();

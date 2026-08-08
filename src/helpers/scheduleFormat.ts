@@ -14,8 +14,8 @@ import type { FlattenedScheduleItem } from "../types/schedule";
 export function formatLessonTimeRange(
   lesson: Pick<FlattenedScheduleItem, "startLessonTime" | "endLessonTime">
 ): string {
-  const start = lesson.startLessonTime.trim();
-  const end = lesson.endLessonTime.trim();
+  const start = typeof lesson.startLessonTime === "string" ? lesson.startLessonTime.trim() : "";
+  const end = typeof lesson.endLessonTime === "string" ? lesson.endLessonTime.trim() : "";
   if (start && end) return `${start}\u{2013}${end}`;
   if (start) return start;
   if (end) return end;
@@ -82,7 +82,7 @@ export function formatLessonWeekNumbers(lesson: Pick<FlattenedScheduleItem, "wee
  * ```
  */
 export function formatLessonAuditories(lesson: Pick<FlattenedScheduleItem, "auditories">): string {
-  return lesson.auditories.join(", ");
+  return Array.isArray(lesson.auditories) ? lesson.auditories.join(", ") : "";
 }
 
 /**
@@ -98,9 +98,9 @@ export function formatLessonAuditories(lesson: Pick<FlattenedScheduleItem, "audi
 export function formatEmployeeShortName(
   employee: Pick<Employee, "lastName" | "firstName" | "middleName">
 ): string {
-  const lastName = employee.lastName.trim();
-  const first = employee.firstName.trim();
-  const middle = employee.middleName.trim();
+  const lastName = typeof employee.lastName === "string" ? employee.lastName.trim() : "";
+  const first = typeof employee.firstName === "string" ? employee.firstName.trim() : "";
+  const middle = typeof employee.middleName === "string" ? employee.middleName.trim() : "";
 
   let initials = "";
   if (first.length > 0) initials += `${first.charAt(0)}.`;

@@ -77,7 +77,7 @@ const clientB = createBsuirClient({ cache: { ttlMs: 60_000, store } }); // share
 - `dedupeInFlight` reuses the same in-flight GET request for concurrent callers. It is disabled for per-request signals, non-default cache modes, private credential headers, and already-aborted signals.
 - `maxResponseBytes` limits body size per response to protect against memory spikes.
 - Response checking is two-tier:
-  - **Always on (structural):** catalog/announcement unwraps must resolve to arrays, and schedule day buckets (`schedules` / `nextSchedules`) must be arrays (or nullish → empty). These guards throw `BsuirResponseValidationError` even when `validateResponses` is `false`, so the SDK can honor `T[]` return types and avoid raw `TypeError`s on malformed IIS payloads. Normalized schedule calls also keep a minimal envelope check for the same reason.
+  - **Always on (structural):** catalog/announcement unwraps must resolve to arrays; schedule day buckets must be arrays (or nullish → empty); `schedules` / `nextSchedules` must be maps (object|null|absent); and `exams` must be array|null|absent. These guards apply to **normalized and raw** schedule fetches (`getGroup` / `getGroupRaw` / employee equivalents) and throw `BsuirResponseValidationError` even when `validateResponses` is `false`, so the SDK can honor return types and avoid silent empty schedules or raw `TypeError`s on malformed IIS payloads.
   - **Opt-in (`validateResponses: true`, default `false`):** deep payload-shape checks — schedule responses down to every lesson item (`schedules` / `nextSchedules` / `exams`), announcements down to each item (fields checked when present; IIS may omit keys on sparse payloads), and catalog items as objects. Prefer enabling in development/tests; use `createBsuirClient.strict(options?)` as a shorthand that forces `validateResponses: true` without changing the default for `createBsuirClient()`.
 - Cache hits re-run any configured `responseValidator` (including when `validateResponses` is enabled), so a shared or hand-populated `cache.store` cannot bypass validation for the current client.
 - `hooks` provides lifecycle callbacks (`onRequest`, `onRetry`, `onResponse`, `onError`) for observability. Hook exceptions are caught and discarded — an observability callback never breaks the request, triggers a retry, or masks the real outcome.
@@ -144,7 +144,7 @@ SDK throws typed errors:
 - `BsuirApiError` for HTTP errors (contains `status`, `endpoint`, `body`). Non-2xx plain-text bodies are preserved even when IIS mislabels them as JSON. **Exception:** `client.announcements.byEmployee` / `byDepartment` resolve to `[]` on IIS HTTP `404` (unless `treat404AsEmpty: false`) instead of throwing (see Announcements above).
 - `BsuirResponsePayloadTooLargeError` when response body size exceeds configured `maxResponseBytes`.
 - `BsuirNetworkError` for transport errors (contains `endpoint` and standard `cause`)
-- `BsuirResponseValidationError` for invalid payload shapes: always-on structural guards (non-array catalog/announcement unwraps, non-array schedule day buckets, minimal schedule envelope on normalize), and deep item/field checks when `validateResponses: true`
+- `BsuirResponseValidationError` for invalid payload shapes: always-on structural guards (non-array catalog/announcement unwraps, non-array schedule day buckets, non-map `schedules`/`nextSchedules`, non-array `exams`), and deep item/field checks when `validateResponses: true`
 - `BsuirTimeoutError` for timeouts (contains `endpoint`, `timeoutMs`)
 - `BsuirValidationError` for invalid input parameters
 - `BsuirConfigurationError` when the runtime has no `fetch` and none was passed to `createBsuirClient({ fetch })`, or when announcements / catalog `listAllPages` pagination exceeds the 50-page safety cap
@@ -160,7 +160,7 @@ Retry and abort behavior:
 - Retries are applied to GET requests for transport/network errors and HTTP `429`, `500`, `502`, `503`, `504`
 - `Retry-After` is respected for retriable responses: the server's hint is honored in full up to a 60s safety ceiling, independently of `retryMaxDelayMs` (which caps only the SDK's own exponential backoff). A `Retry-After` beyond 60s disables the retry (`onRetry` fires with `reason: "retry_after_too_large"`).
 - Caller-provided aborted `AbortSignal` is re-thrown as native `AbortError`; aborting during a retry wait stops the wait immediately instead of stalling until the delay elapses.
-- Internal timeout is mapped to `BsuirTimeoutError`
+- Internal timeout (`timeoutMs`) aborts the attempt and throws `BsuirTimeoutError` immediately — timeouts are **not** retried (retries stay limited to network errors and HTTP 429/5xx)
 
 `createBsuirClient()` throws `BsuirConfigurationError` if no `fetch` implementation is available.
 
@@ -169,7 +169,7 @@ Retry and abort behavior:
 For **2xx** responses the client reads the body as text, then applies `JSON.parse` when the payload is valid JSON:
 
 - Valid JSON is returned even when `Content-Type` does **not** include `application/json` (mislabeled responses still parse).
-- If `Content-Type` indicates **`application/json`** but the body is empty or not valid JSON, the client throws `BsuirApiError` (`Invalid JSON response payload`), same as for a truncated `{` payload.
+- If `Content-Type` indicates JSON (`application/json` or a `+json` media type, ignoring parameters) but the body is empty or not valid JSON, the client throws `BsuirApiError` (`Invalid JSON response payload`), same as for a truncated `{` payload.
 - If the body is **empty** and the content type does **not** indicate JSON, the result is `null`. Typical IIS catalog JSON endpoints return a non-empty body.
 - If response body size exceeds `maxResponseBytes`, the client throws `BsuirResponsePayloadTooLargeError`.
 
@@ -198,7 +198,7 @@ const withNext = await client.schedule.getGroup("053503", { includeNextSchedules
 // Next-term rows appear in `lessons` / `lessonsByDay` with `source: "nextSchedules"`.
 ```
 
-Raw helpers (`getGroupRaw` / `getEmployeeRaw`) always preserve `nextSchedules` when present.
+Raw helpers (`getGroupRaw` / `getEmployeeRaw`) always preserve `nextSchedules` when present (and still apply always-on structural envelope checks).
 
 ```ts
 import { createBsuirClient } from "bsuir-iis-api";
@@ -208,6 +208,7 @@ const raw = await client.schedule.getGroupRaw("053503");
 ```
 
 Use explicit helpers `getGroupRaw` / `getEmployeeRaw` to obtain raw envelopes. `getGroup()` / `getEmployee()` return normalized payloads by default. For subgroup filtering use `get*BySubgroup` (flattened), `get*BySubgroupRaw`, or `get*BySubgroupEnvelope`.
+`get*BySubgroupEnvelope` filters `schedules` by subgroup; with `includeNextSchedules: true` it also filters `nextSchedules`, otherwise it omits `nextSchedules` (current-term only — same default as flattened helpers).
 In raw mode API may return `schedules: null`; normalized mode always converts it to `{}`.
 In raw mode some lesson fields may also be nullable (`weekNumber`, `lessonTypeAbbrev`), so keep null checks if you consume raw payload directly.
 README examples match the installed package version; if types and docs ever diverge, rely on `NormalizedScheduleResponse` / `ScheduleResponse` from the same release.

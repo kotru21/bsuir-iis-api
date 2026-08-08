@@ -1,5 +1,8 @@
 import { requestJson } from "../client/http";
-import { assertScheduleResponse } from "../client/responseValidators";
+import {
+  assertScheduleResponse,
+  assertScheduleStructuralEnvelope
+} from "../client/responseValidators";
 import type { InternalClientConfig } from "../client/types";
 import type {
   FlattenedScheduleItem,
@@ -92,6 +95,18 @@ export interface ScheduleModule {
  * Creates schedule API module with raw/normalized response support.
  */
 export function createScheduleModule(config: Readonly<InternalClientConfig>): ScheduleModule {
+  function scheduleResponseValidator(endpoint: string): (value: unknown) => void {
+    return (value: unknown): void => {
+      if (config.validateResponses) {
+        assertScheduleResponse(value, endpoint);
+      } else {
+        // Always-on map/array/day-bucket shape — same structural rules as
+        // normalizeSchedule, without deep lesson-item checks.
+        assertScheduleStructuralEnvelope(value, endpoint);
+      }
+    };
+  }
+
   /**
    * Returns schedule for a student group.
    * Returns a normalized payload. Use `getGroupRaw` for the raw API envelope.
@@ -106,11 +121,8 @@ export function createScheduleModule(config: Readonly<InternalClientConfig>): Sc
       query: { studentGroup: groupNumber },
       signal: resolvedOptions.signal,
       cache: resolvedOptions.cache,
-      responseValidator: config.validateResponses
-        ? (value) => {
-            assertScheduleResponse(value, "/schedule");
-          }
-        : undefined
+      // Validate before cache write/hit so poisoned store entries cannot stick.
+      responseValidator: scheduleResponseValidator("/schedule")
     });
     const response = payload as ScheduleResponse;
     return normalizeSchedule(response, {
@@ -136,11 +148,7 @@ export function createScheduleModule(config: Readonly<InternalClientConfig>): Sc
     const payload = await requestJson<unknown>(config, endpoint, {
       signal: resolvedOptions.signal,
       cache: resolvedOptions.cache,
-      responseValidator: config.validateResponses
-        ? (value) => {
-            assertScheduleResponse(value, endpoint);
-          }
-        : undefined
+      responseValidator: scheduleResponseValidator(endpoint)
     });
     const response = payload as ScheduleResponse;
     return normalizeSchedule(response, {
@@ -172,11 +180,7 @@ export function createScheduleModule(config: Readonly<InternalClientConfig>): Sc
       query: { studentGroup: groupNumber },
       signal: options.signal,
       cache: options.cache,
-      responseValidator: config.validateResponses
-        ? (value) => {
-            assertScheduleResponse(value, "/schedule");
-          }
-        : undefined
+      responseValidator: scheduleResponseValidator("/schedule")
     });
     return payload as ScheduleResponse;
   }
@@ -190,11 +194,7 @@ export function createScheduleModule(config: Readonly<InternalClientConfig>): Sc
     const payload = await requestJson<unknown>(config, endpoint, {
       signal: options.signal,
       cache: options.cache,
-      responseValidator: config.validateResponses
-        ? (value) => {
-            assertScheduleResponse(value, endpoint);
-          }
-        : undefined
+      responseValidator: scheduleResponseValidator(endpoint)
     });
     return payload as ScheduleResponse;
   }
@@ -233,6 +233,8 @@ export function createScheduleModule(config: Readonly<InternalClientConfig>): Sc
     /**
      * Returns the full `ScheduleResponse` with `schedules` arrays filtered to the subgroup.
      * Shared lessons (`numSubgroup === 0`) are included. Preserves envelope fields.
+     * When `includeNextSchedules` is true, `nextSchedules` is filtered the same way;
+     * otherwise `nextSchedules` is omitted (current-term only).
      */
     getGroupBySubgroupEnvelope: (id, subgroup, options) =>
       groupMethods.getBySubgroupEnvelope(id, subgroup, options),
@@ -252,6 +254,8 @@ export function createScheduleModule(config: Readonly<InternalClientConfig>): Sc
     /**
      * Returns the full `ScheduleResponse` with `schedules` arrays filtered to the subgroup.
      * Shared lessons (`numSubgroup === 0`) are included. Preserves envelope fields.
+     * When `includeNextSchedules` is true, `nextSchedules` is filtered the same way;
+     * otherwise `nextSchedules` is omitted (current-term only).
      */
     getEmployeeBySubgroupEnvelope: (id, subgroup, options) =>
       employeeMethods.getBySubgroupEnvelope(id, subgroup, options),

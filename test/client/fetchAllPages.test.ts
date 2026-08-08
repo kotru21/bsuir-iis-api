@@ -101,4 +101,41 @@ describe("fetchAllSpringPages", () => {
     ).rejects.toThrow(/non-array page payload/);
     expect(fetchPage).toHaveBeenCalledTimes(2);
   });
+
+  it("fetches another page when last/totalPages are absent and content fills pageSize", async () => {
+    const fetchPage = vi.fn(async (query: Record<string, string | number>) => {
+      const page = typeof query.page === "number" ? query.page : 0;
+      if (page === 0) {
+        return {
+          content: [{ id: 0 }, { id: 1 }],
+          pageable: { pageNumber: 0, pageSize: 2 }
+        };
+      }
+      return {
+        content: [{ id: 2 }],
+        pageable: { pageNumber: 1, pageSize: 2 }
+      };
+    });
+    const items = await fetchAllSpringPages<{ id: number }>(
+      fetchPage,
+      { size: 2 },
+      { maxPages: 50, resourceLabel: "Catalog" }
+    );
+    expect(items.map((i) => i.id)).toEqual([0, 1, 2]);
+    expect(fetchPage).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops when last/totalPages are absent and content is a partial page", async () => {
+    const fetchPage = vi.fn(async () => ({
+      content: [{ id: 1 }],
+      pageable: { pageNumber: 0, pageSize: 20 }
+    }));
+    const items = await fetchAllSpringPages<{ id: number }>(
+      fetchPage,
+      {},
+      { maxPages: 50, resourceLabel: "Catalog" }
+    );
+    expect(items).toEqual([{ id: 1 }]);
+    expect(fetchPage).toHaveBeenCalledTimes(1);
+  });
 });

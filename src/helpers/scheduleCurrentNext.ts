@@ -7,8 +7,10 @@ import { toDateOrThrow } from "./scheduleDateKeys";
  * default behavior (sorting such lessons to the end, ignoring them for
  * current/next lookups) would otherwise hide.
  *
- * The callback is fired at most once per malformed value per call site. It must
- * not throw — exceptions from a hook are caught and discarded.
+ * Within a single helper call, each malformed field is reported once (sorting
+ * reports during sort; {@link getCurrentLesson} / {@link getNextLesson} do not
+ * re-fire after sorting). It must not throw — exceptions from a hook are caught
+ * and discarded.
  *
  * @example
  * ```ts
@@ -137,8 +139,9 @@ export function getCurrentLesson<T extends LessonWithTime>(
   const hook = options?.onInvalidTime;
   const sortedLessons = sortLessonsByTime(lessons, { onInvalidTime: hook });
   for (const lesson of sortedLessons) {
-    const start = parseLessonTime(lesson, "startLessonTime", hook);
-    const end = parseLessonTime(lesson, "endLessonTime", hook);
+    // Hook already fired during sort; re-parse without reporting again.
+    const start = parseLessonTime(lesson, "startLessonTime", undefined);
+    const end = parseLessonTime(lesson, "endLessonTime", undefined);
     if (start === null || end === null || end <= start) {
       continue;
     }
@@ -174,7 +177,8 @@ export function getNextLesson<T extends LessonWithTime>(
   const hook = options?.onInvalidTime;
   const sortedLessons = sortLessonsByTime(lessons, { onInvalidTime: hook });
   for (const lesson of sortedLessons) {
-    const start = parseLessonTime(lesson, "startLessonTime", hook);
+    // Hook already fired during sort; re-parse without reporting again.
+    const start = parseLessonTime(lesson, "startLessonTime", undefined);
     if (start === null) {
       continue;
     }

@@ -1,5 +1,7 @@
-import { BsuirResponseValidationError } from "../client/errors";
-import { assertScheduleResponse } from "../client/responseValidators";
+import {
+  assertScheduleResponse,
+  assertScheduleStructuralEnvelope
+} from "../client/responseValidators";
 import { asDayLessonArray } from "../helpers/scheduleDayLessons";
 import { WEEKDAYS } from "../types/common";
 import type {
@@ -11,22 +13,6 @@ import type {
 } from "../types/schedule";
 import { deepFreezeJson } from "../utils/deepFreezeJson";
 import { lessonAuditories } from "../utils/lessonAuditories";
-
-// Minimal envelope check kept here (not in responseValidators) because the normalize
-// path always needs at least this much shape safety to avoid crashing on a non-object
-// payload — even when full validation is disabled. The full validator
-// `assertScheduleResponse` is the single source of truth for the complete check.
-function assertMinimalScheduleEnvelope(
-  payload: unknown,
-  endpoint: string
-): asserts payload is { schedules?: unknown; exams?: unknown } {
-  if (typeof payload !== "object" || payload === null || Array.isArray(payload)) {
-    throw new BsuirResponseValidationError(
-      `Invalid response payload for ${endpoint}: expected object`,
-      endpoint
-    );
-  }
-}
 
 /**
  * Transforms raw schedule response into normalized structure with flattened lessons.
@@ -49,12 +35,13 @@ export function normalizeSchedule(
 ): NormalizedScheduleResponse {
   const endpoint = options?.endpoint ?? "/schedule";
   if (options?.validate) {
-    // Full envelope validation via the single source of truth.
+    // Full envelope + item-field validation via the single source of truth.
     assertScheduleResponse(response, endpoint);
   } else {
-    // Even without full validation, refuse to normalize a non-object payload —
-    // letting it through would only push a less-clear TypeError onto the caller.
-    assertMinimalScheduleEnvelope(response, endpoint);
+    // Always-on structural shape (maps/arrays) — same rules as the deep path,
+    // without item-field checks. Prevents silent empty schedules when IIS
+    // returns `schedules: []` / non-array `exams`.
+    assertScheduleStructuralEnvelope(response, endpoint);
   }
 
   // Own the data before building frozen views: freezing must never leak into the
@@ -69,7 +56,8 @@ export function normalizeSchedule(
   ) as FlattenedLessonsByDay;
   const sourceSchedules = source.schedules ?? {};
   const normalizedSchedules: NonNullable<ScheduleResponse["schedules"]> = {};
-  const normalizedExams = Array.isArray(source.exams) ? source.exams : [];
+  // Structural guard already rejected non-array non-nullish exams; null/absent → [].
+  const normalizedExams = source.exams ?? [];
 
   for (const day of WEEKDAYS) {
     const dayItems = asDayLessonArray(sourceSchedules[day], endpoint, `schedules.${day}`);

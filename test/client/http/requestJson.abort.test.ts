@@ -54,6 +54,38 @@ describe("requestJson — abort and timeout", () => {
     });
   }, 10_000);
 
+  it("does not retry on timeout even when retries remain", async () => {
+    let attempts = 0;
+    const fetchImpl = (async (_input, init) => {
+      attempts += 1;
+      const signal = init?.signal;
+      await new Promise((_resolve, reject) => {
+        const abort = (): void => {
+          reject(new DOMException("The operation was aborted", "AbortError"));
+        };
+        if (signal?.aborted) {
+          abort();
+          return;
+        }
+        const guard = setTimeout(abort, 100);
+        signal?.addEventListener(
+          "abort",
+          () => {
+            clearTimeout(guard);
+            abort();
+          },
+          { once: true }
+        );
+      });
+      return createJsonResponse({ body: {} });
+    }) as typeof globalThis.fetch;
+
+    const config = createRequestJsonConfig(fetchImpl, { timeoutMs: 10, retries: 2 });
+
+    await expect(requestJson(config, "/faculties")).rejects.toBeInstanceOf(BsuirTimeoutError);
+    expect(attempts).toBe(1);
+  }, 10_000);
+
   it("propagates external AbortSignal cancellation", async () => {
     const controller = new AbortController();
     controller.abort();

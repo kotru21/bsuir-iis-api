@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { mergeSignals, mergeSignalsManual } from "../../src/client/mergeSignals";
+import {
+  getMergedSignalCleanup,
+  mergeSignals,
+  mergeSignalsManual
+} from "../../src/client/mergeSignals";
 
 describe("mergeSignals — additional branches", () => {
   // line 44 — parts.length === 0 && timeout === undefined → returns never-abort signal
@@ -16,6 +20,35 @@ describe("mergeSignals — additional branches", () => {
   it("returns timeout signal when parts empty but timeout provided", () => {
     const signal = mergeSignals([], 100_000);
     expect(signal.aborted).toBe(false);
+  });
+
+  it("registers cleanup that clears timeout timers (including AbortSignal.any path)", () => {
+    vi.useFakeTimers();
+    try {
+      const ctrl = new AbortController();
+      const merged = mergeSignals([ctrl.signal], 60_000);
+      const cleanup = getMergedSignalCleanup(merged);
+      expect(cleanup).toBeTypeOf("function");
+      expect(vi.getTimerCount()).toBeGreaterThan(0);
+      cleanup!();
+      expect(vi.getTimerCount()).toBe(0);
+      expect(merged.aborted).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("registers cleanup for timeout-only merge", () => {
+    vi.useFakeTimers();
+    try {
+      const merged = mergeSignals([], 60_000);
+      const cleanup = getMergedSignalCleanup(merged);
+      expect(cleanup).toBeTypeOf("function");
+      cleanup!();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("returns the single signal directly when no timeout", () => {

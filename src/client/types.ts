@@ -216,9 +216,9 @@ export interface BsuirClientOptions {
   /**
    * Request timeout per attempt, in milliseconds.
    *
-   * If a single fetch attempt does not complete within this window it is
-   * aborted and a `BsuirTimeoutError` is thrown (or the request is retried
-   * if retries remain).
+   * If a fetch attempt does not complete within this window it is aborted and
+   * a `BsuirTimeoutError` is thrown immediately. Timeouts are **not** retried
+   * (retries apply only to network errors and HTTP 429/5xx — see {@link retries}).
    *
    * @defaultValue 10_000 (10 seconds)
    */
@@ -327,10 +327,12 @@ export interface BsuirClientOptions {
    *   intentionally out of scope).
    *
    * Independent of this flag, the SDK always applies lightweight **structural**
-   * guards so return types stay honest and normalization cannot throw raw
-   * `TypeError`: catalog/announcement unwraps must be arrays, schedule day buckets
-   * must be arrays (nullish → empty), and normalized schedule calls keep a minimal
-   * envelope check. Those guards also throw `BsuirResponseValidationError`.
+   * guards so return types stay honest (raw and normalized schedule paths)
+   * and normalization cannot throw raw `TypeError` or silently empty a bad
+   * envelope: catalog/announcement unwraps must be arrays; schedule day buckets
+   * must be arrays (nullish → empty); `schedules` / `nextSchedules` must be
+   * maps (object|null|absent); `exams` must be array|null|absent. Those guards
+   * also throw `BsuirResponseValidationError`.
    *
    * **Recommended during development and in tests.** Leave `false` in production
    * if you prefer not to fail hard on quirky IIS lesson/item fields. Use

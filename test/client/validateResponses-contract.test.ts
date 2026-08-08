@@ -71,20 +71,60 @@ describe("validateResponses contract", () => {
     ]);
   });
 
-  it("schedule getGroupRaw skips envelope check when validateResponses is false", async () => {
-    const fetchImpl = mockFetchSequence([createJsonResponse({ body: { schedules: [] } })]);
+  it("schedule getGroupRaw enforces structural envelope when validateResponses is false", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ body: { schedules: [] } }),
+      createJsonResponse({ body: { schedules: {}, nextSchedules: [] } }),
+      createJsonResponse({ body: { schedules: {}, exams: {} } }),
+      createJsonResponse({
+        body: { schedules: { Понедельник: "bad" }, exams: [] }
+      })
+    ]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
-    await expect(client.schedule.getGroupRaw("053503")).resolves.toMatchObject({
-      schedules: []
-    });
+    await expect(client.schedule.getGroupRaw("053503")).rejects.toBeInstanceOf(
+      BsuirResponseValidationError
+    );
+    await expect(client.schedule.getGroupRaw("053503")).rejects.toBeInstanceOf(
+      BsuirResponseValidationError
+    );
+    await expect(client.schedule.getGroupRaw("053503")).rejects.toBeInstanceOf(
+      BsuirResponseValidationError
+    );
+    await expect(client.schedule.getGroupRaw("053503")).rejects.toBeInstanceOf(
+      BsuirResponseValidationError
+    );
   });
 
-  it("schedule getGroupRaw enforces envelope check when validateResponses is true", async () => {
+  it("schedule getGroup enforces structural envelope when validateResponses is false", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ body: { schedules: [] } }),
+      createJsonResponse({
+        body: { schedules: { Понедельник: "bad" }, exams: [] }
+      })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
+    await expect(client.schedule.getGroup("053503")).rejects.toBeInstanceOf(
+      BsuirResponseValidationError
+    );
+    await expect(client.schedule.getGroup("053503")).rejects.toBeInstanceOf(
+      BsuirResponseValidationError
+    );
+  });
+
+  it("schedule getGroupRaw enforces deep envelope check when validateResponses is true", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: { schedules: [] } })]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
     await expect(client.schedule.getGroupRaw("053503")).rejects.toBeInstanceOf(
       BsuirResponseValidationError
     );
+  });
+
+  it("schedule getGroupRaw accepts valid envelope when validateResponses is false", async () => {
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: validScheduleBody })]);
+    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
+    await expect(client.schedule.getGroupRaw("053503")).resolves.toMatchObject({
+      schedules: {}
+    });
   });
 
   it("schedule getGroupRaw accepts valid envelope when validateResponses is true", async () => {

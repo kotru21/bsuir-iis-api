@@ -73,6 +73,12 @@ async function readBodyTextWithLimit(
   return text;
 }
 
+/** True when the Content-Type media type is JSON (`application/json` or `+json` suffix). */
+function isJsonMediaType(contentType: string): boolean {
+  const mediaType = contentType.split(";", 1)[0]?.trim().toLowerCase() ?? "";
+  return mediaType === "application/json" || mediaType.endsWith("+json");
+}
+
 /**
  * Parses response body as JSON when possible, otherwise returns text.
  * Returns `null` for empty bodies that are not treated as strict JSON success payloads.
@@ -81,7 +87,7 @@ async function readBodyTextWithLimit(
  */
 export async function parseBody(response: Response, maxResponseBytes: number): Promise<unknown> {
   const contentType = response.headers.get("content-type") ?? "";
-  const declaredJson = contentType.includes("application/json");
+  const declaredJson = isJsonMediaType(contentType);
   const text = await readBodyTextWithLimit(response, maxResponseBytes);
   if (text.length === 0) {
     if (declaredJson && response.ok) {

@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   assertAnnouncementListResponse,
   assertArrayResponse,
-  assertScheduleResponse
+  assertScheduleResponse,
+  assertScheduleStructuralEnvelope
 } from "../../src/client/responseValidators";
 import { BsuirResponseValidationError } from "../../src/client/errors";
 import { buildScheduleResponse } from "../modules/scheduleFixtures";
@@ -74,6 +75,29 @@ describe("response validators", () => {
         "/schedule"
       )
     ).toThrow(BsuirResponseValidationError);
+  });
+
+  it("structural envelope rejects non-array day buckets without item checks", () => {
+    expect(() =>
+      assertScheduleStructuralEnvelope(
+        {
+          schedules: { Понедельник: "bad" },
+          exams: []
+        },
+        "/schedule"
+      )
+    ).toThrow(/schedules\.Понедельник/);
+
+    // Wrong lesson field types are deep-only; structural allows them.
+    expect(() =>
+      assertScheduleStructuralEnvelope(
+        {
+          schedules: { Понедельник: [{ numSubgroup: "0" }] },
+          exams: []
+        },
+        "/schedule"
+      )
+    ).not.toThrow();
   });
 
   it("rejects invalid exams shape", () => {

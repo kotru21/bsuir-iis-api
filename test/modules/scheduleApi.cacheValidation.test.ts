@@ -77,4 +77,58 @@ describe("scheduleApi cache validation", () => {
     );
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
+
+  it("getGroup rejects poisoned cache via always-on structural validator", async () => {
+    const store = new Map<string, ResponseCacheEntry>();
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildRawPayload() })]);
+    const client = createBsuirClient({
+      fetch: fetchImpl,
+      validateResponses: false,
+      cache: {
+        ttlMs: 60_000,
+        maxEntries: 10,
+        store
+      }
+    });
+
+    await client.schedule.getGroup("053503");
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(store.size).toBe(1);
+
+    const [key, entry] = store.entries().next().value!;
+    store.set(
+      key,
+      Object.freeze({
+        value: { schedules: [] },
+        status: entry.status,
+        expiresAt: entry.expiresAt
+      })
+    );
+
+    await expect(client.schedule.getGroup("053503")).rejects.toBeInstanceOf(
+      BsuirResponseValidationError
+    );
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("getGroup does not cache a malformed network envelope", async () => {
+    const store = new Map<string, ResponseCacheEntry>();
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ body: { schedules: [] } })
+    ]);
+    const client = createBsuirClient({
+      fetch: fetchImpl,
+      validateResponses: false,
+      cache: {
+        ttlMs: 60_000,
+        maxEntries: 10,
+        store
+      }
+    });
+
+    await expect(client.schedule.getGroup("053503")).rejects.toBeInstanceOf(
+      BsuirResponseValidationError
+    );
+    expect(store.size).toBe(0);
+  });
 });

@@ -94,10 +94,8 @@ describe("schedule module — endpoints and helpers", () => {
     expect(rawWith.some((item) => item.subject === "NEXT")).toBe(true);
 
     const envelopeWithout = await client.schedule.getGroupBySubgroupEnvelope("053503", 1);
-    expect(
-      envelopeWithout.nextSchedules?.Понедельник?.some((item) => item.subject === "NEXT")
-    ).toBe(true);
-    // Without the flag, nextSchedules is left unfiltered but not merged into schedules.
+    // Current-term only: nextSchedules is stripped when includeNextSchedules is not set.
+    expect(envelopeWithout.nextSchedules).toBeUndefined();
     expect(envelopeWithout.schedules?.Понедельник?.some((item) => item.subject === "NEXT")).toBe(
       false
     );
@@ -111,5 +109,57 @@ describe("schedule module — endpoints and helpers", () => {
         (item) => item.numSubgroup === 0 || item.numSubgroup === 1
       )
     ).toBe(true);
+  });
+
+  it("getGroupBySubgroupEnvelope filters nextSchedules by subgroup when includeNextSchedules is true", async () => {
+    const body = buildScheduleResponse({
+      nextSchedules: {
+        Понедельник: [
+          {
+            weekNumber: [1],
+            studentGroups: [],
+            numSubgroup: 1,
+            auditories: ["200-1"],
+            startLessonTime: "08:00",
+            endLessonTime: "09:20",
+            subject: "NEXT-1",
+            subjectFullName: "Next term subgroup 1",
+            note: null,
+            lessonTypeAbbrev: "ЛК",
+            dateLesson: null,
+            startLessonDate: "01.09.2026",
+            endLessonDate: "20.12.2026",
+            announcement: false,
+            split: false,
+            employees: null
+          },
+          {
+            weekNumber: [1],
+            studentGroups: [],
+            numSubgroup: 2,
+            auditories: ["201-1"],
+            startLessonTime: "09:30",
+            endLessonTime: "10:50",
+            subject: "NEXT-2",
+            subjectFullName: "Next term subgroup 2",
+            note: null,
+            lessonTypeAbbrev: "ЛК",
+            dateLesson: null,
+            startLessonDate: "01.09.2026",
+            endLessonDate: "20.12.2026",
+            announcement: false,
+            split: false,
+            employees: null
+          }
+        ]
+      }
+    });
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body })]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+
+    const envelope = await client.schedule.getGroupBySubgroupEnvelope("053503", 1, {
+      includeNextSchedules: true
+    });
+    expect(envelope.nextSchedules?.Понедельник?.map((item) => item.subject)).toEqual(["NEXT-1"]);
   });
 });

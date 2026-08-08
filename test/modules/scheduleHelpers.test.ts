@@ -200,6 +200,17 @@ describe("schedule helpers", () => {
     ).not.toThrow();
   });
 
+  it("getCurrentLesson reports each malformed field once (no re-fire after sort)", () => {
+    const lesson = makeLesson({ startLessonTime: "xx", endLessonTime: "yy" });
+    const calls: string[] = [];
+    getCurrentLesson([lesson], new Date(2025, 4, 12, 9, 30), {
+      onInvalidTime: (info) => {
+        calls.push(info.field);
+      }
+    });
+    expect(calls).toEqual(["startLessonTime", "endLessonTime"]);
+  });
+
   it("detects current and next lessons", () => {
     const lessons = [
       makeLesson({ subject: "Пара 2", startLessonTime: "11:00", endLessonTime: "12:20" }),
