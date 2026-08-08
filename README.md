@@ -308,7 +308,7 @@ When this package ships a **major** changeset, include a short note with:
 2. **Mapping table** — old call → new call
 3. **Search hints** — strings to find in consuming repos
 
-### Unreleased minor — structural hardening
+### 2.1.0 — structural hardening
 
 Compatible minor for most apps; watch these tightenings if you relied on lenient parsing:
 
