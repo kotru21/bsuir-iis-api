@@ -94,9 +94,9 @@ describe("schedule module — endpoints and helpers", () => {
     expect(rawWith.some((item) => item.subject === "NEXT")).toBe(true);
 
     const envelopeWithout = await client.schedule.getGroupBySubgroupEnvelope("053503", 1);
-    expect(envelopeWithout.nextSchedules?.Понедельник?.some((item) => item.subject === "NEXT")).toBe(
-      true
-    );
+    expect(
+      envelopeWithout.nextSchedules?.Понедельник?.some((item) => item.subject === "NEXT")
+    ).toBe(true);
     // Without the flag, nextSchedules is left unfiltered but not merged into schedules.
     expect(envelopeWithout.schedules?.Понедельник?.some((item) => item.subject === "NEXT")).toBe(
       false
