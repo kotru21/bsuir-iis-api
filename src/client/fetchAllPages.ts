@@ -21,11 +21,7 @@ function assertWithinPageCap(
   }
 }
 
-function hasMorePages(
-  meta: SpringPageMeta,
-  nextPage: number,
-  contentLength: number
-): boolean {
+function hasMorePages(meta: SpringPageMeta, nextPage: number, contentLength: number): boolean {
   if (meta.last === true) {
     return false;
   }

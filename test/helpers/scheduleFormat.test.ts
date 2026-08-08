@@ -140,9 +140,9 @@ describe("formatLessonAuditories", () => {
   });
 
   it("returns empty string when auditories is nullish", () => {
-    expect(
-      formatLessonAuditories(makeLesson({ auditories: null as unknown as string[] }))
-    ).toBe("");
+    expect(formatLessonAuditories(makeLesson({ auditories: null as unknown as string[] }))).toBe(
+      ""
+    );
   });
 
   it("returns single auditory", () => {

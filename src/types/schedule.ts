@@ -92,7 +92,7 @@ export interface ScheduleFilterOptions {
 export interface NormalizeScheduleOptions {
   /** When `true`, run full envelope validation via `assertScheduleResponse`. */
   validate?: boolean;
-  /** Endpoint label used in validation / minimal-envelope errors. */
+  /** Endpoint label used in structural / full validation errors. */
   endpoint?: string;
   /**
    * When `true`, flatten `nextSchedules` into `lessons` / `lessonsByDay` with

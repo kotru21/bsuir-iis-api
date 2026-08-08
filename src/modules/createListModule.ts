@@ -40,7 +40,8 @@ export function createListModule<T>(
 
   return {
     /**
-     * Returns items from the configured endpoint (first Spring page only if paginated).
+     * Returns items from the configured endpoint (**first Spring page only** if
+     * paginated — this is not a full-catalog fetch).
      *
      * IIS may return a plain array or a Spring Data page `{ content: [...] }`;
      * the SDK always resolves to `T[]`. Additional pages are not fetched — use

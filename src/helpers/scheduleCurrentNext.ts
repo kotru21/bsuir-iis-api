@@ -68,6 +68,10 @@ function parseLessonTime(
   hook: InvalidLessonTimeHook | undefined
 ): number | null {
   const value = lesson[field];
+  // Sparse IIS payloads / non-strict clients may omit times; match formatters.
+  if (typeof value !== "string") {
+    return null;
+  }
   const parsed = parseTimeToMinutes(value);
   if (parsed === null && value.length > 0) {
     reportInvalidTime(lesson, field, value, hook);

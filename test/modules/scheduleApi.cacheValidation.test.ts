@@ -113,9 +113,7 @@ describe("scheduleApi cache validation", () => {
 
   it("getGroup does not cache a malformed network envelope", async () => {
     const store = new Map<string, ResponseCacheEntry>();
-    const fetchImpl = mockFetchSequence([
-      createJsonResponse({ body: { schedules: [] } })
-    ]);
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: { schedules: [] } })]);
     const client = createBsuirClient({
       fetch: fetchImpl,
       validateResponses: false,

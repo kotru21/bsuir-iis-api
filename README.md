@@ -27,6 +27,8 @@ Default schedule calls return a **normalized** payload. That shape includes `les
 ```ts
 import { createBsuirClient } from "bsuir-iis-api";
 
+// Default: structural envelope guards only. For deep lesson/item field checks
+// (so runtime matches the TypeScript DTOs), prefer createBsuirClient.strict().
 const client = createBsuirClient();
 
 const schedule = await client.schedule.getGroup("053503");
@@ -114,7 +116,7 @@ const clientB = createBsuirClient({ cache: { ttlMs: 60_000, store } }); // share
 
 Catalog list methods always resolve to arrays. If IIS returns a Spring Data page envelope (`{ content: [...] }`):
 
-- **`listAll()`** unwraps **first page only** (does not request page 2+). Prefer this when catalogs are small or returned as a plain array.
+- **`listAll()`** unwraps **first page only** (does not request page 2+). Prefer this when catalogs are small or returned as a plain array. Do **not** assume it returns the full catalog — if IIS paginates, use `listAllPages()`.
 - **`listAllPages()`** fetches **all pages** (query `page` / `size`) and concatenates them. If IIS reports more than **50** pages, the SDK throws `BsuirConfigurationError` (same safety cap as announcements).
 
 ### Announcements
@@ -259,7 +261,7 @@ npm run build
 npm run api:report
 ```
 
-`npm run build` uses [tsup](https://tsup.egoist.dev/) with [`experimentalDts`](https://tsup.egoist.dev/) so `.d.ts` output is produced via `@microsoft/api-extractor` rather than the legacy Rollup declaration path (which is awkward with TypeScript 6’s `baseUrl` deprecation). TypeScript’s handbook notes that [`paths` can be used without `baseUrl`](https://www.typescriptlang.org/docs/handbook/modules/reference.html) when you need path mapping.
+`npm run build` uses [tsdown](https://tsdown.dev/) so `.d.ts` / API Extractor output stay aligned with the published ESM bundle. TypeScript’s handbook notes that [`paths` can be used without `baseUrl`](https://www.typescriptlang.org/docs/handbook/modules/reference.html) when you need path mapping.
 
 Linting uses ESLint flat config with strict type-aware TypeScript rules for `src`,
 plus test-specific overrides for `test` and `vitest.config.ts`.
@@ -305,6 +307,16 @@ When this package ships a **major** changeset, include a short note with:
 1. **Removed / renamed** — what callers must change
 2. **Mapping table** — old call → new call
 3. **Search hints** — strings to find in consuming repos
+
+### Unreleased minor — structural hardening
+
+Compatible minor for most apps; watch these tightenings if you relied on lenient parsing:
+
+- **Raw schedule envelopes:** `schedules` / `nextSchedules` must be object maps (or null/absent), not arrays; `exams` must be array|null|absent. Failures throw `BsuirResponseValidationError` even with `validateResponses: false`.
+- **Subgroup envelopes:** `get*BySubgroupEnvelope` omits `nextSchedules` unless you pass `{ includeNextSchedules: true }`.
+- **Catalogs:** `listAll()` remains first-page-only; use `listAllPages()` for full catalogs.
+
+Search hints: `getGroupRaw`, `getGroupBySubgroupEnvelope`, `includeNextSchedules`, `.listAll(`.
 
 ### 2.0.0 — Node.js floor, last-update removal, subgroup shared lessons
 

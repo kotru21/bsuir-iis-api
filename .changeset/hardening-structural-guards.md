@@ -14,8 +14,14 @@
 
 **Timeouts are not retried.** `timeoutMs` aborts the attempt and throws `BsuirTimeoutError` immediately; retries remain limited to network errors and HTTP 429/5xx (docs/types aligned with behavior).
 
-**Null-safe schedule formatters.** Time/auditories/name helpers tolerate nullish sparse fields with stable empty-string output instead of raw `TypeError`.
+**Null-safe schedule formatters and time helpers.** Time/auditories/name helpers tolerate nullish sparse fields with stable empty-string output instead of raw `TypeError`. `sortLessonsByTime` / `getCurrentLesson` / `getNextLesson` treat non-string or empty times as missing (no crash, no `onInvalidTime` for nullish).
 
 **Content-Type JSON detection.** Response parsing treats the media type as JSON when it is `application/json` or ends with `+json` (parameters after `;` ignored), so `application/json; charset=utf-8` and `application/vnd.api+json` are handled consistently.
 
 **`onInvalidTime` once per helper call.** `getCurrentLesson` / `getNextLesson` report malformed times during sort only and do not re-fire the hook when re-parsing the sorted list.
+
+**Loopback allowlist.** `allowInsecureHttp` / loopback host checks treat only true `127.0.0.0/8` IPv4 addresses as loopback (not hostname prefixes like `127.evil.com`).
+
+**Public types.** Export `AnnouncementsModule` and `ListModule` for typed client module shapes (`ScheduleModule` was already public).
+
+**Consumer-facing tightenings (raw / subgroup).** Raw schedule fetches reject array-shaped `schedules` / `nextSchedules` and non-array `exams` even when `validateResponses` is off. `get*BySubgroupEnvelope` strips `nextSchedules` when `includeNextSchedules` is off (pass `{ includeNextSchedules: true }` to keep next-term rows).

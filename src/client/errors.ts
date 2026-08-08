@@ -65,7 +65,13 @@ export class BsuirValidationError extends Error {
   }
 }
 
-/** Response shape failed runtime validation when `validateResponses` is enabled. */
+/**
+ * Response shape failed runtime validation.
+ *
+ * Thrown for always-on structural envelope guards (catalog/announcement unwraps,
+ * schedule maps/day buckets/`exams`) and for deep item/field checks when
+ * `validateResponses` is enabled / `createBsuirClient.strict()` is used.
+ */
 export class BsuirResponseValidationError extends Error {
   readonly endpoint: string;
 

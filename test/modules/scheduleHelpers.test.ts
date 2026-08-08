@@ -211,6 +211,34 @@ describe("schedule helpers", () => {
     expect(calls).toEqual(["startLessonTime", "endLessonTime"]);
   });
 
+  it("getNextLesson reports each malformed field once (no re-fire after sort)", () => {
+    const lesson = makeLesson({ startLessonTime: "xx", endLessonTime: "yy" });
+    const calls: string[] = [];
+    getNextLesson([lesson], new Date(2025, 4, 12, 9, 30), {
+      onInvalidTime: (info) => {
+        calls.push(info.field);
+      }
+    });
+    expect(calls).toEqual(["startLessonTime", "endLessonTime"]);
+  });
+
+  it("tolerates nullish lesson times without throwing or firing onInvalidTime", () => {
+    const sparse = {
+      ...makeLesson({ subject: "Sparse" }),
+      startLessonTime: null as unknown as string,
+      endLessonTime: undefined as unknown as string
+    };
+    const calls: unknown[] = [];
+    const onInvalidTime = (info: unknown) => {
+      calls.push(info);
+    };
+
+    expect(() => sortLessonsByTime([sparse], { onInvalidTime })).not.toThrow();
+    expect(getCurrentLesson([sparse], new Date(2025, 4, 12, 9, 30), { onInvalidTime })).toBeNull();
+    expect(getNextLesson([sparse], new Date(2025, 4, 12, 9, 30), { onInvalidTime })).toBeNull();
+    expect(calls).toHaveLength(0);
+  });
+
   it("detects current and next lessons", () => {
     const lessons = [
       makeLesson({ subject: "Пара 2", startLessonTime: "11:00", endLessonTime: "12:20" }),
