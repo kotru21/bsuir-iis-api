@@ -62,7 +62,10 @@ function assertIntegerOption(
 }
 
 function normalizeHostname(rawHostname: string): string {
-  const trimmed = rawHostname.trim().toLowerCase().replace(/\.+$/, "");
+  let trimmed = rawHostname.trim().toLowerCase();
+  while (trimmed.endsWith(".")) {
+    trimmed = trimmed.slice(0, -1);
+  }
   if (trimmed.length === 0) {
     return "";
   }
