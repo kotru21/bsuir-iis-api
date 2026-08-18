@@ -14,12 +14,28 @@ import type {
 import { deepFreezeJson } from "../utils/deepFreezeJson";
 import { lessonAuditories } from "../utils/lessonAuditories";
 
+function shouldFlattenNextSchedules(
+  includeNextSchedules: boolean | undefined,
+  currentLessonCount: number
+): boolean {
+  if (includeNextSchedules === true) {
+    return true;
+  }
+  if (includeNextSchedules === false) {
+    return false;
+  }
+  // Between terms IIS puts the published timetable in `nextSchedules` and
+  // leaves `schedules` null. Opt-out with `{ includeNextSchedules: false }`.
+  return currentLessonCount === 0;
+}
+
 /**
  * Transforms raw schedule response into normalized structure with flattened lessons.
  *
- * By default only current-term `schedules` and `exams` are flattened. Pass
- * `includeNextSchedules: true` to also flatten `nextSchedules` with
- * `source: "nextSchedules"`.
+ * By default only current-term `schedules` and `exams` are flattened. When
+ * `schedules` is empty (IIS between-term payload), `nextSchedules` is flattened
+ * automatically. Pass `includeNextSchedules: true` to always include them, or
+ * `false` to keep current-term rows only.
  *
  * The returned payload is **deep-frozen**: every view (`lessons`,
  * `lessonsByDay`, `scheduleLessons`, `examLessons`, `schedules`, `exams`) and
@@ -87,7 +103,7 @@ export function normalizeSchedule(
     examLessons.push(flattenedExam);
   }
 
-  if (options?.includeNextSchedules === true) {
+  if (shouldFlattenNextSchedules(options?.includeNextSchedules, scheduleLessons.length)) {
     const sourceNext = source.nextSchedules ?? {};
     for (const day of WEEKDAYS) {
       const dayItems = asDayLessonArray(sourceNext[day], endpoint, `nextSchedules.${day}`);

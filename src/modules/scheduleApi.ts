@@ -23,7 +23,9 @@ import type { ReadOptions } from "./types";
 export interface ScheduleReadOptions extends ReadOptions {
   /**
    * When `true`, flatten IIS `nextSchedules` into `lessons` with
-   * `source: "nextSchedules"`. Default `false` = current term only.
+   * `source: "nextSchedules"`. Default (`undefined`) is current-term only
+   * unless `schedules` is empty, in which case `nextSchedules` is used.
+   * Pass `false` to never include next-term rows.
    */
   includeNextSchedules?: boolean;
 }

@@ -189,7 +189,7 @@ By default, schedule methods return a **normalized** `NormalizedScheduleResponse
 
 **Normalized payloads are deep-frozen.** Every view (`lessons`, `lessonsByDay`, `scheduleLessons`, `examLessons`, `schedules`, `exams`) and all nested objects share one immutable structure — mutating any part of it throws `TypeError` in strict mode. Clone a lesson explicitly if you need a mutable copy. The raw `ScheduleResponse` you pass to `normalizeSchedule()` is never mutated or frozen (normalization works on an owned deep clone).
 
-**Current term only by default.** IIS may also send `nextSchedules` (next academic term). Normalization and `getGroup` / `getEmployee` **ignore** that map unless you opt in:
+**Current term only by default.** IIS may also send `nextSchedules` (next academic term). Normalization and `getGroup` / `getEmployee` ignore that map while current-term `schedules` has lessons. If `schedules` is empty (typical between terms), `nextSchedules` is flattened automatically so `lessons` is not silently empty. Pass `{ includeNextSchedules: true }` to always include next-term rows, or `false` to keep current-term only:
 
 ```ts
 import { createBsuirClient, normalizeSchedule } from "bsuir-iis-api";

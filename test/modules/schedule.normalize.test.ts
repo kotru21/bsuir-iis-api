@@ -186,6 +186,30 @@ describe("schedule module — normalize and raw", () => {
     expect(normalized.nextSchedules?.Понедельник?.[0]?.subject).toBe("NEXT");
   });
 
+  it("default normalize flattens nextSchedules when current schedules are empty", () => {
+    const response = buildScheduleResponse({
+      schedules: null,
+      nextSchedules: buildNextTermMondayLesson()
+    });
+    const normalized = normalizeSchedule(response);
+    const next = normalized.lessons.filter((lesson) => lesson.source === "nextSchedules");
+
+    expect(next).toHaveLength(1);
+    expect(next[0]?.subject).toBe("NEXT");
+    expect(normalized.scheduleLessons).toEqual([]);
+  });
+
+  it("explicit includeNextSchedules false keeps current-term-only when schedules are empty", () => {
+    const response = buildScheduleResponse({
+      schedules: null,
+      nextSchedules: buildNextTermMondayLesson()
+    });
+    const normalized = normalizeSchedule(response, { includeNextSchedules: false });
+
+    expect(normalized.lessons.every((lesson) => lesson.source !== "nextSchedules")).toBe(true);
+    expect(normalized.nextSchedules?.Понедельник?.[0]?.subject).toBe("NEXT");
+  });
+
   it("includeNextSchedules flattens nextSchedules into lessons", () => {
     const response = buildScheduleResponse({
       nextSchedules: buildNextTermMondayLesson()
@@ -212,6 +236,21 @@ describe("schedule module — normalize and raw", () => {
     ]);
     const client = createBsuirClient({ fetch: fetchImpl });
     const normalized = await client.schedule.getGroup("053503", { includeNextSchedules: true });
+
+    expect(normalized.lessons.some((lesson) => lesson.source === "nextSchedules")).toBe(true);
+  });
+
+  it("getGroup default uses nextSchedules when current schedules are empty", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({
+        body: buildScheduleResponse({
+          schedules: null,
+          nextSchedules: buildNextTermMondayLesson()
+        })
+      })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+    const normalized = await client.schedule.getGroup("053503");
 
     expect(normalized.lessons.some((lesson) => lesson.source === "nextSchedules")).toBe(true);
   });

@@ -34,6 +34,12 @@ describeLive("live schedule contract", () => {
     expect(groupSchedule).toHaveProperty("schedules");
     expect(employeeSchedule).toHaveProperty("lessons");
     expect(employeeSchedule).toHaveProperty("schedules");
+    const groupHasCurrentOrNext =
+      groupSchedule.lessons.length > 0 ||
+      Object.values(groupSchedule.nextSchedules ?? {}).some(
+        (day) => Array.isArray(day) && day.length > 0
+      );
+    expect(groupHasCurrentOrNext).toBe(true);
   }, 60_000);
 
   it("raw envelopes expose schedules object or null", async ({ skip }) => {

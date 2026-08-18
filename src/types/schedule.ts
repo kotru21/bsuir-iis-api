@@ -96,14 +96,18 @@ export interface NormalizeScheduleOptions {
   endpoint?: string;
   /**
    * When `true`, flatten `nextSchedules` into `lessons` / `lessonsByDay` with
-   * `source: "nextSchedules"`. Default `false` keeps current-term (`schedules`) only.
+   * `source: "nextSchedules"`. Default (`undefined`) keeps current-term
+   * (`schedules`) only, except when `schedules` has no lessons — then the next
+   * term is flattened so between-term IIS payloads are not empty.
+   * Pass `false` to never flatten `nextSchedules`.
    */
   includeNextSchedules?: boolean;
 }
 
 /**
  * Normalized schedule payload: cloned maps plus flattened `lessons` views.
- * Default flatten covers current-term `schedules` and `exams` only.
+ * Default flatten covers current-term `schedules` and `exams`; `nextSchedules`
+ * is included when current-term `schedules` has no lessons, or when opted in.
  */
 export interface NormalizedScheduleResponse extends Omit<ScheduleResponse, "schedules" | "exams"> {
   schedules: WeekScheduleMap;
