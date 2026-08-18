@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.1.1
+
+### Patch Changes
+
+- 22b1690: When current-term `schedules` is empty, `normalizeSchedule` / `getGroup` / `getEmployee` flatten `nextSchedules` by default so between-term IIS payloads are not an empty timetable. Pass `{ includeNextSchedules: false }` to keep current-term-only.
+
 ## 2.1.0
 
 ### Minor Changes
