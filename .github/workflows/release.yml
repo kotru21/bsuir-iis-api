@@ -52,14 +52,13 @@ jobs:
       - name: Create Release PR or Publish
         id: changesets
         if: steps.publish_check.outputs.should_publish == 'true'
-        uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1.9.0
+        uses: changesets/action@198f833dd7d863100ea6e28967bc9a9fdefadb0a # v2.1.0
         with:
-          publish: npm publish --provenance --access public
-          version: npx changeset version
-          commit: "chore: version packages"
-          title: "chore: release packages"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          publish-script: npm publish --provenance --access public
+          version-script: npx changeset version
+          commit-message: "chore: version packages"
+          pr-title: "chore: release packages"
 
       - name: Skip publish for already published version
         if: steps.publish_check.outputs.should_publish != 'true'
