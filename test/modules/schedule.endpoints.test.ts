@@ -111,6 +111,37 @@ describe("schedule module — endpoints and helpers", () => {
     ).toBe(true);
   });
 
+  it("subgroup helpers keep next-term lessons between terms (empty current schedules)", async () => {
+    // Regression: getGroup auto-flattened nextSchedules, but subgroup helpers returned [].
+    const body = buildScheduleResponse({
+      schedules: null,
+      nextSchedules: buildNextTermMondayLesson()
+    });
+    const fetchImpl = mockFetchSequence(
+      Array.from({ length: 5 }, () => createJsonResponse({ body }))
+    );
+    const client = createBsuirClient({ fetch: fetchImpl });
+
+    const normalized = await client.schedule.getGroup("053503");
+    expect(normalized.lessons.map((item) => item.subject)).toContain("NEXT");
+
+    const flattened = await client.schedule.getGroupBySubgroup("053503", 1);
+    expect(flattened.map((item) => [item.subject, item.source])).toEqual([
+      ["NEXT", "nextSchedules"]
+    ]);
+
+    const raw = await client.schedule.getGroupBySubgroupRaw("053503", 1);
+    expect(raw.map((item) => item.subject)).toEqual(["NEXT"]);
+
+    const envelope = await client.schedule.getGroupBySubgroupEnvelope("053503", 1);
+    expect(envelope.nextSchedules?.Понедельник?.map((item) => item.subject)).toEqual(["NEXT"]);
+
+    const optedOut = await client.schedule.getGroupBySubgroup("053503", 1, {
+      includeNextSchedules: false
+    });
+    expect(optedOut).toEqual([]);
+  });
+
   it("getGroupBySubgroupEnvelope filters nextSchedules by subgroup when includeNextSchedules is true", async () => {
     const body = buildScheduleResponse({
       nextSchedules: {

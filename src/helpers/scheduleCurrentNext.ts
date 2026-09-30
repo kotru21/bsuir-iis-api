@@ -1,4 +1,5 @@
-import type { LessonWithTime } from "../types/schedule";
+import type { LessonWithTime, ScheduleTimeZoneOptions } from "../types/schedule";
+import { getZonedDateTime, resolveTimeZone } from "../utils/timeZone";
 import { toDateOrThrow } from "./scheduleDateKeys";
 
 /**
@@ -24,6 +25,19 @@ export type InvalidLessonTimeHook = (info: {
   value: string;
   lesson: LessonWithTime;
 }) => void;
+
+/** Options for {@link getCurrentLesson} and {@link getNextLesson}. */
+export interface LessonTimeOptions extends ScheduleTimeZoneOptions {
+  /** Called for malformed `HH:MM` lesson times; see {@link InvalidLessonTimeHook}. */
+  onInvalidTime?: InvalidLessonTimeHook | undefined;
+}
+
+/** Minutes since midnight of `now` in the requested (default Minsk) time zone. */
+function minutesOfDay(now: Date, timeZone: string | undefined): number {
+  const current = toDateOrThrow(now, "now");
+  const wall = getZonedDateTime(current, resolveTimeZone(timeZone));
+  return wall.hour * 60 + wall.minute;
+}
 
 function parseTimeToMinutes(value: string): number | null {
   const matched = /^(\d{1,2}):(\d{2})$/.exec(value);
@@ -121,11 +135,13 @@ export function sortLessonsByTime<T extends LessonWithTime>(
 /**
  * Returns the lesson active at the specified moment.
  *
- * Time comparison uses local hours/minutes: `startLessonTime <= now < endLessonTime`.
- * A lesson is not considered active exactly at its end time.
+ * Time comparison uses the wall-clock time of `now` in `options.timeZone` (Minsk by
+ * default): `startLessonTime <= now < endLessonTime`. A lesson is not considered active
+ * exactly at its end time.
  *
  * @param lessons - Lessons for one day (or any same-day set).
  * @param now - Optional current moment override.
+ * @param options - Time zone and `onInvalidTime` hook.
  * @returns Current lesson or `null` when none is active.
  *
  * @example
@@ -136,10 +152,9 @@ export function sortLessonsByTime<T extends LessonWithTime>(
 export function getCurrentLesson<T extends LessonWithTime>(
   lessons: readonly T[],
   now: Date = new Date(),
-  options?: { onInvalidTime?: InvalidLessonTimeHook | undefined }
+  options?: LessonTimeOptions
 ): T | null {
-  const current = toDateOrThrow(now, "now");
-  const nowMinutes = current.getHours() * 60 + current.getMinutes();
+  const nowMinutes = minutesOfDay(now, options?.timeZone);
   const hook = options?.onInvalidTime;
   const sortedLessons = sortLessonsByTime(lessons, { onInvalidTime: hook });
   for (const lesson of sortedLessons) {
@@ -161,9 +176,11 @@ export function getCurrentLesson<T extends LessonWithTime>(
  *
  * A lesson starting exactly at `now` is not returned (use {@link getCurrentLesson} instead).
  * A lesson that just ended at `now` is also not returned as current — the next one is.
+ * `now` is read as wall-clock time in `options.timeZone` (Minsk by default).
  *
  * @param lessons - Lessons for one day (or any same-day set).
  * @param now - Optional current moment override.
+ * @param options - Time zone and `onInvalidTime` hook.
  * @returns Next lesson or `null` when there is no upcoming lesson.
  *
  * @example
@@ -174,10 +191,9 @@ export function getCurrentLesson<T extends LessonWithTime>(
 export function getNextLesson<T extends LessonWithTime>(
   lessons: readonly T[],
   now: Date = new Date(),
-  options?: { onInvalidTime?: InvalidLessonTimeHook | undefined }
+  options?: LessonTimeOptions
 ): T | null {
-  const current = toDateOrThrow(now, "now");
-  const nowMinutes = current.getHours() * 60 + current.getMinutes();
+  const nowMinutes = minutesOfDay(now, options?.timeZone);
   const hook = options?.onInvalidTime;
   const sortedLessons = sortLessonsByTime(lessons, { onInvalidTime: hook });
   for (const lesson of sortedLessons) {

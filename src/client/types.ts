@@ -24,8 +24,11 @@ export interface ResponseCacheEntry {
  * Any object with Map semantics works: a plain `Map`, an `lru-cache` instance,
  * or a custom adapter. Requirements:
  * - Fully synchronous — the cache is read on the request hot path.
- * - `keys()` / `entries()` iterate in insertion order, otherwise LRU eviction
- *   degrades to arbitrary eviction (a plain `Map` guarantees this).
+ * - `keys()` / `entries()` iterate oldest-first (insertion order), otherwise the
+ *   SDK's LRU eviction removes the wrong entries (a plain `Map` guarantees this).
+ *   Stores that iterate newest-first, such as `lru-cache`, must manage capacity
+ *   themselves: set their own `max` no larger than `cache.maxEntries` so the SDK
+ *   never needs to evict.
  *
  * Entries are written and read as frozen {@link ResponseCacheEntry} objects —
  * never mutate them. TTL and LRU bookkeeping stay in the SDK; the store is a
@@ -71,7 +74,8 @@ export interface CacheOptions {
    * Accepts any synchronous Map-compatible store (see {@link CacheStore}) —
    * for example a shared `Map` or an `lru-cache` instance — instead of the
    * SDK-managed per-client in-memory `Map`. The SDK still handles TTL, LRU
-   * eviction, and entry freezing itself.
+   * eviction, and entry freezing itself. For `lru-cache`, keep its `max` at or
+   * below `maxEntries` (it iterates newest-first, see {@link CacheStore}).
    *
    * @defaultValue new Map() per client instance
    */
@@ -158,8 +162,9 @@ export interface RequestOptions {
    */
   cache?: RequestCacheMode | undefined;
   /**
-   * Optional response validator invoked for network responses before caching.
-   * Used by internal modules to avoid repeated validation on cache hits.
+   * Optional response validator. Runs on network responses before they are cached,
+   * and again on every cache hit so entries from a shared or hand-populated store
+   * cannot bypass the current client's validation.
    */
   responseValidator?: ((payload: unknown) => void) | undefined;
 }
@@ -299,6 +304,9 @@ export interface BsuirClientOptions {
    * Disabled automatically when the relevant `AbortSignal` is already aborted.
    * Also disabled for per-call signals, non-default cache modes, and requests
    * with private credential headers.
+   *
+   * Deduplicated responses are shared between callers and therefore returned
+   * **deep-frozen**, like cache hits. Clone a payload if you need to mutate it.
    *
    * @defaultValue false
    */

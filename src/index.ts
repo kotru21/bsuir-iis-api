@@ -17,13 +17,14 @@ export type { ReadOptions } from "./modules/types";
 export type { AnnouncementReadOptions, AnnouncementsModule } from "./modules/announcements";
 export type { ListModule } from "./modules/createListModule";
 export type { ScheduleModule, ScheduleReadOptions } from "./modules/scheduleApi";
-export type { InvalidLessonTimeHook } from "./helpers/schedule";
+export type { InvalidLessonTimeHook, LessonTimeOptions } from "./helpers/schedule";
 export {
   buildScheduleDays,
   getCurrentLesson,
   getLessonsForDate,
   getLessonsForWeek,
   getNextLesson,
+  getStudyWeek,
   getTodayLessons,
   getTomorrowLessons,
   groupLessonsByDay,
@@ -78,5 +79,8 @@ export type {
   ScheduleFilterOptions,
   ScheduleItem,
   ScheduleResponse,
+  ScheduleTimeZoneOptions,
+  StudyWeekOptions,
   WeekScheduleMap
 } from "./types/schedule";
+export { BSUIR_TIME_ZONE } from "./utils/timeZone";

@@ -8,6 +8,7 @@ import type {
 import { assertPositiveInt } from "../utils/guards";
 import { asDayLessonArray } from "../helpers/scheduleDayLessons";
 import { filterLessons, lessonMatchesSubgroup } from "../helpers/scheduleFilter";
+import { shouldIncludeNextSchedules } from "./scheduleNormalize";
 import type { ScheduleReadOptions } from "./scheduleApi";
 import type { ReadOptions } from "./types";
 
@@ -154,11 +155,9 @@ export function createScheduleSubjectMethods(
         ? {}
         : { includeNextSchedules: options.includeNextSchedules })
     });
-    return filterLessons(normalized, { subgroup }).filter(
-      (item) =>
-        item.source === "schedules" ||
-        (options.includeNextSchedules === true && item.source === "nextSchedules")
-    );
+    // Normalization already applied the next-term rule (explicit option or empty
+    // current term), so only exams are dropped here.
+    return filterLessons(normalized, { subgroup }).filter((item) => item.source !== "exams");
   }
 
   async function getBySubgroupRaw(
@@ -168,11 +167,10 @@ export function createScheduleSubjectMethods(
   ): Promise<ScheduleItem[]> {
     assertPositiveInt(subgroup, "subgroup");
     const raw = await fetcher.getRaw(id, options);
+    const endpoint = fetcher.endpoint(id);
     return filterRawSubgroupLessons(raw, subgroup, {
-      endpoint: fetcher.endpoint(id),
-      ...(options.includeNextSchedules === undefined
-        ? {}
-        : { includeNextSchedules: options.includeNextSchedules })
+      endpoint,
+      includeNextSchedules: shouldIncludeNextSchedules(raw, options.includeNextSchedules, endpoint)
     });
   }
 
@@ -183,11 +181,10 @@ export function createScheduleSubjectMethods(
   ): Promise<ScheduleResponse> {
     assertPositiveInt(subgroup, "subgroup");
     const raw = await fetcher.getRaw(id, options);
+    const endpoint = fetcher.endpoint(id);
     return filterRawSubgroupEnvelope(raw, subgroup, {
-      endpoint: fetcher.endpoint(id),
-      ...(options.includeNextSchedules === undefined
-        ? {}
-        : { includeNextSchedules: options.includeNextSchedules })
+      endpoint,
+      includeNextSchedules: shouldIncludeNextSchedules(raw, options.includeNextSchedules, endpoint)
     });
   }
 

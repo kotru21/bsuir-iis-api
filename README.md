@@ -68,15 +68,19 @@ const client = createBsuirClient({
 - `allowInsecureHttp` enables `http://` only for trusted local/test endpoints.
 - `signal` in `createBsuirClient({ signal })` acts as a global cancellation signal for all requests made by that client.
 - `cache` stores successful GET responses in-memory for the configured TTL. A live `AbortSignal` can still use cache; an already-aborted signal skips cache. Cache hits return **deep-frozen** JSON (same reference on repeat reads); clone the payload if you need to mutate it. Use a separate client instance per identity in multi-tenant apps.
-- `cache.store` plugs in a custom storage backend (any synchronous Map-compatible object: a shared `Map`, an `lru-cache` instance, a custom adapter). The SDK still handles TTL and LRU eviction itself — the store is a plain container. A store can be shared across client instances; `keys()`/`entries()` must iterate in insertion order for LRU eviction to be accurate.
+- `cache.store` plugs in a custom storage backend (any synchronous Map-compatible object: a shared `Map`, an `lru-cache` instance, a custom adapter). The SDK still handles TTL and LRU eviction itself — the store is a plain container. A store can be shared across client instances; `keys()`/`entries()` must iterate oldest-first (insertion order) for LRU eviction to be accurate. `lru-cache` iterates newest-first, so let it own capacity: keep its `max` at or below `cache.maxEntries`.
 
 ```ts
-const store = new Map(); // or: new LRUCache<string, ResponseCacheEntry>({ max: 500 })
+const store = new Map();
 const clientA = createBsuirClient({ cache: { ttlMs: 60_000, store } });
 const clientB = createBsuirClient({ cache: { ttlMs: 60_000, store } }); // shares entries with clientA
+
+// lru-cache: its own `max` does the eviction; SDK maxEntries must not be smaller.
+const lru = new LRUCache<string, ResponseCacheEntry>({ max: 500 });
+const clientC = createBsuirClient({ cache: { ttlMs: 60_000, maxEntries: 500, store: lru } });
 ```
 
-- `dedupeInFlight` reuses the same in-flight GET request for concurrent callers. It is disabled for per-request signals, non-default cache modes, private credential headers, and already-aborted signals.
+- `dedupeInFlight` reuses the same in-flight GET request for concurrent callers. It is disabled for per-request signals, non-default cache modes, private credential headers, and already-aborted signals. Shared responses are **deep-frozen** (like cache hits), so one caller cannot mutate another caller's data. Without `cache` and `dedupeInFlight`, catalog and raw payloads are plain mutable objects; normalized schedules are always frozen.
 - `maxResponseBytes` limits body size per response to protect against memory spikes.
 - Response checking is two-tier:
   - **Always on (structural):** catalog/announcement unwraps must resolve to arrays; schedule day buckets must be arrays (or nullish → empty); `schedules` / `nextSchedules` must be maps (object|null|absent); and `exams` must be array|null|absent. These guards apply to **normalized and raw** schedule fetches (`getGroup` / `getGroupRaw` / employee equivalents) and throw `BsuirResponseValidationError` even when `validateResponses` is `false`, so the SDK can honor return types and avoid silent empty schedules or raw `TypeError`s on malformed IIS payloads.
@@ -134,7 +138,7 @@ When IIS responds with HTTP `404` (the employee or department has no announcemen
 
 - Core runtime API: `createBsuirClient`, `BsuirClient`
 - Client/runtime option types: `BsuirClientOptions`, `CacheOptions`, `CacheStore`, `ResponseCacheEntry`, `ClientHooks`, `RequestCacheMode`, `ReadOptions`, `AnnouncementReadOptions`, `AnnouncementsModule`, `ListModule`, `ScheduleModule`, `ScheduleReadOptions`, `RequestHookContext`, `RetryHookContext`, `ResponseHookContext`, `ErrorHookContext`
-- Schedule utilities: `normalizeSchedule`, `filterLessons`, `getLessonsForDate`, `getTodayLessons`, `getTomorrowLessons`, `getLessonsForWeek`, `sortLessonsByTime`, `groupLessonsByDay`, `getCurrentLesson`, `getNextLesson`, `buildScheduleDays`, `ScheduleFilterOptions`, `NormalizeScheduleOptions`, `InvalidLessonTimeHook`
+- Schedule utilities: `normalizeSchedule`, `filterLessons`, `getLessonsForDate`, `getTodayLessons`, `getTomorrowLessons`, `getLessonsForWeek`, `sortLessonsByTime`, `groupLessonsByDay`, `getCurrentLesson`, `getNextLesson`, `buildScheduleDays`, `getStudyWeek`, `BSUIR_TIME_ZONE`, `ScheduleFilterOptions`, `NormalizeScheduleOptions`, `StudyWeekOptions`, `ScheduleTimeZoneOptions`, `LessonTimeOptions`, `InvalidLessonTimeHook`
 - Formatters: `formatEmployeeShortName`, `formatLessonAuditories`, `formatLessonEmployees`, `formatLessonSubgroup`, `formatLessonTimeRange`, `formatLessonType`, `formatLessonWeekNumbers`
 - Error classes: `BsuirApiError`, `BsuirNetworkError`, `BsuirTimeoutError`, `BsuirValidationError`, `BsuirResponseValidationError`, `BsuirResponsePayloadTooLargeError`, `BsuirConfigurationError`
 - Domain types: `Announcement`, `Auditory`, `AuditoryDepartment`, `AuditoryType`, `BuildingNumber`, `Department`, `EducationForm`, `Employee`, `EmployeeCatalogItem`, `Faculty`, `FlattenedLessonsByDay`, `FlattenedScheduleItem`, `FlattenedScheduleSource`, `LessonStudentGroup`, `Maybe`, `NormalizedScheduleResponse`, `ScheduleItem`, `ScheduleResponse`, `Speciality`, `StudentGroupCatalogItem`, `StudentGroupShort`, `Weekday`, `WeekScheduleMap`
@@ -242,13 +246,27 @@ const subgroupLessons = await client.schedule.getEmployeeBySubgroup("s-nesterenk
 ## Schedule helpers for UI
 
 ```ts
-import { buildScheduleDays, getTodayLessons } from "bsuir-iis-api";
+import { buildScheduleDays, getStudyWeek, getTodayLessons } from "bsuir-iis-api";
 
 const todayLessons = getTodayLessons(schedule, new Date());
 const days = buildScheduleDays(schedule, { days: 7, includeEmptyDays: false });
+const week = getStudyWeek(); // 1..4, no network call
 ```
 
-Use `getCurrentLesson(days[0].lessons)` / `getNextLesson(days[0].lessons)` for in-day progress indicators.
+Use `getCurrentLesson(days[0].lessons)` / `getNextLesson(days[0].lessons)` for in-day progress indicators. Each `ScheduleDay` also carries the `weekNumber` used to pick its lessons.
+
+**Time zone.** Date helpers read `Date` instants as **Minsk** calendar dates and wall-clock times (`timeZone: "Europe/Minsk"` by default), because IIS lesson times are Minsk times. This keeps "today" and the current lesson correct on servers running in UTC. Pass `timeZone` to override, e.g. `Intl.DateTimeFormat().resolvedOptions().timeZone` for the runtime's local zone. `ScheduleDay.date` is the start of that day in the chosen zone; use `dateKey` (`"YYYY-MM-DD"`) for zone-independent comparisons.
+
+**Study week.** Weekly lessons are matched by BSUIR study week (1–4). By default it comes from the academic calendar: week 1 is the Monday–Sunday week containing 1 September, weeks change on Mondays, and the cycle runs through the whole academic year. For the authoritative value, pass `currentWeek` from the API — other dates are counted from it:
+
+```ts
+const [schedule, currentWeek] = await Promise.all([
+  client.schedule.getGroup("053503"),
+  client.schedule.getCurrentWeek()
+]);
+const days = buildScheduleDays(schedule, { days: 14, currentWeek });
+const tomorrow = getTomorrowLessons(schedule, new Date(), { currentWeek });
+```
 
 ## Development
 

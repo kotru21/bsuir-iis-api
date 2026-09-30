@@ -19,9 +19,7 @@ function isPrivateHeader(name: string): boolean {
   return PRIVATE_HEADER_DENYLIST.has(name.toLowerCase());
 }
 
-/**
- *
- */
+/** Whether any request header carries per-identity credentials (see denylist above). */
 export function hasPrivateHeaders(headers: Headers): boolean {
   for (const [key] of headers.entries()) {
     if (isPrivateHeader(key)) {

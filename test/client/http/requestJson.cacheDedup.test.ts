@@ -175,6 +175,32 @@ describe("requestJson — in-flight deduplication", () => {
     expect(second.ok).toBe(true);
   });
 
+  it("returns deep-frozen payloads to deduplicated callers so they cannot mutate each other's data", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ body: [{ id: 1, name: "A" }] }),
+      createJsonResponse({ body: [{ id: 1, name: "A" }] })
+    ]);
+    const config = createRequestJsonConfig(fetchImpl, { dedupeInFlight: true });
+
+    const [first, second] = await Promise.all([
+      requestJson<{ id: number; name: string }[]>(config, "/faculties"),
+      requestJson<{ id: number; name: string }[]>(config, "/faculties")
+    ]);
+    expect(first).toBe(second);
+    expect(Object.isFrozen(first)).toBe(true);
+    expect(() => {
+      (first[0] as { name: string }).name = "mutated";
+    }).toThrow(TypeError);
+    expect(second[0]?.name).toBe("A");
+
+    // Without cache and dedup the caller owns a plain mutable payload.
+    const plain = await requestJson<{ id: number }[]>(
+      createRequestJsonConfig(fetchImpl, { dedupeInFlight: false }),
+      "/faculties"
+    );
+    expect(Object.isFrozen(plain)).toBe(false);
+  });
+
   it("does not deduplicate concurrent requests when headers differ", async () => {
     const resolvers: Array<(value: Response) => void> = [];
     const fetchImpl = vi.fn(() => {

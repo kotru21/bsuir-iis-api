@@ -12,6 +12,7 @@ import { hasPrivateHeaders } from "./privateHeaders";
 import { buildRequestKey } from "./requestCacheKey";
 import { serializeRequestBody } from "./serializeBody";
 import { buildUrl } from "./url";
+import { deepFreezeJson } from "../../utils/deepFreezeJson";
 
 /**
  * Executes JSON HTTP request with timeout, retry/backoff, deduplication and cache support.
@@ -148,7 +149,9 @@ export async function requestJson<T>(
 
     const inFlightPromise: Promise<T> = (async () => {
       try {
-        return await requestAndMaybeCache();
+        // Every concurrent caller receives this same object: freeze it so one caller
+        // cannot mutate what another is reading (cache hits are frozen the same way).
+        return deepFreezeJson(await requestAndMaybeCache());
       } finally {
         config.inFlightRequests.delete(key);
       }

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setCache, tryReadCacheEntry } from "../../../src/client/http/cache";
 import { BsuirConfigurationError } from "../../../src/client/errors";
-import type { InternalClientConfig } from "../../../src/client/types";
+import type { InternalClientConfig, ResponseCacheEntry } from "../../../src/client/types";
 
 function makeConfig(overrides: Partial<InternalClientConfig> = {}): InternalClientConfig {
   return {
@@ -47,6 +47,25 @@ describe("tryReadCacheEntry", () => {
     expect(config.responseCache.get("k1")).not.toBeUndefined();
     expect(config.responseCache.get("k2")).toBeUndefined();
     expect(config.responseCache.get("k3")).not.toBeUndefined();
+  });
+
+  it("never evicts the entry just written, even for newest-first stores (lru-cache order)", () => {
+    // lru-cache iterates keys()/entries() from most to least recently used.
+    class NewestFirstStore extends Map<string, ResponseCacheEntry> {
+      override keys(): MapIterator<string> {
+        return super.keys().toArray().toReversed().values();
+      }
+      override entries(): MapIterator<[string, ResponseCacheEntry]> {
+        return super[Symbol.iterator]().toArray().toReversed().values();
+      }
+    }
+    const config = makeConfig({ cacheMaxEntries: 2, responseCache: new NewestFirstStore() });
+    setCache(config, "k1", 1);
+    setCache(config, "k2", 2);
+    setCache(config, "k3", 3);
+
+    expect(config.responseCache.size).toBe(2);
+    expect(tryReadCacheEntry(config, "k3")?.value).toBe(3);
   });
 
   it("returns a deeply-frozen value so cache hits cannot mutate shared entries", () => {

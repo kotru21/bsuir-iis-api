@@ -109,12 +109,16 @@ export function setCache<T>(
     return frozen;
   }
 
-  // Evict least-recently-used entries using insertion order.
+  // Evict least-recently-used entries using insertion order. Never evict the entry just
+  // written: stores that iterate newest-first (e.g. lru-cache) would otherwise drop every
+  // new write once full.
   for (const k of config.responseCache.keys()) {
     if (config.responseCache.size <= config.cacheMaxEntries) {
       break;
     }
-    config.responseCache.delete(k);
+    if (k !== key) {
+      config.responseCache.delete(k);
+    }
   }
 
   return frozen;

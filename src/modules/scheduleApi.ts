@@ -117,12 +117,11 @@ export function createScheduleModule(config: Readonly<InternalClientConfig>): Sc
     groupNumber: string,
     options: ScheduleReadOptions = {}
   ): Promise<NormalizedScheduleResponse> {
-    const resolvedOptions = options;
     assertGroupNumber(groupNumber, "groupNumber");
     const payload = await requestJson<unknown>(config, "/schedule", {
       query: { studentGroup: groupNumber },
-      signal: resolvedOptions.signal,
-      cache: resolvedOptions.cache,
+      signal: options.signal,
+      cache: options.cache,
       // Validate before cache write/hit so poisoned store entries cannot stick.
       responseValidator: scheduleResponseValidator("/schedule")
     });
@@ -130,9 +129,9 @@ export function createScheduleModule(config: Readonly<InternalClientConfig>): Sc
     return normalizeSchedule(response, {
       validate: false,
       endpoint: "/schedule",
-      ...(resolvedOptions.includeNextSchedules === undefined
+      ...(options.includeNextSchedules === undefined
         ? {}
-        : { includeNextSchedules: resolvedOptions.includeNextSchedules })
+        : { includeNextSchedules: options.includeNextSchedules })
     });
   }
 
@@ -144,21 +143,20 @@ export function createScheduleModule(config: Readonly<InternalClientConfig>): Sc
     urlId: string,
     options: ScheduleReadOptions = {}
   ): Promise<NormalizedScheduleResponse> {
-    const resolvedOptions = options;
     assertEmployeeUrlId(urlId, "urlId");
     const endpoint = `/employees/schedule/${encodeURIComponent(urlId)}`;
     const payload = await requestJson<unknown>(config, endpoint, {
-      signal: resolvedOptions.signal,
-      cache: resolvedOptions.cache,
+      signal: options.signal,
+      cache: options.cache,
       responseValidator: scheduleResponseValidator(endpoint)
     });
     const response = payload as ScheduleResponse;
     return normalizeSchedule(response, {
       validate: false,
       endpoint,
-      ...(resolvedOptions.includeNextSchedules === undefined
+      ...(options.includeNextSchedules === undefined
         ? {}
-        : { includeNextSchedules: resolvedOptions.includeNextSchedules })
+        : { includeNextSchedules: options.includeNextSchedules })
     });
   }
 
@@ -220,44 +218,48 @@ export function createScheduleModule(config: Readonly<InternalClientConfig>): Sc
     getGroupFiltered: (id, filter, options) => groupMethods.getFiltered(id, filter, options),
     getEmployeeFiltered: (id, filter, options) => employeeMethods.getFiltered(id, filter, options),
     /**
-     * Returns flattened regular schedule lessons for a subgroup.
-     * Shared lessons (`numSubgroup === 0`) are included. When `includeNextSchedules` is true,
-     * matching `nextSchedules` lessons are included as well. Use raw/envelope helpers for other shapes.
+     * Returns flattened weekly lessons (no exams) for a subgroup.
+     * Shared lessons (`numSubgroup === 0`) are included. Next-term lessons follow the
+     * `includeNextSchedules` rule of `getGroup` (included when requested, or when the
+     * current term is empty). Use raw/envelope helpers for other shapes.
      */
     getGroupBySubgroup: (id, subgroup, options) =>
       groupMethods.getBySubgroup(id, subgroup, options),
     /**
      * Returns raw `ScheduleItem[]` for a group subgroup (no day/source metadata).
-     * Shared lessons (`numSubgroup === 0`) are included.
+     * Shared lessons (`numSubgroup === 0`) are included; next-term lessons follow the
+     * same `includeNextSchedules` rule as `getGroup`.
      */
     getGroupBySubgroupRaw: (id, subgroup, options) =>
       groupMethods.getBySubgroupRaw(id, subgroup, options),
     /**
      * Returns the full `ScheduleResponse` with `schedules` arrays filtered to the subgroup.
      * Shared lessons (`numSubgroup === 0`) are included. Preserves envelope fields.
-     * When `includeNextSchedules` is true, `nextSchedules` is filtered the same way;
-     * otherwise `nextSchedules` is omitted (current-term only).
+     * `nextSchedules` is filtered the same way when `includeNextSchedules` is true, or
+     * unset while current-term `schedules` is empty; otherwise it is omitted.
      */
     getGroupBySubgroupEnvelope: (id, subgroup, options) =>
       groupMethods.getBySubgroupEnvelope(id, subgroup, options),
     /**
-     * Returns flattened regular schedule lessons for an employee filtered by subgroup.
-     * Shared lessons (`numSubgroup === 0`) are included. When `includeNextSchedules` is true,
-     * matching `nextSchedules` lessons are included as well. Use raw/envelope helpers for other shapes.
+     * Returns flattened weekly lessons (no exams) for an employee filtered by subgroup.
+     * Shared lessons (`numSubgroup === 0`) are included. Next-term lessons follow the
+     * `includeNextSchedules` rule of `getEmployee` (included when requested, or when the
+     * current term is empty). Use raw/envelope helpers for other shapes.
      */
     getEmployeeBySubgroup: (id, subgroup, options) =>
       employeeMethods.getBySubgroup(id, subgroup, options),
     /**
      * Returns raw `ScheduleItem[]` for an employee subgroup filter.
-     * Shared lessons (`numSubgroup === 0`) are included.
+     * Shared lessons (`numSubgroup === 0`) are included; next-term lessons follow the
+     * same `includeNextSchedules` rule as `getEmployee`.
      */
     getEmployeeBySubgroupRaw: (id, subgroup, options) =>
       employeeMethods.getBySubgroupRaw(id, subgroup, options),
     /**
      * Returns the full `ScheduleResponse` with `schedules` arrays filtered to the subgroup.
      * Shared lessons (`numSubgroup === 0`) are included. Preserves envelope fields.
-     * When `includeNextSchedules` is true, `nextSchedules` is filtered the same way;
-     * otherwise `nextSchedules` is omitted (current-term only).
+     * `nextSchedules` is filtered the same way when `includeNextSchedules` is true, or
+     * unset while current-term `schedules` is empty; otherwise it is omitted.
      */
     getEmployeeBySubgroupEnvelope: (id, subgroup, options) =>
       employeeMethods.getBySubgroupEnvelope(id, subgroup, options),

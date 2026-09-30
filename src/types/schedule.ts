@@ -124,13 +124,44 @@ export interface NormalizedScheduleResponse extends Omit<ScheduleResponse, "sche
  */
 export type LessonWithTime = Pick<FlattenedScheduleItem, "startLessonTime" | "endLessonTime">;
 
+/** Time-zone option shared by date/time schedule helpers. */
+export interface ScheduleTimeZoneOptions {
+  /**
+   * IANA time zone in which `Date` instants are read as calendar dates and wall-clock
+   * times. BSUIR lesson times are Minsk times, so the default stays correct on servers
+   * running in UTC. Pass `Intl.DateTimeFormat().resolvedOptions().timeZone` to use the
+   * runtime's local zone instead.
+   *
+   * @defaultValue "Europe/Minsk"
+   */
+  timeZone?: string | undefined;
+}
+
+/** Study-week options for date-based schedule helpers. */
+export interface StudyWeekOptions extends ScheduleTimeZoneOptions {
+  /**
+   * Authoritative study week (1–4) at `now`, e.g. from `client.schedule.getCurrentWeek()`.
+   * When set, the week of any other date is counted from it (weeks change on Mondays).
+   *
+   * Without it the week comes from the BSUIR academic calendar: week 1 is the
+   * Monday–Sunday week containing 1 September, and the 4-week cycle runs through the
+   * whole academic year. Ignored for schedules whose `weekNumber` values exceed 4.
+   */
+  currentWeek?: number | undefined;
+  /** Moment at which `currentWeek` is valid. Defaults to `new Date()`. */
+  now?: Date | undefined;
+}
+
 /**
  * Options for {@link buildScheduleDays}.
  */
-export interface BuildScheduleDaysOptions {
-  /** Reference moment for "today" and current/next lesson detection. Defaults to `new Date()`. */
+export interface BuildScheduleDaysOptions extends StudyWeekOptions {
+  /**
+   * Reference moment for "today", current/next lesson detection and `currentWeek`.
+   * Defaults to `new Date()`.
+   */
   now?: Date;
-  /** First day of the range. Defaults to `now`. */
+  /** First day of the range (its calendar date in `timeZone`). Defaults to `now`. */
   startDate?: Date;
   /** Number of days to build. Must be a positive integer. Defaults to `7`. */
   days?: number;
@@ -163,7 +194,11 @@ export interface BuildScheduleDaysOptions {
  * A single day model produced by {@link buildScheduleDays}.
  */
 export interface ScheduleDay {
-  /** Local calendar date for this day. */
+  /**
+   * Start of this calendar day (00:00) in `timeZone`. With the default Minsk zone this is
+   * local midnight for users in Belarus; elsewhere prefer `dateKey`, or format with
+   * `{ timeZone: "Europe/Minsk" }`.
+   */
   date: Date;
   /** ISO-style date key in `"YYYY-MM-DD"` format for fast equality checks. */
   dateKey: string;
@@ -171,9 +206,14 @@ export interface ScheduleDay {
   weekday: Weekday | null;
   /** Display label: weekday name, or `"Воскресенье"` for Sunday. */
   weekdayLabel: string;
+  /**
+   * Week number used to pick this day's lessons: the study week (1–4), or an absolute
+   * week for schedules numbering weeks beyond 4; `null` when it cannot be determined.
+   */
+  weekNumber: number | null;
   /** Lessons for this day sorted by start time. */
   lessons: FlattenedScheduleItem[];
-  /** Whether this day matches the reference `now` date. */
+  /** Whether this day is the calendar date of `now` in `timeZone`. */
   isToday: boolean;
   /** Whether there are any lessons on this day. */
   hasLessons: boolean;

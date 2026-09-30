@@ -9,6 +9,7 @@ import {
 } from "../../src";
 import { normalizeSchedule } from "../../src/modules/scheduleNormalize";
 import type { ScheduleItem, ScheduleResponse } from "../../src/types/schedule";
+import { minskTime } from "../helpers/minskTime";
 
 function makeLesson(overrides: Partial<ScheduleItem> = {}): ScheduleItem {
   return {
@@ -48,19 +49,19 @@ function makeSchedule(overrides: Partial<ScheduleResponse> = {}) {
 
 describe("parseDdMmYyyyParts — invalid inputs (line 43, 54)", () => {
   it("ignores lessons with unparseable dateLesson format (line 43)", () => {
-    // dateLesson "not-a-date" fails regex → toLessonDateKey → null → falls to weekly branch
-    // Monday 12.05.2025 is week 1 → lesson with weekNumber [1] matches
+    // dateLesson "not-a-date" fails regex → falls back to the weekly branch.
+    // Monday 12.05.2025 is study week 1 (academic year from Mon 02.09.2024) → [1] matches
     const schedule = makeSchedule({
       schedules: { Понедельник: [makeLesson({ dateLesson: "not-a-date" })] }
     });
-    const lessons = getLessonsForDate(schedule, new Date(2025, 4, 12));
+    const lessons = getLessonsForDate(schedule, minskTime(2025, 4, 12));
     expect(lessons).toHaveLength(1);
   });
 
   it("returns no match for impossible date 31.02 in dateLesson (line 54)", () => {
     // regex matches but Date.UTC rolls over → utcDate.getUTCDate() !== 31 → null
     const schedule = makeSchedule({ exams: [makeLesson({ dateLesson: "31.02.2025" })] });
-    const lessons = getLessonsForDate(schedule, new Date(2025, 1, 28));
+    const lessons = getLessonsForDate(schedule, minskTime(2025, 1, 28));
     expect(lessons.filter((l) => l.source === "exams")).toHaveLength(0);
   });
 });
@@ -73,7 +74,7 @@ describe("isWithinLessonDateRange — out-of-range (lines 112, 116)", () => {
       }
     });
     // 12.05.2025 (Mon, week 1) < startLessonDate 19.05.2025
-    expect(getLessonsForDate(schedule, new Date(2025, 4, 12))).toHaveLength(0);
+    expect(getLessonsForDate(schedule, minskTime(2025, 4, 12))).toHaveLength(0);
   });
 
   it("excludes lesson when target is after endLessonDate (line 116)", () => {
@@ -83,41 +84,41 @@ describe("isWithinLessonDateRange — out-of-range (lines 112, 116)", () => {
       }
     });
     // 19.05.2025 > endLessonDate 12.05.2025
-    expect(getLessonsForDate(schedule, new Date(2025, 4, 19))).toHaveLength(0);
+    expect(getLessonsForDate(schedule, minskTime(2025, 4, 19))).toHaveLength(0);
   });
 });
 
-describe("usesFourWeekCycle (line 137)", () => {
-  it("uses absolute week when weekNumber > 4 (not 4-week cycle, line 137)", () => {
+describe("usesFourWeekCycle", () => {
+  it("uses absolute week from startDate when weekNumber > 4 (not 4-week cycle)", () => {
     const schedule = makeSchedule({
       schedules: { Понедельник: [makeLesson({ weekNumber: [5] })] }
     });
     // week 1 from startDate, lesson is [5] → no match
-    expect(getLessonsForDate(schedule, new Date(2025, 4, 12))).toHaveLength(0);
+    expect(getLessonsForDate(schedule, minskTime(2025, 4, 12))).toHaveLength(0);
   });
 
-  it("empty scheduleLessons → usesFourWeekCycle returns false (values.length=0, line 137)", () => {
+  it("returns nothing for an empty schedule", () => {
     const schedule = makeSchedule();
-    expect(getLessonsForDate(schedule, new Date(2025, 4, 12))).toHaveLength(0);
+    expect(getLessonsForDate(schedule, minskTime(2025, 4, 12))).toHaveLength(0);
   });
 });
 
-describe("inferWeekNumberForDate edge cases (lines 150, 153)", () => {
-  it("matches by weekday when startDate is null and week cannot be inferred", () => {
+describe("study week does not depend on startDate in the 4-week cycle", () => {
+  it("matches by academic-calendar week when startDate is null", () => {
     const schedule = makeSchedule({
       schedules: { Понедельник: [makeLesson()] },
       startDate: null,
       endDate: null
     });
-    expect(getLessonsForDate(schedule, new Date(2025, 4, 12))).toHaveLength(1);
+    expect(getLessonsForDate(schedule, minskTime(2025, 4, 12))).toHaveLength(1);
   });
 
-  it("matches by weekday when date is before startDate and week cannot be inferred", () => {
+  it("matches by academic-calendar week when date is before startDate", () => {
     const schedule = makeSchedule({
       schedules: { Понедельник: [makeLesson()] },
       startDate: "19.05.2025"
     });
-    expect(getLessonsForDate(schedule, new Date(2025, 4, 12))).toHaveLength(1);
+    expect(getLessonsForDate(schedule, minskTime(2025, 4, 12))).toHaveLength(1);
   });
 
   it("returns lessons for the requested week number", () => {
@@ -132,7 +133,7 @@ describe("inferWeekNumberForDate edge cases (lines 150, 153)", () => {
 describe("exam without dateLesson (lines 180, 184)", () => {
   it("excludes exam with no dateLesson and no date range (line 180)", () => {
     const schedule = makeSchedule({ exams: [makeLesson()] });
-    const exams = getLessonsForDate(schedule, new Date(2025, 4, 12)).filter(
+    const exams = getLessonsForDate(schedule, minskTime(2025, 4, 12)).filter(
       (l) => l.source === "exams"
     );
     expect(exams).toHaveLength(0);
@@ -144,7 +145,7 @@ describe("exam without dateLesson (lines 180, 184)", () => {
         makeLesson({ dateLesson: null, startLessonDate: "12.05.2025", endLessonDate: "14.05.2025" })
       ]
     });
-    const exams = getLessonsForDate(schedule, new Date(2025, 4, 13)).filter(
+    const exams = getLessonsForDate(schedule, minskTime(2025, 4, 13)).filter(
       (l) => l.source === "exams"
     );
     expect(exams).toHaveLength(1);
@@ -181,8 +182,8 @@ describe("buildScheduleDays — Sunday and includeCurrentAndNextLessons (lines 3
     const schedule = makeSchedule();
     // 18.05.2025 is Sunday
     const days = buildScheduleDays(schedule, {
-      now: new Date(2025, 4, 18, 10, 0),
-      startDate: new Date(2025, 4, 18),
+      now: minskTime(2025, 4, 18, 10, 0),
+      startDate: minskTime(2025, 4, 18),
       days: 1
     });
     expect(days[0]?.weekday).toBeNull();
@@ -194,8 +195,8 @@ describe("buildScheduleDays — Sunday and includeCurrentAndNextLessons (lines 3
       schedules: { Понедельник: [makeLesson()] }
     });
     const days = buildScheduleDays(schedule, {
-      now: new Date(2025, 4, 12, 9, 30),
-      startDate: new Date(2025, 4, 12),
+      now: minskTime(2025, 4, 12, 9, 30),
+      startDate: minskTime(2025, 4, 12),
       days: 1,
       includeCurrentAndNextLessons: false
     });
@@ -207,11 +208,11 @@ describe("buildScheduleDays — Sunday and includeCurrentAndNextLessons (lines 3
 describe("getCurrentLesson and getNextLesson edge cases", () => {
   it("skips lesson where end <= start (degenerate time)", () => {
     const lessons = [makeLesson({ startLessonTime: "10:00", endLessonTime: "09:00" })];
-    expect(getCurrentLesson(lessons, new Date(2025, 4, 12, 9, 30))).toBeNull();
+    expect(getCurrentLesson(lessons, minskTime(2025, 4, 12, 9, 30))).toBeNull();
   });
 
   it("getNextLesson skips lesson with null start time", () => {
     const lessons = [makeLesson({ startLessonTime: "bad" })];
-    expect(getNextLesson(lessons, new Date(2025, 4, 12, 8, 0))).toBeNull();
+    expect(getNextLesson(lessons, minskTime(2025, 4, 12, 8, 0))).toBeNull();
   });
 });

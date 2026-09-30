@@ -67,11 +67,14 @@ async function requestAnnouncementList(
   options: AnnouncementReadOptions & { query: Record<string, string | number> }
 ): Promise<Announcement[]> {
   const treat404AsEmpty = options.treat404AsEmpty ?? true;
-  const { query: baseQuery, ...readOptions } = options;
+  const baseQuery = options.query;
 
+  // Forward only public read options: spreading the caller's object would also pass
+  // runtime extras such as `method`, `headers` or `body` into the request pipeline.
   const fetchPage = async (query: Record<string, string | number>): Promise<unknown> =>
     requestJson<unknown>(config, path, {
-      ...readOptions,
+      signal: options.signal,
+      cache: options.cache,
       query,
       responseValidator: config.validateResponses
         ? (value) => {
