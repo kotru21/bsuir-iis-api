@@ -30,6 +30,24 @@ function shouldFlattenNextSchedules(
 }
 
 /**
+ * Same next-term rule as {@link normalizeSchedule}, applied to a raw envelope:
+ * explicit `includeNextSchedules` wins, otherwise next-term rows are used only when
+ * current-term `schedules` has no lessons.
+ */
+export function shouldIncludeNextSchedules(
+  response: ScheduleResponse,
+  includeNextSchedules: boolean | undefined,
+  endpoint: string
+): boolean {
+  const schedules = response.schedules ?? {};
+  const currentLessonCount = WEEKDAYS.reduce(
+    (count, day) => count + asDayLessonArray(schedules[day], endpoint, `schedules.${day}`).length,
+    0
+  );
+  return shouldFlattenNextSchedules(includeNextSchedules, currentLessonCount);
+}
+
+/**
  * Transforms raw schedule response into normalized structure with flattened lessons.
  *
  * By default only current-term `schedules` and `exams` are flattened. When

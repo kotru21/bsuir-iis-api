@@ -12,6 +12,19 @@ describe("announcements module", () => {
     expect(result).toHaveLength(1);
   });
 
+  it("forwards only signal/cache from caller options to the request", async () => {
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: [] })]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+    // Non-literal objects with extra keys pass structural typing.
+    const options = { cache: "no-store" as const, method: "DELETE", headers: { "X-Extra": "1" } };
+
+    await client.announcements.byEmployee("v-petrov", options);
+
+    const init = vi.mocked(fetchImpl).mock.calls[0]?.[1];
+    expect(init?.method).toBe("GET");
+    expect(new Headers(init?.headers).has("X-Extra")).toBe(false);
+  });
+
   it("unwraps paginated envelope with content array", async () => {
     const announcements = [{ id: 1, content: "Объявление" }];
     const body = {

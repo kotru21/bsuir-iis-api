@@ -12,6 +12,7 @@ import {
   sortLessonsByTime
 } from "../../src";
 import type { InvalidLessonTimeHook } from "../../src";
+import { minskTime } from "../helpers/minskTime";
 import type {
   FlattenedScheduleItem,
   ScheduleItem,
@@ -104,13 +105,13 @@ describe("schedule helpers", () => {
   it("returns lessons for date with inferred week filter and sorted order", () => {
     const schedule = buildNormalizedSchedule();
 
-    const lessons = getLessonsForDate(schedule, new Date(2025, 4, 12, 12, 0));
+    const lessons = getLessonsForDate(schedule, minskTime(2025, 4, 12, 12, 0));
     expect(lessons.map((item) => item.subject)).toEqual(["Пара 1", "Пара 2"]);
   });
 
   it("returns lessons for today and tomorrow", () => {
     const schedule = buildNormalizedSchedule();
-    const now = new Date(2025, 4, 12, 9, 30);
+    const now = minskTime(2025, 4, 12, 9, 30);
 
     const today = getTodayLessons(schedule, now);
     const tomorrow = getTomorrowLessons(schedule, now);
@@ -203,7 +204,7 @@ describe("schedule helpers", () => {
   it("getCurrentLesson reports each malformed field once (no re-fire after sort)", () => {
     const lesson = makeLesson({ startLessonTime: "xx", endLessonTime: "yy" });
     const calls: string[] = [];
-    getCurrentLesson([lesson], new Date(2025, 4, 12, 9, 30), {
+    getCurrentLesson([lesson], minskTime(2025, 4, 12, 9, 30), {
       onInvalidTime: (info) => {
         calls.push(info.field);
       }
@@ -214,7 +215,7 @@ describe("schedule helpers", () => {
   it("getNextLesson reports each malformed field once (no re-fire after sort)", () => {
     const lesson = makeLesson({ startLessonTime: "xx", endLessonTime: "yy" });
     const calls: string[] = [];
-    getNextLesson([lesson], new Date(2025, 4, 12, 9, 30), {
+    getNextLesson([lesson], minskTime(2025, 4, 12, 9, 30), {
       onInvalidTime: (info) => {
         calls.push(info.field);
       }
@@ -234,8 +235,8 @@ describe("schedule helpers", () => {
     };
 
     expect(() => sortLessonsByTime([sparse], { onInvalidTime })).not.toThrow();
-    expect(getCurrentLesson([sparse], new Date(2025, 4, 12, 9, 30), { onInvalidTime })).toBeNull();
-    expect(getNextLesson([sparse], new Date(2025, 4, 12, 9, 30), { onInvalidTime })).toBeNull();
+    expect(getCurrentLesson([sparse], minskTime(2025, 4, 12, 9, 30), { onInvalidTime })).toBeNull();
+    expect(getNextLesson([sparse], minskTime(2025, 4, 12, 9, 30), { onInvalidTime })).toBeNull();
     expect(calls).toHaveLength(0);
   });
 
@@ -245,8 +246,8 @@ describe("schedule helpers", () => {
       makeLesson({ subject: "Пара 1", startLessonTime: "09:00", endLessonTime: "10:20" })
     ];
 
-    const current = getCurrentLesson(lessons, new Date(2025, 4, 12, 9, 30));
-    const next = getNextLesson(lessons, new Date(2025, 4, 12, 10, 30));
+    const current = getCurrentLesson(lessons, minskTime(2025, 4, 12, 9, 30));
+    const next = getNextLesson(lessons, minskTime(2025, 4, 12, 10, 30));
 
     expect(current?.subject).toBe("Пара 1");
     expect(next?.subject).toBe("Пара 2");
@@ -254,11 +255,11 @@ describe("schedule helpers", () => {
 
   it("builds schedule day models and supports empty-day filtering", () => {
     const schedule = buildNormalizedSchedule();
-    const now = new Date(2025, 4, 12, 9, 30);
+    const now = minskTime(2025, 4, 12, 9, 30);
 
     const days = buildScheduleDays(schedule, {
       now,
-      startDate: new Date(2025, 4, 12),
+      startDate: minskTime(2025, 4, 12),
       days: 3
     });
 
@@ -270,7 +271,7 @@ describe("schedule helpers", () => {
     expect(days[2]?.hasLessons).toBe(false);
 
     const nonEmptyDays = buildScheduleDays(schedule, {
-      startDate: new Date(2025, 4, 12),
+      startDate: minskTime(2025, 4, 12),
       days: 3,
       includeEmptyDays: false
     });
@@ -289,11 +290,11 @@ describe("schedule helpers", () => {
       endExamsDate: null
     });
 
-    expect(getLessonsForDate(empty, new Date(2025, 4, 11))).toEqual([]);
+    expect(getLessonsForDate(empty, minskTime(2025, 4, 11))).toEqual([]);
     expect(buildScheduleDays(empty, { days: 2, includeEmptyDays: false })).toEqual([]);
 
     const invalidTimeLesson = makeLesson({ startLessonTime: "invalid" });
-    expect(getCurrentLesson([invalidTimeLesson], new Date(2025, 4, 12, 9, 0))).toBeNull();
-    expect(getNextLesson([invalidTimeLesson], new Date(2025, 4, 12, 9, 0))).toBeNull();
+    expect(getCurrentLesson([invalidTimeLesson], minskTime(2025, 4, 12, 9, 0))).toBeNull();
+    expect(getNextLesson([invalidTimeLesson], minskTime(2025, 4, 12, 9, 0))).toBeNull();
   });
 });

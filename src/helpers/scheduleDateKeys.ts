@@ -1,57 +1,26 @@
 import { WEEKDAYS, type Weekday } from "../types/common";
 import { parseDdMmYyyyParts, type DdMmYyyyParts } from "../utils/date";
+import { dayOfWeekFromOrdinal, toDayOrdinal } from "../utils/timeZone";
 
 export const SUNDAY_LABEL = "Воскресенье";
-export const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
-/**
- *
- */
-export function toDayOrdinal(parts: DdMmYyyyParts): number {
-  return Math.floor(Date.UTC(parts.year, parts.month - 1, parts.day) / MS_PER_DAY);
-}
-
-/**
- *
- */
-export function toDateDayOrdinal(date: Date): number {
-  return Math.floor(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / MS_PER_DAY);
-}
-
-/**
- *
- */
-export function toDateKey(date: Date): string {
-  const year = String(date.getFullYear());
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+/** `"YYYY-MM-DD"` key for a calendar date. */
+export function toDateKey(parts: DdMmYyyyParts): string {
+  const year = String(parts.year);
+  const month = String(parts.month).padStart(2, "0");
+  const day = String(parts.day).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
-/**
- *
- */
-export function toLessonDateKey(value: string | null): string | null {
-  const parts = parseDdMmYyyyParts(value);
-  if (!parts) {
-    return null;
-  }
-  return `${String(parts.year)}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`;
-}
-
-/**
- *
- */
+/** Day ordinal of a BSUIR `dd.mm.yyyy` string, or `null` when missing/malformed. */
 export function toLessonDayOrdinal(value: string | null): number | null {
   const parts = parseDdMmYyyyParts(value);
   return parts ? toDayOrdinal(parts) : null;
 }
 
-/**
- *
- */
-export function toWeekday(date: Date): Weekday | null {
-  const dayIndex = date.getDay();
+/** BSUIR weekday label of a day ordinal, or `null` for Sunday. */
+export function toWeekday(ordinal: number): Weekday | null {
+  const dayIndex = dayOfWeekFromOrdinal(ordinal);
   if (dayIndex < 1 || dayIndex > 6) {
     return null;
   }
@@ -74,9 +43,7 @@ export function toDateOrThrow(value: Date, fieldName: string): Date {
   return cloned;
 }
 
-/**
- *
- */
+/** Whether `targetOrdinal` falls inside an optional inclusive `dd.mm.yyyy` date range. */
 export function isWithinLessonDateRange(
   targetOrdinal: number,
   startDate: string | null,

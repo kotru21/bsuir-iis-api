@@ -74,6 +74,9 @@ export interface AuditoryType {
 }
 
 // @public
+export const BSUIR_TIME_ZONE = "Europe/Minsk";
+
+// @public
 export class BsuirApiError extends Error {
     constructor(message: string, status: number, endpoint: string, body: unknown);
     // (undocumented)
@@ -187,7 +190,7 @@ export interface BuildingNumber {
 export function buildScheduleDays(normalizedSchedule: NormalizedScheduleResponse, options?: BuildScheduleDaysOptions): ScheduleDay[];
 
 // @public
-export interface BuildScheduleDaysOptions {
+export interface BuildScheduleDaysOptions extends StudyWeekOptions {
     days?: number;
     includeCurrentAndNextLessons?: boolean;
     includeEmptyDays?: boolean;
@@ -376,26 +379,25 @@ export function formatLessonType(lesson: Pick<FlattenedScheduleItem, "lessonType
 export function formatLessonWeekNumbers(lesson: Pick<FlattenedScheduleItem, "weekNumber">): string;
 
 // @public
-export function getCurrentLesson<T extends LessonWithTime>(lessons: readonly T[], now?: Date, options?: {
-    onInvalidTime?: InvalidLessonTimeHook | undefined;
-}): T | null;
+export function getCurrentLesson<T extends LessonWithTime>(lessons: readonly T[], now?: Date, options?: LessonTimeOptions): T | null;
 
 // @public
-export function getLessonsForDate(normalizedSchedule: NormalizedScheduleResponse, date: Date): FlattenedScheduleItem[];
+export function getLessonsForDate(normalizedSchedule: NormalizedScheduleResponse, date: Date, options?: StudyWeekOptions): FlattenedScheduleItem[];
 
 // @public
 export function getLessonsForWeek(normalizedSchedule: NormalizedScheduleResponse, weekNumber: number): FlattenedScheduleItem[];
 
 // @public
-export function getNextLesson<T extends LessonWithTime>(lessons: readonly T[], now?: Date, options?: {
-    onInvalidTime?: InvalidLessonTimeHook | undefined;
-}): T | null;
+export function getNextLesson<T extends LessonWithTime>(lessons: readonly T[], now?: Date, options?: LessonTimeOptions): T | null;
 
 // @public
-export function getTodayLessons(normalizedSchedule: NormalizedScheduleResponse, now?: Date): FlattenedScheduleItem[];
+export function getStudyWeek(date?: Date, options?: StudyWeekOptions): number;
 
 // @public
-export function getTomorrowLessons(normalizedSchedule: NormalizedScheduleResponse, now?: Date): FlattenedScheduleItem[];
+export function getTodayLessons(normalizedSchedule: NormalizedScheduleResponse, now?: Date, options?: Omit<StudyWeekOptions, "now">): FlattenedScheduleItem[];
+
+// @public
+export function getTomorrowLessons(normalizedSchedule: NormalizedScheduleResponse, now?: Date, options?: Omit<StudyWeekOptions, "now">): FlattenedScheduleItem[];
 
 // @public
 export function groupLessonsByDay(lessons: readonly FlattenedScheduleItem[]): FlattenedLessonsByDay;
@@ -419,6 +421,11 @@ export interface LessonStudentGroup {
     specialityCode: string;
     // (undocumented)
     specialityName: string;
+}
+
+// @public
+export interface LessonTimeOptions extends ScheduleTimeZoneOptions {
+    onInvalidTime?: InvalidLessonTimeHook | undefined;
 }
 
 // @public
@@ -524,6 +531,7 @@ export interface ScheduleDay {
     nextLesson: FlattenedScheduleItem | null;
     weekday: Weekday | null;
     weekdayLabel: string;
+    weekNumber: number | null;
 }
 
 // @public
@@ -646,6 +654,11 @@ export interface ScheduleResponse {
 }
 
 // @public
+export interface ScheduleTimeZoneOptions {
+    timeZone?: string | undefined;
+}
+
+// @public
 export function sortLessonsByTime<T extends LessonWithTime>(lessons: readonly T[], options?: {
     onInvalidTime?: InvalidLessonTimeHook | undefined;
 }): T[];
@@ -701,6 +714,12 @@ export interface StudentGroupShort {
     id: number;
     // (undocumented)
     name: string;
+}
+
+// @public
+export interface StudyWeekOptions extends ScheduleTimeZoneOptions {
+    currentWeek?: number | undefined;
+    now?: Date | undefined;
 }
 
 // @public

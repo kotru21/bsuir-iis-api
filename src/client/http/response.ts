@@ -19,7 +19,8 @@ export async function cancelResponseBody(response: Response): Promise<void> {
 
 async function readBodyTextWithLimit(
   response: Response,
-  maxResponseBytes: number
+  maxResponseBytes: number,
+  endpoint: string
 ): Promise<string> {
   const contentLengthHeader = response.headers.get("content-length");
   if (contentLengthHeader) {
@@ -29,7 +30,7 @@ async function readBodyTextWithLimit(
       throw new BsuirResponsePayloadTooLargeError(
         `Response body exceeds maxResponseBytes limit (${String(maxResponseBytes)} bytes)`,
         response.status,
-        response.url,
+        endpoint,
         maxResponseBytes
       );
     }
@@ -41,7 +42,7 @@ async function readBodyTextWithLimit(
       throw new BsuirResponsePayloadTooLargeError(
         `Response body exceeds maxResponseBytes limit (${String(maxResponseBytes)} bytes)`,
         response.status,
-        response.url,
+        endpoint,
         maxResponseBytes
       );
     }
@@ -63,7 +64,7 @@ async function readBodyTextWithLimit(
       throw new BsuirResponsePayloadTooLargeError(
         `Response body exceeds maxResponseBytes limit (${String(maxResponseBytes)} bytes)`,
         response.status,
-        response.url,
+        endpoint,
         maxResponseBytes
       );
     }
@@ -84,14 +85,19 @@ function isJsonMediaType(contentType: string): boolean {
  * Returns `null` for empty bodies that are not treated as strict JSON success payloads.
  * Throws `BsuirApiError` for **2xx** responses that declare JSON but are empty/invalid.
  * For **non-2xx**, preserves raw text (IIS sometimes labels plain-text errors as JSON).
+ * `endpoint` is reported on thrown errors (custom `fetch` responses may have an empty `url`).
  */
-export async function parseBody(response: Response, maxResponseBytes: number): Promise<unknown> {
+export async function parseBody(
+  response: Response,
+  maxResponseBytes: number,
+  endpoint: string = response.url
+): Promise<unknown> {
   const contentType = response.headers.get("content-type") ?? "";
   const declaredJson = isJsonMediaType(contentType);
-  const text = await readBodyTextWithLimit(response, maxResponseBytes);
+  const text = await readBodyTextWithLimit(response, maxResponseBytes, endpoint);
   if (text.length === 0) {
     if (declaredJson && response.ok) {
-      throw new BsuirApiError("Invalid JSON response payload", response.status, response.url, null);
+      throw new BsuirApiError("Invalid JSON response payload", response.status, endpoint, null);
     }
     return null;
   }
@@ -99,7 +105,7 @@ export async function parseBody(response: Response, maxResponseBytes: number): P
     return JSON.parse(text) as unknown;
   } catch {
     if (declaredJson && response.ok) {
-      throw new BsuirApiError("Invalid JSON response payload", response.status, response.url, null);
+      throw new BsuirApiError("Invalid JSON response payload", response.status, endpoint, null);
     }
     return text;
   }

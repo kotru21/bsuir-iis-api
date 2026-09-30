@@ -20,6 +20,17 @@ import { isAbortError } from "../../utils/guards";
 import { cancelResponseBody, parseBody } from "./response";
 import { getRetryDecision, getRetryDelayMs, RETRIABLE_STATUS_CODES, sleep } from "./retry";
 
+const MAX_ERROR_BODY_IN_MESSAGE = 300;
+
+/** One-line, length-capped preview of a text error body; the full body stays in `error.body`. */
+function summarizeErrorBody(body: string): string {
+  const compact = body.replaceAll(/\s+/g, " ").trim();
+  if (compact.length <= MAX_ERROR_BODY_IN_MESSAGE) {
+    return compact;
+  }
+  return `${compact.slice(0, MAX_ERROR_BODY_IN_MESSAGE)}… (${String(compact.length)} chars)`;
+}
+
 /** Builds the hook context shared by all lifecycle events of a single attempt. */
 export function baseHookContext(
   method: RequestMethod,
@@ -74,7 +85,24 @@ export async function performRequestWithRetry<T>(params: PerformRequestParams): 
     onSuccessMeta
   } = params;
 
+  let previousAttempt: { hookCtx: RequestHookContext; startedAt: number } | undefined;
+
   for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    // Backoff sleep ends early on caller cancellation; stop here instead of announcing
+    // an attempt that would only fail on the already-aborted signal.
+    const cancelledBy = previousAttempt
+      ? [options.signal, config.signal].find((signal) => signal?.aborted === true)
+      : undefined;
+    if (previousAttempt && cancelledBy) {
+      const reason: unknown = cancelledBy.reason;
+      invokeHookSafely(config.hooks.onError, {
+        ...previousAttempt.hookCtx,
+        durationMs: Date.now() - previousAttempt.startedAt,
+        error: reason
+      });
+      throw reason;
+    }
+
     const attemptNumber = attempt + 1;
     const startedAt = Date.now();
     const hookCtx = baseHookContext(
@@ -85,6 +113,7 @@ export async function performRequestWithRetry<T>(params: PerformRequestParams): 
       maxAttempts,
       options.query
     );
+    previousAttempt = { hookCtx, startedAt };
 
     invokeHookSafely(config.hooks.onRequest, hookCtx);
 
@@ -133,23 +162,17 @@ export async function performRequestWithRetry<T>(params: PerformRequestParams): 
           };
           invokeHookSafely(config.hooks.onRetry, skipRetryCtx);
         }
-        const errorBody = await parseBody(response, config.maxResponseBytes);
+        const errorBody = await parseBody(response, config.maxResponseBytes, endpoint);
         const statusLabel = `BSUIR API returned HTTP ${String(response.status)} for ${method} ${path}`;
         const message =
-          typeof errorBody === "string" && errorBody.length > 0
-            ? `${statusLabel}: ${errorBody}`
+          typeof errorBody === "string" && errorBody.trim().length > 0
+            ? `${statusLabel}: ${summarizeErrorBody(errorBody)}`
             : statusLabel;
-        const apiError = new BsuirApiError(message, response.status, endpoint, errorBody);
-        const errorCtx: ErrorHookContext = {
-          ...hookCtx,
-          durationMs: Date.now() - startedAt,
-          error: apiError
-        };
-        invokeHookSafely(config.hooks.onError, errorCtx);
-        throw apiError;
+        // Reported to onError by the catch below, like every other failure.
+        throw new BsuirApiError(message, response.status, endpoint, errorBody);
       }
 
-      const parsed = (await parseBody(response, config.maxResponseBytes)) as T;
+      const parsed = (await parseBody(response, config.maxResponseBytes, endpoint)) as T;
       const durationMs = Date.now() - startedAt;
       const responseCtx: ResponseHookContext = {
         ...hookCtx,
@@ -161,30 +184,30 @@ export async function performRequestWithRetry<T>(params: PerformRequestParams): 
       onSuccessMeta({ hookCtx, durationMs, status: response.status });
       return parsed;
     } catch (error: unknown) {
-      if (error instanceof BsuirApiError) {
-        throw error;
-      }
-
-      if (error instanceof BsuirResponsePayloadTooLargeError) {
-        const payloadTooLargeCtx: ErrorHookContext = {
+      // Non-2xx, invalid JSON on 2xx and oversized bodies are final: no retry.
+      if (error instanceof BsuirApiError || error instanceof BsuirResponsePayloadTooLargeError) {
+        const finalErrorCtx: ErrorHookContext = {
           ...hookCtx,
           durationMs: Date.now() - startedAt,
           error
         };
-        invokeHookSafely(config.hooks.onError, payloadTooLargeCtx);
+        invokeHookSafely(config.hooks.onError, finalErrorCtx);
         throw error;
       }
 
-      if (isAbortError(error)) {
-        if (options.signal?.aborted || config.signal?.aborted) {
-          const abortCtx: ErrorHookContext = {
-            ...hookCtx,
-            durationMs: Date.now() - startedAt,
-            error
-          };
-          invokeHookSafely(config.hooks.onError, abortCtx);
-          throw error;
-        }
+      // Caller cancellation first, whatever the abort reason: fetch rejects with
+      // `signal.reason`, which is not an AbortError after `abort(customReason)`.
+      if (options.signal?.aborted === true || config.signal?.aborted === true) {
+        const abortCtx: ErrorHookContext = {
+          ...hookCtx,
+          durationMs: Date.now() - startedAt,
+          error
+        };
+        invokeHookSafely(config.hooks.onError, abortCtx);
+        throw error;
+      }
+
+      if (isAbortError(error) || requestSignal.aborted) {
         const timeoutError = new BsuirTimeoutError(
           `Request timed out after ${String(config.timeoutMs)}ms: ${path}`,
           endpoint,

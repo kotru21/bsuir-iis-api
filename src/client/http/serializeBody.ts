@@ -27,7 +27,8 @@ function isBodyInit(value: unknown): value is BodyInit {
 }
 
 /**
- *
+ * Converts a request body to `BodyInit`: platform body types pass through untouched,
+ * anything else is JSON-encoded with `Content-Type: application/json` unless set.
  */
 export function serializeRequestBody(rawBody: unknown, headers: Headers): BodyInit | undefined {
   if (rawBody === undefined) {

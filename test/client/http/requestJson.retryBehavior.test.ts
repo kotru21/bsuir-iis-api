@@ -147,7 +147,8 @@ describe("requestJson — retry behavior", () => {
     // The abort must cut the wait short; reaching here via the full Retry-After
     // delay would mean the retry wait ignored the caller's signal.
     expect(Date.now() - startedAt).toBeLessThan(1000);
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    // No second attempt is sent (or announced) once the caller has cancelled.
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
     expect(onRetry).toHaveBeenCalledWith(
       expect.objectContaining({ reason: "http_status", status: 503, delayMs: 1000 })
     );
