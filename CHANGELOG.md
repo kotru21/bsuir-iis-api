@@ -1,5 +1,28 @@
 # Changelog
 
+## 2.2.0
+
+### Minor Changes
+
+- 309cca4: Fix study-week and time-zone handling in schedule date helpers.
+  
+  - The study week (1–4) is now derived from the BSUIR academic calendar — week 1 is the Monday–Sunday week containing 1 September and weeks change on Mondays — instead of counting 7-day blocks from `startDate`. The old count picked the wrong week whenever `startDate` was not a Monday (e.g. autumn 2026 groups start on Tuesday 01.09.2026, so every Monday showed the previous week; employee schedules use their first lesson date).
+  - New `currentWeek` / `now` options on `getLessonsForDate`, `getTodayLessons`, `getTomorrowLessons` and `buildScheduleDays` anchor week numbers to `client.schedule.getCurrentWeek()`.
+  - Date helpers and `getCurrentLesson` / `getNextLesson` now read instants in `Europe/Minsk` by default (new `timeZone` option), so servers running in UTC no longer shift "today" and the current lesson by three hours. Pass `timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone` for the previous local-time behavior.
+  - Next-term lessons flattened between terms are no longer dropped by date helpers.
+  - New exports: `getStudyWeek`, `BSUIR_TIME_ZONE`, `StudyWeekOptions`, `ScheduleTimeZoneOptions`, `LessonTimeOptions`; `ScheduleDay` gains `weekNumber`.
+
+### Patch Changes
+
+- 309cca4: HTTP pipeline fixes:
+  
+  - Cancelling with a custom reason (`controller.abort(new Error(...))` or `abort("...")`) now rejects with that reason instead of being retried and surfaced as `BsuirNetworkError`. A cancellation during retry backoff no longer fires `onRequest` for an attempt that is never sent.
+  - `hooks.onError` now fires for invalid JSON in a 2xx response (previously skipped), and exactly once per failure. Errors thrown while reading the body report the request endpoint even when a custom `fetch` returns a `Response` without `url`.
+  - Text error bodies are shown in `BsuirApiError.message` as a one-line preview capped at 300 characters; the full body stays in `error.body`.
+  - Response cache eviction never drops the entry that was just written. Stores that iterate newest-first (e.g. `lru-cache`) previously evicted every new write once full; the README now shows how to use `lru-cache` safely.
+  - With `dedupeInFlight`, responses shared between concurrent callers are now deep-frozen (like cache hits), so one caller can no longer mutate another caller's result. Without `cache`/`dedupeInFlight` payloads stay mutable.
+- 309cca4: Subgroup helpers (`get*BySubgroup`, `get*BySubgroupRaw`, `get*BySubgroupEnvelope`) and `getLessonsForWeek` now follow the same next-term rule as `getGroup` / `getEmployee`: when current-term `schedules` is empty, `nextSchedules` lessons are included instead of returning an empty result.
+
 ## 2.1.1
 
 ### Patch Changes
