@@ -40,4 +40,3 @@ void client.schedule.getEmployeeBySubgroup("s-nesterenkov", 1, { rawEnvelope: tr
 
 type HasLegacyEnvelope = "getGroupEnvelope" extends keyof typeof client.schedule ? true : false;
 const _legacyEnvelopeRemoved: HasLegacyEnvelope extends false ? true : never = true;
-void _legacyEnvelopeRemoved;

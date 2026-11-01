@@ -20,8 +20,6 @@ type HasLastUpdateByEmployee = "getLastUpdateByEmployee" extends keyof ScheduleM
 
 const _lastUpdateByGroupRemoved: HasLastUpdateByGroup extends false ? true : never = true;
 const _lastUpdateByEmployeeRemoved: HasLastUpdateByEmployee extends false ? true : never = true;
-void _lastUpdateByGroupRemoved;
-void _lastUpdateByEmployeeRemoved;
 
 // Keep bindings referenced so verbatimModuleSyntax accepts the negative imports.
 type _RemovedSurface = [ApiDateResponse, RequestOptions, QueryParams, QueryValue, RequestMethod];

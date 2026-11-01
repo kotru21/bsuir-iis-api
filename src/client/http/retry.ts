@@ -96,9 +96,9 @@ export type RetryDecision =
 export function getRetryDecision(
   config: Readonly<InternalClientConfig>,
   attempt: number,
-  retryAfterHeader?: string | null
+  retryAfterHeader: string | null = null
 ): RetryDecision {
-  const retryAfterDelay = parseRetryAfterMs(retryAfterHeader ?? null);
+  const retryAfterDelay = parseRetryAfterMs(retryAfterHeader);
   if (retryAfterDelay !== null) {
     if (retryAfterDelay > MAX_ACCEPTED_RETRY_AFTER_MS) {
       return { retryable: false, rejectedDelayMs: retryAfterDelay };

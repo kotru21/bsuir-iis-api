@@ -56,7 +56,12 @@ export default defineConfig(
       "unicorn/no-top-level-assignment-in-function": "off",
       "unicorn/max-nested-calls": "off",
       "unicorn/prefer-global-number-constants": "off",
-      "unicorn/consistent-conditional-object-spread": "off"
+      "unicorn/consistent-conditional-object-spread": "off",
+
+      // Стандартный JSDoc/TSDoc (api-extractor) требует префикс `*`
+      "unicorn/no-asterisk-prefix-in-documentation-comments": "off",
+      "unicorn/prefer-ternary": "off",
+      "unicorn/prefer-early-return": "off"
     }
   },
   {
