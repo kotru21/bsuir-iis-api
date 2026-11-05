@@ -95,6 +95,11 @@ describe("scheduleFilter", () => {
     expect(filterLessons(makeSchedule(), { lessonTypeAbbrev: "ЛР" })).toHaveLength(0);
   });
 
+  it("treats an empty lessonTypeAbbrev list or string as no filter", () => {
+    expect(filterLessons(makeSchedule(), { lessonTypeAbbrev: [] })).toHaveLength(1);
+    expect(filterLessons(makeSchedule(), { lessonTypeAbbrev: "" })).toHaveLength(1);
+  });
+
   it("filters by lessonTypeAbbrev array", () => {
     expect(filterLessons(makeSchedule(), { lessonTypeAbbrev: ["ЛК", "ЛР"] })).toHaveLength(1);
   });
@@ -102,6 +107,23 @@ describe("scheduleFilter", () => {
   it("filters by subjectQuery", () => {
     expect(filterLessons(makeSchedule(), { subjectQuery: "предм" })).toHaveLength(1);
     expect(filterLessons(makeSchedule(), { subjectQuery: "химия" })).toHaveLength(0);
+  });
+
+  it("never matches the text 'null'/'undefined' on announcement or sparse rows", () => {
+    const announcementRow = makeItem({
+      subject: null,
+      subjectFullName: null,
+      lessonTypeAbbrev: null,
+      note: "Последняя лекция в семестре",
+      announcement: true
+    });
+    const sparseRow = makeItem();
+    delete (sparseRow as { subject?: unknown }).subject;
+    const schedule = makeSchedule({ schedules: { Понедельник: [announcementRow, sparseRow] } });
+
+    expect(filterLessons(schedule, { subjectQuery: "null" })).toHaveLength(0);
+    expect(filterLessons(schedule, { subjectQuery: "undef" })).toHaveLength(0);
+    expect(filterLessons(schedule, { subjectQuery: "лекция" })).toHaveLength(1);
   });
 
   it("filters by auditory", () => {

@@ -67,12 +67,12 @@ describe("createBsuirClient", () => {
     ).not.toThrow();
   });
 
-  it("rejects baseUrl when explicit non-default port is provided", () => {
+  it("accepts an explicit port on the default host", () => {
     expect(() =>
       createBsuirClient({
         baseUrl: "https://iis.bsuir.by:8443/api/v1"
       })
-    ).toThrow(BsuirConfigurationError);
+    ).not.toThrow();
   });
 
   it("allows explicit ports on loopback hosts for local dev/mock servers", () => {

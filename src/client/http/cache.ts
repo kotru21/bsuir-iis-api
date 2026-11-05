@@ -1,27 +1,5 @@
-import { BsuirConfigurationError } from "../errors";
 import type { InternalClientConfig } from "../types";
 import { deepFreezeJson } from "../../utils/deepFreezeJson";
-
-function isJsonValue(value: unknown): boolean {
-  if (value === null) {
-    return true;
-  }
-  const t = typeof value;
-  if (t === "string" || t === "boolean") {
-    return true;
-  }
-  if (t === "number") {
-    return Number.isFinite(value);
-  }
-  if (t !== "object") {
-    return false;
-  }
-  // Reject typed arrays, Maps, Sets, Dates, etc. structuredClone would handle some of these
-  // but the cache layer is designed to hold parsed JSON only; anything else indicates a
-  // misconfigured value reaching the cache.
-  const proto: unknown = Object.getPrototypeOf(value);
-  return [Object.prototype, Array.prototype, null].includes(proto as object | null);
-}
 
 /** Cached entry returned by {@link tryReadCacheEntry} (value plus original HTTP status). */
 export interface CacheHit {
@@ -60,10 +38,8 @@ export function tryReadCacheEntry(
 /**
  * Writes response value to cache and performs expiration/LRU eviction.
  *
- * Throws if the value is not a JSON-compatible structure — the cache is designed to
- * hold parsed JSON only, and storing other shapes (Map/Set/Date/typed arrays/class
- * instances) would either fail later on read or silently lose data on
- * structuredClone-based eviction strategies.
+ * Values are parsed response bodies (`JSON.parse` output, a text body or `null`),
+ * so they are always JSON-compatible.
  */
 export function setCache<T>(
   config: Readonly<InternalClientConfig>,
@@ -73,11 +49,6 @@ export function setCache<T>(
 ): T | undefined {
   if (config.cacheTtlMs === undefined) {
     return undefined;
-  }
-  if (!isJsonValue(value)) {
-    throw new BsuirConfigurationError(
-      "Response cache only accepts JSON-compatible values (object/array/string/finite-number/boolean/null)"
-    );
   }
   const now = Date.now();
 

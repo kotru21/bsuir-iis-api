@@ -31,6 +31,8 @@ jobs:
       - run: npm run typecheck
       - run: npm run test:coverage
       - run: npm run build
+      # The published entry must load from both ESM (`import`) and CommonJS (`require`).
+      - run: npm run smoke:dist
       - run: npx --yes @cyclonedx/cyclonedx-npm --output-file sbom.cdx.json
         if: matrix.node-version == 24
       - name: Upload SBOM artifact
@@ -54,5 +56,5 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npx playwright install chromium --with-deps
+      - run: npx playwright install chromium webkit --with-deps
       - run: npm run test:browser

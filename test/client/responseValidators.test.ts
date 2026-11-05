@@ -166,6 +166,33 @@ describe("response validators — schedule item level", () => {
     expect(() => assertScheduleResponse(buildScheduleResponse(), "/schedule")).not.toThrow();
   });
 
+  it("accepts IIS announcement rows with null subject fields (live payload shape)", () => {
+    const payload = buildScheduleResponse();
+    const lesson = payload.schedules?.Понедельник?.[0];
+    if (lesson) {
+      Object.assign(lesson, {
+        subject: null,
+        subjectFullName: null,
+        lessonTypeAbbrev: null,
+        note: "Последняя лекция в семестре",
+        announcement: true,
+        dateLesson: "14.11.2026"
+      });
+    }
+    expect(() => assertScheduleResponse(payload, "/schedule")).not.toThrow();
+  });
+
+  it("still rejects non-string, non-null subject", () => {
+    const payload = buildScheduleResponse();
+    const lesson = payload.schedules?.Понедельник?.[0];
+    if (lesson) {
+      (lesson as { subject: unknown }).subject = 42;
+    }
+    expect(() => assertScheduleResponse(payload, "/schedule")).toThrow(
+      /subject' must be string or null/
+    );
+  });
+
   it("rejects lesson with non-array weekNumber", () => {
     const payload = buildScheduleResponse();
     const lesson = payload.schedules?.Понедельник?.[0];

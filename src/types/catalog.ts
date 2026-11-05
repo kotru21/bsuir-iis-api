@@ -1,82 +1,82 @@
 /** Faculty catalog entry from IIS. */
 export interface Faculty {
-  id: number;
-  name: string;
-  abbrev: string;
+  readonly id: number;
+  readonly name: string;
+  readonly abbrev: string;
 }
 
 /** Department catalog entry from IIS. */
 export interface Department {
-  id: number;
-  name: string;
-  abbrev: string;
+  readonly id: number;
+  readonly name: string;
+  readonly abbrev: string;
 }
 
 /** Education form (full-time, part-time, etc.) nested under specialities. */
 export interface EducationForm {
-  id: number;
-  name: string;
+  readonly id: number;
+  readonly name: string;
 }
 
 /**
  * The live IIS API returns `educationForm` as either a single object or an array
  * depending on the endpoint and context. Use `Array.isArray(educationForm)` to distinguish.
  */
-export type SpecialityEducationForm = EducationForm | EducationForm[];
+export type SpecialityEducationForm = EducationForm | readonly EducationForm[];
 
 /** Speciality catalog entry from IIS. */
 export interface Speciality {
-  id: number;
-  name: string;
-  abbrev: string;
-  educationForm: SpecialityEducationForm;
-  facultyId: number;
-  code: string;
+  readonly id: number;
+  readonly name: string;
+  readonly abbrev: string;
+  readonly educationForm: SpecialityEducationForm;
+  readonly facultyId: number;
+  readonly code: string;
 }
 
 /** Student group row from the `/student-groups` catalog. */
 export interface StudentGroupCatalogItem {
-  name: string;
-  facultyId: number;
-  facultyName?: string;
-  facultyAbbrev?: string;
-  specialityDepartmentEducationFormId: number;
-  specialityName: string;
-  specialityAbbrev?: string;
-  course: number;
-  id: number;
-  calendarId: string;
-  educationDegree?: number;
+  readonly name: string;
+  readonly facultyId: number;
+  readonly facultyName?: string;
+  readonly facultyAbbrev?: string;
+  readonly specialityDepartmentEducationFormId: number;
+  readonly specialityName: string;
+  readonly specialityAbbrev?: string;
+  readonly course: number;
+  readonly id: number;
+  readonly calendarId: string;
+  readonly educationDegree?: number;
 }
 
 /** Room type metadata nested under an auditory. */
 export interface AuditoryType {
-  id: number;
-  name: string;
-  abbrev: string;
+  readonly id: number;
+  readonly name: string;
+  readonly abbrev: string;
 }
 
 /** Building number nested under an auditory. */
 export interface BuildingNumber {
-  id: number;
-  name: string;
+  readonly id: number;
+  readonly name: string;
 }
 
 /** Department fragment nested under an auditory. */
 export interface AuditoryDepartment {
-  idDepartment: number;
-  abbrev: string;
-  name: string;
-  nameAndAbbrev: string;
+  readonly idDepartment: number;
+  readonly abbrev: string;
+  readonly name: string;
+  readonly nameAndAbbrev: string;
 }
 
 /** Auditory (classroom) catalog entry from IIS. */
 export interface Auditory {
-  id: number;
-  name: string;
-  note: string;
-  capacity: number | null;
-  auditoryType: AuditoryType;
-  buildingNumber: BuildingNumber;
-  department: AuditoryDepartment;
+  readonly id: number;
+  readonly name: string;
+  readonly note: string;
+  readonly capacity: number | null;
+  readonly auditoryType: AuditoryType;
+  readonly buildingNumber: BuildingNumber;
+  readonly department: AuditoryDepartment;
 }

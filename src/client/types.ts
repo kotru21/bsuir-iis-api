@@ -1,3 +1,5 @@
+import type { HostPolicy } from "./hosts";
+
 /** Primitive values accepted in request query maps. */
 export type QueryValue = string | number | boolean | null | undefined;
 /** Per-request cache mode for successful GET responses. */
@@ -5,8 +7,6 @@ export type RequestCacheMode = "default" | "no-store" | "reload";
 
 /** Query string map passed to the HTTP layer. */
 export type QueryParams = Record<string, QueryValue>;
-/** HTTP methods supported by the SDK request pipeline. */
-export type RequestMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 /** Entry stored in the response cache. Treat as opaque: entries are deep-frozen on write. */
 export interface ResponseCacheEntry {
@@ -33,7 +33,7 @@ export interface ResponseCacheEntry {
  * Entries are written and read as frozen {@link ResponseCacheEntry} objects —
  * never mutate them. TTL and LRU bookkeeping stay in the SDK; the store is a
  * plain container. A store may be shared across client instances (cache keys are
- * method + full request URL + allowlisted headers `Accept` / `Accept-Language`).
+ * `GET <full request URL>`; query parameters are sorted, so keys are stable).
  */
 export interface CacheStore {
   get(key: string): ResponseCacheEntry | undefined;
@@ -84,7 +84,8 @@ export interface CacheOptions {
 
 /** Context passed to `hooks.onRequest` before each attempt. */
 export interface RequestHookContext {
-  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  /** Always `"GET"`: the SDK only reads from IIS. */
+  method: "GET";
   path: string;
   endpoint: string;
   attempt: number;
@@ -95,7 +96,7 @@ export interface RequestHookContext {
 /** Context passed to `hooks.onRetry` when a GET will be retried. */
 export interface RetryHookContext extends RequestHookContext {
   delayMs: number;
-  reason: "http_status" | "network_error" | "retry_after_too_large";
+  reason: "http_status" | "network_error";
   status: number | undefined;
 }
 
@@ -140,18 +141,6 @@ export interface RequestOptions {
    */
   signal?: AbortSignal | undefined;
   /**
-   * HTTP method. Defaults to `GET`.
-   */
-  method?: RequestMethod | undefined;
-  /**
-   * JSON body payload for mutating requests.
-   */
-  body?: unknown;
-  /**
-   * Additional request headers.
-   */
-  headers?: HeadersInit | undefined;
-  /**
    * Per-request cache mode for successful GET requests.
    *
    * - `"default"`: read from cache and write to cache.
@@ -182,8 +171,10 @@ export interface BsuirClientOptions {
   /**
    * Allows using `http://` for `baseUrl`.
    *
-   * Keep disabled unless you explicitly need local/non-TLS endpoints in tests.
-   * When enabled, `http://` is allowed only for localhost/loopback hosts.
+   * Keep disabled unless you explicitly need a non-TLS endpoint you control: a local
+   * mock server or a proxy on a private network (e.g. `http://bsuir-proxy:8080` inside
+   * docker-compose). The host must still be listed in `allowedBaseUrlHosts`, and the
+   * public IIS host (`iis.bsuir.by`) always requires HTTPS.
    *
    * @defaultValue false
    */
@@ -191,7 +182,9 @@ export interface BsuirClientOptions {
   /**
    * Allowed hostnames for `baseUrl`.
    *
-   * Requests are rejected if `baseUrl` hostname is not in this list.
+   * Requests are rejected if `baseUrl` hostname is not in this list. Any port is
+   * accepted. A response redirected to a host outside the list (or from HTTPS to
+   * plain HTTP without `allowInsecureHttp`) fails with `BsuirConfigurationError`.
    *
    * @defaultValue ["iis.bsuir.by"]
    */
@@ -269,8 +262,8 @@ export interface BsuirClientOptions {
   /**
    * In-memory response cache configuration for successful GET requests.
    *
-   * When configured, responses are stored in a `Map` keyed by the full request
-   * URL. Cache hits skip the network entirely and fire `onResponse` with
+   * When configured, responses are stored in a `Map` keyed by the method plus the
+   * full request URL. Cache hits skip the network entirely and fire `onResponse` with
    * `fromCache: true`. The cache uses `Map` insertion order as LRU:
    * cache reads "touch" entries and eviction removes oldest keys first.
    *
@@ -278,12 +271,8 @@ export interface BsuirClientOptions {
    * `AbortSignal` (per-call or global) is already aborted, to prevent
    * serving stale data after cancellation.
    *
-   * Caching is also automatically skipped when request headers include
-   * credentials/private identity data such as `Authorization`, `Cookie`,
-   * `Proxy-Authorization`, or `X-API-Key`.
-   *
-   * For server-side multi-tenant apps, prefer one client instance per identity
-   * (per user/session/token) to avoid accidental data sharing.
+   * IIS read endpoints are public and the SDK sends no per-identity headers, so a
+   * cache (or a shared `cache.store`) never mixes data between users.
    *
    * @example
    * ```ts
@@ -295,18 +284,17 @@ export interface BsuirClientOptions {
    */
   cache?: CacheOptions;
   /**
-   * Enables in-flight GET request deduplication by method + URL + headers.
+   * Enables in-flight GET request deduplication by request URL.
    *
    * When two identical GET requests are made concurrently, only the first one
    * hits the network; the second one awaits the same `Promise`. This prevents
    * duplicate API calls in scenarios like parallel component rendering.
    *
    * Disabled automatically when the relevant `AbortSignal` is already aborted.
-   * Also disabled for per-call signals, non-default cache modes, and requests
-   * with private credential headers.
+   * Also disabled for per-call signals and non-default cache modes.
    *
-   * Deduplicated responses are shared between callers and therefore returned
-   * **deep-frozen**, like cache hits. Clone a payload if you need to mutate it.
+   * Deduplicated responses are shared between callers. Like every SDK result they
+   * are **deep-frozen**, so one caller cannot mutate another caller's data.
    *
    * @defaultValue false
    */
@@ -383,6 +371,8 @@ export interface BsuirClientOptions {
 /** Resolved internal client config after `createBsuirClient` option normalization. */
 export interface InternalClientConfig {
   baseUrl: string;
+  /** Hosts/protocols the client may talk to; also applied to redirect targets. */
+  hostPolicy: HostPolicy;
   fetchImpl: typeof globalThis.fetch;
   signal: AbortSignal | undefined;
   timeoutMs: number;

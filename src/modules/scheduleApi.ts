@@ -41,19 +41,22 @@ export interface ScheduleModule {
     groupNumber: string,
     filter: ScheduleFilterOptions,
     options?: ScheduleReadOptions
-  ): Promise<FlattenedScheduleItem[]>;
+  ): Promise<readonly FlattenedScheduleItem[]>;
 
   getEmployeeFiltered(
     urlId: string,
     filter: ScheduleFilterOptions,
     options?: ScheduleReadOptions
-  ): Promise<FlattenedScheduleItem[]>;
+  ): Promise<readonly FlattenedScheduleItem[]>;
 
   getGroupExams(
     groupNumber: string,
     options?: ScheduleReadOptions
-  ): Promise<FlattenedScheduleItem[]>;
-  getEmployeeExams(urlId: string, options?: ScheduleReadOptions): Promise<FlattenedScheduleItem[]>;
+  ): Promise<readonly FlattenedScheduleItem[]>;
+  getEmployeeExams(
+    urlId: string,
+    options?: ScheduleReadOptions
+  ): Promise<readonly FlattenedScheduleItem[]>;
 
   getGroupRaw(groupNumber: string, options?: ReadOptions): Promise<ScheduleResponse>;
   getEmployeeRaw(urlId: string, options?: ReadOptions): Promise<ScheduleResponse>;
@@ -62,12 +65,12 @@ export interface ScheduleModule {
     groupNumber: string,
     subgroup: number,
     options?: ScheduleReadOptions
-  ): Promise<FlattenedScheduleItem[]>;
+  ): Promise<readonly FlattenedScheduleItem[]>;
   getGroupBySubgroupRaw(
     groupNumber: string,
     subgroup: number,
     options?: ScheduleReadOptions
-  ): Promise<ScheduleItem[]>;
+  ): Promise<readonly ScheduleItem[]>;
   getGroupBySubgroupEnvelope(
     groupNumber: string,
     subgroup: number,
@@ -78,12 +81,12 @@ export interface ScheduleModule {
     urlId: string,
     subgroup: number,
     options?: ScheduleReadOptions
-  ): Promise<FlattenedScheduleItem[]>;
+  ): Promise<readonly FlattenedScheduleItem[]>;
   getEmployeeBySubgroupRaw(
     urlId: string,
     subgroup: number,
     options?: ScheduleReadOptions
-  ): Promise<ScheduleItem[]>;
+  ): Promise<readonly ScheduleItem[]>;
   getEmployeeBySubgroupEnvelope(
     urlId: string,
     subgroup: number,
@@ -164,11 +167,12 @@ export function createScheduleModule(config: Readonly<InternalClientConfig>): Sc
    * Returns current academic week number.
    */
   async function getCurrentWeek(options: ReadOptions = {}): Promise<number> {
-    const payload = await requestJson<unknown>(config, "/schedule/current-week", {
+    const endpoint = "/schedule/current-week";
+    const payload = await requestJson<unknown>(config, endpoint, {
       signal: options.signal,
       cache: options.cache
     });
-    return parseCurrentWeek(payload);
+    return parseCurrentWeek(payload, endpoint);
   }
 
   async function getGroupRaw(

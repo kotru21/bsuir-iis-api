@@ -31,7 +31,7 @@ describe("createBsuirClient — baseUrl validation (lines 61, 65, 69, 82)", () =
     ).toThrow(BsuirConfigurationError);
   });
 
-  it("rejects non-loopback http:// even when allowInsecureHttp: true", () => {
+  it("keeps the public IIS host HTTPS-only even with allowInsecureHttp: true", () => {
     expect(() =>
       createBsuirClient({
         // eslint-disable-next-line unicorn/prefer-https -- testing insecure HTTP rejection
@@ -42,23 +42,32 @@ describe("createBsuirClient — baseUrl validation (lines 61, 65, 69, 82)", () =
     ).toThrow(BsuirConfigurationError);
   });
 
-  it("rejects allowInsecureHttp: true when allowedBaseUrlHosts contains non-loopback hosts", () => {
+  it("allows http:// for an explicitly allowlisted private host (docker-compose proxy)", () => {
     expect(() =>
       createBsuirClient({
-        baseUrl: "http://localhost/api/v1",
+        baseUrl: "http://bsuir-proxy:8080/api/v1",
         allowInsecureHttp: true,
-        allowedBaseUrlHosts: ["localhost", "iis.bsuir.by"]
+        allowedBaseUrlHosts: ["bsuir-proxy", "iis.bsuir.by"]
       })
-    ).toThrow(/loopback/);
+    ).not.toThrow();
   });
 
-  it("rejects 127.* hostname prefix spoof (not a real IPv4 loopback)", () => {
+  it("still requires the host to be allowlisted for http://", () => {
     expect(() =>
       createBsuirClient({
         // eslint-disable-next-line unicorn/prefer-https -- testing insecure HTTP rejection
         baseUrl: "http://127.evil.com/api/v1",
         allowInsecureHttp: true,
-        allowedBaseUrlHosts: ["127.evil.com"]
+        allowedBaseUrlHosts: ["localhost"]
+      })
+    ).toThrow(/not in allowedBaseUrlHosts/);
+  });
+
+  it("rejects non-HTTP protocols", () => {
+    expect(() =>
+      createBsuirClient({
+        baseUrl: "ftp://iis.bsuir.by/api/v1",
+        allowedBaseUrlHosts: ["iis.bsuir.by"]
       })
     ).toThrow(BsuirConfigurationError);
   });
@@ -119,13 +128,13 @@ describe("createBsuirClient — option validation (line 101)", () => {
     ).not.toThrow();
   });
 
-  it("rejects baseUrl with explicit port even for allowed host", () => {
+  it("accepts an explicit port on an allowlisted host (e.g. a proxy on :8443)", () => {
     expect(() =>
       createBsuirClient({
-        baseUrl: "https://iis.bsuir.by:8443/api/v1",
-        allowedBaseUrlHosts: ["iis.bsuir.by"]
+        baseUrl: "https://proxy.example.com:8443/api",
+        allowedBaseUrlHosts: ["proxy.example.com"]
       })
-    ).toThrow(BsuirConfigurationError);
+    ).not.toThrow();
   });
 
   it("accepts IPv6 hostname when allowlist uses bracketless form", () => {

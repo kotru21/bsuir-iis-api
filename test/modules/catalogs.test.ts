@@ -1,9 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  BsuirConfigurationError,
-  BsuirResponseValidationError,
-  createBsuirClient
-} from "../../src";
+import { BsuirResponseValidationError, createBsuirClient } from "../../src";
 import { createJsonResponse, mockFetchSequence } from "../helpers/fetchMock";
 
 describe("catalog modules", () => {
@@ -142,6 +138,39 @@ describe("catalog modules", () => {
     ]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
 
-    await expect(client.groups.listAllPages()).rejects.toBeInstanceOf(BsuirConfigurationError);
+    await expect(client.groups.listAllPages()).rejects.toBeInstanceOf(BsuirResponseValidationError);
+  });
+
+  // Regression: results used to be frozen only when cache/dedup was enabled, so code
+  // that sorted a catalog in place worked in dev and threw in production.
+  it.each([
+    ["no cache, no dedup", {}],
+    ["cache", { cache: { ttlMs: 60_000 } }],
+    ["dedupeInFlight", { dedupeInFlight: true }]
+  ])("returns deep-frozen catalogs regardless of options (%s)", async (_label, options) => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({
+        body: [
+          { id: 2, name: "b" },
+          { id: 1, name: "a" }
+        ]
+      })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl, ...options });
+    const groups = await client.groups.listAll();
+    expect(Object.isFrozen(groups)).toBe(true);
+    expect(Object.isFrozen(groups[0])).toBe(true);
+    expect(groups.toSorted((a, b) => a.id - b.id).map((group) => group.id)).toEqual([1, 2]);
+  });
+
+  it("freezes the concatenated listAllPages result", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ body: { content: [{ id: 1 }], number: 0, size: 1, last: false } }),
+      createJsonResponse({ body: { content: [{ id: 2 }], number: 1, size: 1, last: true } })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+    const groups = await client.groups.listAllPages();
+    expect(groups.map((group) => group.id)).toEqual([1, 2]);
+    expect(Object.isFrozen(groups)).toBe(true);
   });
 });

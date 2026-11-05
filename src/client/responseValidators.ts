@@ -29,7 +29,8 @@ function isNullableObject(value: unknown): boolean {
   );
 }
 
-function describeValue(value: unknown): string {
+/** Short type label for error messages: `null`, `array`, or the `typeof` result. */
+export function describeValue(value: unknown): string {
   if (value === null) {
     return "null";
   }
@@ -169,8 +170,9 @@ function assertScheduleItem(item: unknown, endpoint: string, location: string): 
 
   assertStringField(record, "startLessonTime", location, endpoint);
   assertStringField(record, "endLessonTime", location, endpoint);
-  assertStringField(record, "subject", location, endpoint);
-  assertStringField(record, "subjectFullName", location, endpoint);
+  // Announcement rows (`announcement: true`) carry `subject: null` on live IIS payloads.
+  assertNullableStringField(record, "subject", location, endpoint);
+  assertNullableStringField(record, "subjectFullName", location, endpoint);
   assertNullableStringField(record, "note", location, endpoint);
   assertNullableStringField(record, "lessonTypeAbbrev", location, endpoint);
   assertNullableStringField(record, "dateLesson", location, endpoint);
@@ -256,7 +258,7 @@ export function assertArrayResponse(
 ): asserts payload is unknown[] {
   if (!Array.isArray(payload)) {
     throw new BsuirResponseValidationError(
-      `Invalid response payload for ${endpoint}: expected array, got ${typeof payload}`,
+      `Invalid response payload for ${endpoint}: expected array, got ${describeValue(payload)}`,
       endpoint
     );
   }
@@ -295,7 +297,7 @@ export function assertAnnouncementListResponse(
 function assertNullableExamsField(value: unknown, endpoint: string): void {
   if (value !== null && value !== undefined && !Array.isArray(value)) {
     throw new BsuirResponseValidationError(
-      `Invalid response payload for ${endpoint}: 'exams' must be array or null, got ${typeof value}`,
+      `Invalid response payload for ${endpoint}: 'exams' must be array or null, got ${describeValue(value)}`,
       endpoint
     );
   }
@@ -350,7 +352,7 @@ export function assertScheduleResponse(
   const employeeDto = record.employeeDto;
   if (!isNullableObject(employeeDto)) {
     throw new BsuirResponseValidationError(
-      `Invalid response payload for ${endpoint}: 'employeeDto' must be object or null, got ${typeof employeeDto}`,
+      `Invalid response payload for ${endpoint}: 'employeeDto' must be object or null, got ${describeValue(employeeDto)}`,
       endpoint
     );
   }
@@ -359,7 +361,7 @@ export function assertScheduleResponse(
 
   if (!isNullableObject(studentGroupDto)) {
     throw new BsuirResponseValidationError(
-      `Invalid response payload for ${endpoint}: 'studentGroupDto' must be object or null, got ${typeof studentGroupDto}`,
+      `Invalid response payload for ${endpoint}: 'studentGroupDto' must be object or null, got ${describeValue(studentGroupDto)}`,
       endpoint
     );
   }

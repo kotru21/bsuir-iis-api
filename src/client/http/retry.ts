@@ -21,27 +21,30 @@ export function sleep(
   ms: number,
   signals: readonly (AbortSignal | undefined)[] = []
 ): Promise<void> {
-  const { promise, resolve } = Promise.withResolvers<undefined>();
-  const active = signals.filter((signal): signal is AbortSignal => signal !== undefined);
-  const finish = (): void => {
-    clearTimeout(timer);
+  // A plain Promise constructor (not `Promise.withResolvers`): this path only runs on
+  // retries, so a newer-runtime API here would fail rarely and far from its cause.
+  return new Promise<void>((resolve) => {
+    const active = signals.filter((signal): signal is AbortSignal => signal !== undefined);
+    const finish = (): void => {
+      clearTimeout(timer);
+      for (const signal of active) {
+        signal.removeEventListener("abort", finish);
+      }
+      resolve();
+    };
+    const timer = setTimeout(finish, ms);
     for (const signal of active) {
-      signal.removeEventListener("abort", finish);
+      if (signal.aborted) {
+        finish();
+        return;
+      }
+      signal.addEventListener("abort", finish, { once: true });
     }
-    resolve(undefined);
-  };
-  const timer = setTimeout(finish, ms);
-  for (const signal of active) {
-    if (signal.aborted) {
-      finish();
-      return promise;
-    }
-    signal.addEventListener("abort", finish, { once: true });
-  }
-  return promise;
+  });
 }
 
-function parseRetryAfterMs(retryAfter: string | null): number | null {
+/** `Retry-After` in milliseconds (seconds or HTTP-date form), or `null` when absent/invalid. */
+export function parseRetryAfterMs(retryAfter: string | null): number | null {
   if (!retryAfter || retryAfter.trim().length === 0) {
     return null;
   }

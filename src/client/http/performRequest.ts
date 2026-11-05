@@ -1,5 +1,6 @@
 import {
   BsuirApiError,
+  BsuirConfigurationError,
   BsuirNetworkError,
   BsuirResponsePayloadTooLargeError,
   BsuirTimeoutError
@@ -11,14 +12,20 @@ import type {
   InternalClientConfig,
   QueryParams,
   RequestHookContext,
-  RequestMethod,
   RequestOptions,
   ResponseHookContext,
   RetryHookContext
 } from "../types";
 import { isAbortError } from "../../utils/guards";
 import { cancelResponseBody, parseBody } from "./response";
-import { getRetryDecision, getRetryDelayMs, RETRIABLE_STATUS_CODES, sleep } from "./retry";
+import {
+  getRetryDecision,
+  getRetryDelayMs,
+  parseRetryAfterMs,
+  RETRIABLE_STATUS_CODES,
+  sleep
+} from "./retry";
+import { describeHostViolation, type HostPolicy } from "../hosts";
 
 const MAX_ERROR_BODY_IN_MESSAGE = 300;
 
@@ -31,9 +38,38 @@ function summarizeErrorBody(body: string): string {
   return `${compact.slice(0, MAX_ERROR_BODY_IN_MESSAGE)}… (${String(compact.length)} chars)`;
 }
 
+/**
+ * `fetch` follows redirects on its own, so the `baseUrl` host policy would be moot if a
+ * redirect could land anywhere. Rejects (and releases) a response whose final URL is
+ * outside the policy. Mock/custom `fetch` responses without `redirected` pass through.
+ */
+async function assertRedirectAllowed(
+  response: Response,
+  policy: HostPolicy,
+  path: string
+): Promise<void> {
+  if (!response.redirected) {
+    return;
+  }
+  let finalUrl: URL;
+  try {
+    // Not `URL.canParse`: it is newer than the supported browser baseline.
+    finalUrl = new URL(response.url);
+  } catch {
+    return;
+  }
+  const violation = describeHostViolation(finalUrl, policy);
+  if (violation === null) {
+    return;
+  }
+  await cancelResponseBody(response);
+  throw new BsuirConfigurationError(
+    `Request to ${path} was redirected to ${finalUrl.origin}, which is not allowed: ${violation}`
+  );
+}
+
 /** Builds the hook context shared by all lifecycle events of a single attempt. */
 export function baseHookContext(
-  method: RequestMethod,
   path: string,
   endpoint: string,
   attempt: number,
@@ -41,7 +77,7 @@ export function baseHookContext(
   query: QueryParams | undefined
 ): RequestHookContext {
   return {
-    method,
+    method: "GET",
     path,
     endpoint,
     attempt,
@@ -55,9 +91,7 @@ export interface PerformRequestParams {
   config: Readonly<InternalClientConfig>;
   path: string;
   endpoint: string;
-  method: RequestMethod;
   headers: Headers;
-  body: BodyInit | undefined;
   options: RequestOptions;
   maxRetries: number;
   maxAttempts: number;
@@ -72,18 +106,8 @@ export interface PerformRequestParams {
  * Executes a single HTTP request with retry/backoff and lifecycle hooks.
  */
 export async function performRequestWithRetry<T>(params: PerformRequestParams): Promise<T> {
-  const {
-    config,
-    path,
-    endpoint,
-    method,
-    headers,
-    body,
-    options,
-    maxRetries,
-    maxAttempts,
-    onSuccessMeta
-  } = params;
+  const { config, path, endpoint, headers, options, maxRetries, maxAttempts, onSuccessMeta } =
+    params;
 
   let previousAttempt: { hookCtx: RequestHookContext; startedAt: number } | undefined;
 
@@ -105,14 +129,7 @@ export async function performRequestWithRetry<T>(params: PerformRequestParams): 
 
     const attemptNumber = attempt + 1;
     const startedAt = Date.now();
-    const hookCtx = baseHookContext(
-      method,
-      path,
-      endpoint,
-      attemptNumber,
-      maxAttempts,
-      options.query
-    );
+    const hookCtx = baseHookContext(path, endpoint, attemptNumber, maxAttempts, options.query);
     previousAttempt = { hookCtx, startedAt };
 
     invokeHookSafely(config.hooks.onRequest, hookCtx);
@@ -121,16 +138,12 @@ export async function performRequestWithRetry<T>(params: PerformRequestParams): 
     const requestSignalCleanup = getMergedSignalCleanup(requestSignal);
 
     try {
-      const requestInit: RequestInit = {
-        method,
+      const response = await config.fetchImpl(endpoint, {
+        method: "GET",
         headers,
         signal: requestSignal
-      };
-      if (body !== undefined) {
-        requestInit.body = body;
-      }
-
-      const response = await config.fetchImpl(endpoint, requestInit);
+      });
+      await assertRedirectAllowed(response, config.hostPolicy, path);
 
       if (!response.ok) {
         // Retries are decided before the error body is read: a retriable response
@@ -154,22 +167,18 @@ export async function performRequestWithRetry<T>(params: PerformRequestParams): 
             await sleep(retryDecision.delayMs, [options.signal, config.signal]);
             continue;
           }
-          const skipRetryCtx: RetryHookContext = {
-            ...hookCtx,
-            delayMs: retryDecision.rejectedDelayMs,
-            reason: "retry_after_too_large",
-            status: response.status
-          };
-          invokeHookSafely(config.hooks.onRetry, skipRetryCtx);
+          // Retry-After beyond the accepted ceiling: no retry, so no onRetry either.
+          // The server's hint stays available as `BsuirApiError.retryAfterMs`.
         }
+        const retryAfterMs = parseRetryAfterMs(response.headers.get("retry-after")) ?? undefined;
         const errorBody = await parseBody(response, config.maxResponseBytes, endpoint);
-        const statusLabel = `BSUIR API returned HTTP ${String(response.status)} for ${method} ${path}`;
+        const statusLabel = `BSUIR API returned HTTP ${String(response.status)} for GET ${path}`;
         const message =
           typeof errorBody === "string" && errorBody.trim().length > 0
             ? `${statusLabel}: ${summarizeErrorBody(errorBody)}`
             : statusLabel;
         // Reported to onError by the catch below, like every other failure.
-        throw new BsuirApiError(message, response.status, endpoint, errorBody);
+        throw new BsuirApiError(message, response.status, endpoint, errorBody, retryAfterMs);
       }
 
       const parsed = (await parseBody(response, config.maxResponseBytes, endpoint)) as T;
@@ -184,8 +193,12 @@ export async function performRequestWithRetry<T>(params: PerformRequestParams): 
       onSuccessMeta({ hookCtx, durationMs, status: response.status });
       return parsed;
     } catch (error: unknown) {
-      // Non-2xx, invalid JSON on 2xx and oversized bodies are final: no retry.
-      if (error instanceof BsuirApiError || error instanceof BsuirResponsePayloadTooLargeError) {
+      // Non-2xx, invalid JSON on 2xx, oversized bodies and disallowed redirects are final.
+      if (
+        error instanceof BsuirApiError ||
+        error instanceof BsuirResponsePayloadTooLargeError ||
+        error instanceof BsuirConfigurationError
+      ) {
         const finalErrorCtx: ErrorHookContext = {
           ...hookCtx,
           durationMs: Date.now() - startedAt,

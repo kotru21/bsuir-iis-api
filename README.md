@@ -12,7 +12,8 @@ Type-safe ESM SDK for [BSUIR IIS API](https://iis.bsuir.by/api/) with support fo
 - **Node.js** `>=22.18` as declared in `package.json` (`engines`). CI runs the full pipeline (lint, typecheck, tests, build) on Node 22, 24 (active LTS), and 26 (current, early-warning).
 - A global **`fetch`** implementation, or pass `fetch` into `createBsuirClient({ fetch })` (for tests or polyfills).
 - **`AbortController` / `AbortSignal`** for cancellation and timeouts. When `AbortSignal.any` is available (current Node and modern browsers), the client combines the per-request timeout with your `signal` using the platform API; otherwise it merges them manually with `setTimeout`, so timeouts still apply together with a caller-provided `AbortSignal`.
-- **`Promise.withResolvers`** and **`Iterator` helpers** (e.g. `.toArray()`) — required by the HTTP pipeline; present in Node 22.18+ and current evergreen browsers.
+- **Browsers:** an ES2023 runtime with `structuredClone` — Chrome/Edge 110+, Firefox 115+, Safari 16+. IIS sends CORS headers, so the client can call it directly from a page. `npm run typecheck` checks `src` against this baseline (`tsconfig.baseline.json`), and browser tests run in Chromium and WebKit.
+- **ESM and CommonJS:** `import { createBsuirClient } from "bsuir-iis-api"` and `const { createBsuirClient } = require("bsuir-iis-api")` both work (CommonJS through Node's `require(esm)`).
 
 ## Install
 
@@ -63,11 +64,11 @@ const client = createBsuirClient({
 ```
 
 - `fetch` can be passed for custom runtime/testing.
-- `baseUrl` is normalized and validated (absolute URL, no credentials/query/hash, host allowlist). Explicit ports are rejected for public hosts but allowed on loopback (`localhost`, `127.0.0.1`, `[::1]`) so local dev/mock servers stay usable.
-- `allowedBaseUrlHosts` controls which hosts are allowed for `baseUrl` (defaults to `["iis.bsuir.by"]`).
-- `allowInsecureHttp` enables `http://` only for trusted local/test endpoints.
+- `baseUrl` is normalized and validated (absolute URL, no credentials/query/hash, host allowlist). Any explicit port is accepted (a proxy on `:8443`, a mock server on `:3000`).
+- `allowedBaseUrlHosts` controls which hosts are allowed for `baseUrl` (defaults to `["iis.bsuir.by"]`). `fetch` follows redirects by itself, so the SDK also checks where a response ended up: a redirect to a host outside the list (or an HTTPS → HTTP downgrade) fails with `BsuirConfigurationError`.
+- `allowInsecureHttp` enables `http://` for hosts you list in `allowedBaseUrlHosts` — a local mock server or a proxy on a private network such as `http://bsuir-proxy:8080` in docker-compose. The public IIS host always requires HTTPS.
 - `signal` in `createBsuirClient({ signal })` acts as a global cancellation signal for all requests made by that client.
-- `cache` stores successful GET responses in-memory for the configured TTL. A live `AbortSignal` can still use cache; an already-aborted signal skips cache. Cache hits return **deep-frozen** JSON (same reference on repeat reads); clone the payload if you need to mutate it. Use a separate client instance per identity in multi-tenant apps.
+- `cache` stores successful GET responses in-memory for the configured TTL. A live `AbortSignal` can still use cache; an already-aborted signal skips cache. Cache hits return the same frozen reference on repeat reads. IIS read endpoints are public and the SDK sends no per-user headers, so one client (and one cache) can serve many users.
 - `cache.store` plugs in a custom storage backend (any synchronous Map-compatible object: a shared `Map`, an `lru-cache` instance, a custom adapter). The SDK still handles TTL and LRU eviction itself — the store is a plain container. A store can be shared across client instances; `keys()`/`entries()` must iterate oldest-first (insertion order) for LRU eviction to be accurate. `lru-cache` iterates newest-first, so let it own capacity: keep its `max` at or below `cache.maxEntries`.
 
 ```ts
@@ -80,7 +81,8 @@ const lru = new LRUCache<string, ResponseCacheEntry>({ max: 500 });
 const clientC = createBsuirClient({ cache: { ttlMs: 60_000, maxEntries: 500, store: lru } });
 ```
 
-- `dedupeInFlight` reuses the same in-flight GET request for concurrent callers. It is disabled for per-request signals, non-default cache modes, private credential headers, and already-aborted signals. Shared responses are **deep-frozen** (like cache hits), so one caller cannot mutate another caller's data. Without `cache` and `dedupeInFlight`, catalog and raw payloads are plain mutable objects; normalized schedules are always frozen.
+- `dedupeInFlight` reuses the same in-flight GET request for concurrent callers. It is disabled for per-request signals, non-default cache modes, and already-aborted signals.
+- **Every result is deep-frozen, whatever the options.** Catalogs, announcements, raw and normalized schedules, subgroup and filtered lists are all frozen, and their types are `readonly`, so TypeScript flags in-place mutation (`list.sort()`, `lesson.note = …`). Copy first: `list.toSorted(...)`, `[...list]`, `structuredClone(lesson)`. Before 3.0 only cached/deduplicated payloads were frozen, so code that sorted a catalog in place worked without a cache and threw `TypeError` once caching was enabled.
 - `maxResponseBytes` limits body size per response to protect against memory spikes.
 - Response checking is two-tier:
   - **Always on (structural):** catalog/announcement unwraps must resolve to arrays; schedule day buckets must be arrays (or nullish → empty); `schedules` / `nextSchedules` must be maps (object|null|absent); and `exams` must be array|null|absent. These guards apply to **normalized and raw** schedule fetches (`getGroup` / `getGroupRaw` / employee equivalents) and throw `BsuirResponseValidationError` even when `validateResponses` is `false`, so the SDK can honor return types and avoid silent empty schedules or raw `TypeError`s on malformed IIS payloads.
@@ -121,7 +123,7 @@ const clientC = createBsuirClient({ cache: { ttlMs: 60_000, maxEntries: 500, sto
 Catalog list methods always resolve to arrays. If IIS returns a Spring Data page envelope (`{ content: [...] }`):
 
 - **`listAll()`** unwraps **first page only** (does not request page 2+). Prefer this when catalogs are small or returned as a plain array. Do **not** assume it returns the full catalog — if IIS paginates, use `listAllPages()`.
-- **`listAllPages()`** fetches **all pages** (query `page` / `size`) and concatenates them. If IIS reports more than **50** pages, the SDK throws `BsuirConfigurationError` (same safety cap as announcements).
+- **`listAllPages()`** fetches **all pages** (query `page` / `size`) and concatenates them. If IIS reports more than **50** pages, the SDK throws `BsuirResponseValidationError` (same safety cap as announcements).
 
 ### Announcements
 
@@ -132,7 +134,7 @@ Both methods always resolve to `Announcement[]`. IIS may respond with a plain JS
 
 When IIS responds with HTTP `404` (the employee or department has no announcements), these methods resolve to an empty array `[]` instead of throwing `BsuirApiError`. Pass `treat404AsEmpty: false` to receive the underlying `BsuirApiError` instead. Client-side validation still runs first (`urlId`, department `id`); all other HTTP errors (including `400`) are always thrown so malformed-request bugs are not silently masked.
 
-**Pagination note:** IIS serves announcements as Spring Data pages (default `size` 20) using `page` / `size` query params. The SDK fetches **all pages** and returns the concatenated `Announcement[]`. If IIS reports more than **50** pages, the SDK throws `BsuirConfigurationError` (safety cap). Catalog **`listAll()`** still unwraps the first page only; use **`listAllPages()`** to fetch every catalog page under the same 50-page cap.
+**Pagination note:** IIS serves announcements as Spring Data pages (default `size` 20) using `page` / `size` query params. The SDK fetches **all pages** and returns the concatenated `Announcement[]`. If IIS reports more than **50** pages, or a page is malformed, the SDK throws `BsuirResponseValidationError` (safety cap). Catalog **`listAll()`** still unwraps the first page only; use **`listAllPages()`** to fetch every catalog page under the same 50-page cap.
 
 ### Public exports (runtime utilities and types)
 
@@ -140,20 +142,20 @@ When IIS responds with HTTP `404` (the employee or department has no announcemen
 - Client/runtime option types: `BsuirClientOptions`, `CacheOptions`, `CacheStore`, `ResponseCacheEntry`, `ClientHooks`, `RequestCacheMode`, `ReadOptions`, `AnnouncementReadOptions`, `AnnouncementsModule`, `ListModule`, `ScheduleModule`, `ScheduleReadOptions`, `RequestHookContext`, `RetryHookContext`, `ResponseHookContext`, `ErrorHookContext`
 - Schedule utilities: `normalizeSchedule`, `filterLessons`, `getLessonsForDate`, `getTodayLessons`, `getTomorrowLessons`, `getLessonsForWeek`, `sortLessonsByTime`, `groupLessonsByDay`, `getCurrentLesson`, `getNextLesson`, `buildScheduleDays`, `getStudyWeek`, `BSUIR_TIME_ZONE`, `ScheduleFilterOptions`, `NormalizeScheduleOptions`, `StudyWeekOptions`, `ScheduleTimeZoneOptions`, `LessonTimeOptions`, `InvalidLessonTimeHook`
 - Formatters: `formatEmployeeShortName`, `formatLessonAuditories`, `formatLessonEmployees`, `formatLessonSubgroup`, `formatLessonTimeRange`, `formatLessonType`, `formatLessonWeekNumbers`
-- Error classes: `BsuirApiError`, `BsuirNetworkError`, `BsuirTimeoutError`, `BsuirValidationError`, `BsuirResponseValidationError`, `BsuirResponsePayloadTooLargeError`, `BsuirConfigurationError`
+- Error classes: `BsuirError` (common base), `BsuirApiError`, `BsuirNetworkError`, `BsuirTimeoutError`, `BsuirValidationError`, `BsuirResponseValidationError`, `BsuirResponsePayloadTooLargeError`, `BsuirConfigurationError`
 - Domain types: `Announcement`, `Auditory`, `AuditoryDepartment`, `AuditoryType`, `BuildingNumber`, `Department`, `EducationForm`, `Employee`, `EmployeeCatalogItem`, `Faculty`, `FlattenedLessonsByDay`, `FlattenedScheduleItem`, `FlattenedScheduleSource`, `LessonStudentGroup`, `Maybe`, `NormalizedScheduleResponse`, `ScheduleItem`, `ScheduleResponse`, `Speciality`, `StudentGroupCatalogItem`, `StudentGroupShort`, `Weekday`, `WeekScheduleMap`
 
 ## Errors
 
-SDK throws typed errors:
+SDK throws typed errors. All of them extend `BsuirError`, so `error instanceof BsuirError` separates SDK failures from bugs in your own code (a caller's own `AbortSignal` reason is re-thrown as-is):
 
-- `BsuirApiError` for HTTP errors (contains `status`, `endpoint`, `body`). Non-2xx plain-text bodies are preserved even when IIS mislabels them as JSON. **Exception:** `client.announcements.byEmployee` / `byDepartment` resolve to `[]` on IIS HTTP `404` (unless `treat404AsEmpty: false`) instead of throwing (see Announcements above).
+- `BsuirApiError` for HTTP errors (contains `status`, `endpoint`, `body`, and `retryAfterMs` when the response carried a valid `Retry-After`). Non-2xx plain-text bodies are preserved even when IIS mislabels them as JSON. **Exception:** `client.announcements.byEmployee` / `byDepartment` resolve to `[]` on IIS HTTP `404` (unless `treat404AsEmpty: false`) instead of throwing (see Announcements above).
 - `BsuirResponsePayloadTooLargeError` when response body size exceeds configured `maxResponseBytes`.
 - `BsuirNetworkError` for transport errors (contains `endpoint` and standard `cause`)
-- `BsuirResponseValidationError` for invalid payload shapes: always-on structural guards (non-array catalog/announcement unwraps, non-array schedule day buckets, non-map `schedules`/`nextSchedules`, non-array `exams`), and deep item/field checks when `validateResponses: true`
+- `BsuirResponseValidationError` for invalid payload shapes: always-on structural guards (non-array catalog/announcement unwraps, non-array schedule day buckets, non-map `schedules`/`nextSchedules`, non-array `exams`, a `current-week` body that is not a positive integer, malformed Spring pages or more than 50 pages), and deep item/field checks when `validateResponses: true`
 - `BsuirTimeoutError` for timeouts (contains `endpoint`, `timeoutMs`)
-- `BsuirValidationError` for invalid input parameters
-- `BsuirConfigurationError` when the runtime has no `fetch` and none was passed to `createBsuirClient({ fetch })`, or when announcements / catalog `listAllPages` pagination exceeds the 50-page safety cap
+- `BsuirValidationError` for invalid input parameters (including non-`Date` / invalid `Date` arguments of schedule helpers)
+- `BsuirConfigurationError` for client misconfiguration: no `fetch` available, invalid option values, a disallowed `baseUrl`, or a response redirected outside `allowedBaseUrlHosts`
 
 Validation rules:
 
@@ -164,7 +166,7 @@ Validation rules:
 Retry and abort behavior:
 
 - Retries are applied to GET requests for transport/network errors and HTTP `429`, `500`, `502`, `503`, `504`
-- `Retry-After` is respected for retriable responses: the server's hint is honored in full up to a 60s safety ceiling, independently of `retryMaxDelayMs` (which caps only the SDK's own exponential backoff). A `Retry-After` beyond 60s disables the retry (`onRetry` fires with `reason: "retry_after_too_large"`).
+- `Retry-After` is respected for retriable responses: the server's hint is honored in full up to a 60s safety ceiling, independently of `retryMaxDelayMs` (which caps only the SDK's own exponential backoff). A `Retry-After` beyond 60s disables the retry: `onRetry` does **not** fire, and the hint is available as `BsuirApiError.retryAfterMs`.
 - Caller-provided aborted `AbortSignal` is re-thrown as native `AbortError`; aborting during a retry wait stops the wait immediately instead of stalling until the delay elapses.
 - Internal timeout (`timeoutMs`) aborts the attempt and throws `BsuirTimeoutError` immediately — timeouts are **not** retried (retries stay limited to network errors and HTTP 429/5xx)
 
@@ -217,6 +219,7 @@ Use explicit helpers `getGroupRaw` / `getEmployeeRaw` to obtain raw envelopes. `
 `get*BySubgroupEnvelope` filters `schedules` by subgroup; with `includeNextSchedules: true` it also filters `nextSchedules`, otherwise it omits `nextSchedules` (current-term only — same default as flattened helpers).
 In raw mode API may return `schedules: null`; normalized mode always converts it to `{}`.
 In raw mode some lesson fields may also be nullable (`weekNumber`, `lessonTypeAbbrev`), so keep null checks if you consume raw payload directly.
+IIS also puts **announcement rows** into the timetable (`announcement: true`, e.g. `note: "Последняя лекция в семестре"` with a `dateLesson`): their `subject`, `subjectFullName` and `lessonTypeAbbrev` are `null` in both raw and normalized payloads, and strict mode accepts them.
 README examples match the installed package version; if types and docs ever diverge, rely on `NormalizedScheduleResponse` / `ScheduleResponse` from the same release.
 
 ## Current week
@@ -325,6 +328,33 @@ When this package ships a **major** changeset, include a short note with:
 1. **Removed / renamed** — what callers must change
 2. **Mapping table** — old call → new call
 3. **Search hints** — strings to find in consuming repos
+
+### 3.0.0 — honest types, consistent immutability, error classes
+
+**Behavior changes**
+
+- **Every client result is deep-frozen**, with or without `cache` / `dedupeInFlight`. Previously only cached/deduplicated payloads were frozen, so in-place mutation worked in development and threw `TypeError` once caching was on.
+- **DTO and result types are `readonly`** (`readonly T[]` lists, `readonly` fields), matching the frozen runtime data.
+- `ScheduleItem.subject` / `subjectFullName` are `string | null`: IIS sends `null` on announcement rows. `createBsuirClient.strict()` used to reject the whole schedule of such groups.
+- **Error classes:** every SDK error extends the new `BsuirError`. `getCurrentWeek()` reports a bad body as `BsuirResponseValidationError` (was `BsuirValidationError`). Malformed or over-cap pagination is `BsuirResponseValidationError` (was `BsuirConfigurationError`). Invalid `Date` arguments to helpers throw `BsuirValidationError` (was `TypeError`).
+- **`currentWeek` anchor** applies within its academic year only: dates from 1 September onwards restart at week 1.
+- **`baseUrl`:** explicit ports are accepted for any allowlisted host; `allowInsecureHttp` works for any allowlisted host except `iis.bsuir.by`; redirects outside `allowedBaseUrlHosts` are rejected.
+- `onRetry` no longer fires when a too-large `Retry-After` prevents the retry (reason `"retry_after_too_large"` removed); read `BsuirApiError.retryAfterMs` instead.
+- `formatLessonWeekNumbers` prints `"кажд. нед."` for `[1, 2, 3, 4]`. `filterLessons` treats `lessonTypeAbbrev: []` as "no filter".
+
+**Mapping**
+
+| Before (2.x)                                                    | After (3.0)                                         |
+| --------------------------------------------------------------- | --------------------------------------------------- |
+| `(await client.groups.listAll()).sort(cmp)`                     | `(await client.groups.listAll()).toSorted(cmp)`     |
+| `lesson.subject.toUpperCase()`                                  | `lesson.subject?.toUpperCase()`                     |
+| `catch (e) { if (e instanceof BsuirValidationError) }` on week  | `e instanceof BsuirResponseValidationError`         |
+| `e instanceof BsuirConfigurationError` on pagination cap        | `e instanceof BsuirResponseValidationError`         |
+| `e instanceof TypeError` on helper `Date` args                  | `e instanceof BsuirValidationError`                 |
+| `onRetry` with `reason === "retry_after_too_large"`             | `onError` + `(error as BsuirApiError).retryAfterMs` |
+| function params typed `FlattenedScheduleItem[]` for SDK results | `readonly FlattenedScheduleItem[]`                  |
+
+Search hints: `.sort(`, `.push(`, `.subject.`, `retry_after_too_large`, `BsuirConfigurationError`, `TypeError`.
 
 ### 2.1.0 — structural hardening
 

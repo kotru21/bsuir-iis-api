@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { requestJson } from "../../../src/client/http";
 import { BsuirApiError } from "../../../src/client/errors";
 import { createJsonResponse, mockFetchSequence } from "../../helpers/fetchMock";
+import { captureRejection } from "../../helpers/captureRejection";
 import { createRequestJsonConfig } from "./requestJsonTestConfig";
 
 describe("requestJson — retry behavior", () => {
@@ -106,22 +107,6 @@ describe("requestJson — retry behavior", () => {
     }
   });
 
-  it("does not retry non-GET methods", async () => {
-    const fetchImpl = mockFetchSequence([
-      createJsonResponse({ status: 503, body: { message: "temporary error" } })
-    ]);
-    const config = createRequestJsonConfig(fetchImpl, { retries: 3 });
-
-    await expect(
-      requestJson(config, "/faculties", {
-        method: "POST",
-        body: { value: 1 }
-      })
-    ).rejects.toBeInstanceOf(BsuirApiError);
-
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
-  });
-
   it("interrupts the Retry-After wait when the caller aborts mid-wait", async () => {
     const controller = new AbortController();
     const fetchImpl = vi.fn(async (_input: unknown, init?: RequestInit) => {
@@ -154,7 +139,9 @@ describe("requestJson — retry behavior", () => {
     );
   }, 10_000);
 
-  it("treats oversized Retry-After as non-retriable and surfaces hook context", async () => {
+  // onRetry used to fire with reason "retry_after_too_large" although nothing was
+  // retried, so retry metrics built on the hook over-counted.
+  it("does not retry an oversized Retry-After and does not report it as a retry", async () => {
     const fetchImpl = mockFetchSequence([
       createJsonResponse({
         status: 503,
@@ -164,19 +151,35 @@ describe("requestJson — retry behavior", () => {
       createJsonResponse({ body: { ok: true } })
     ]);
     const onRetry = vi.fn();
+    const onError = vi.fn();
     const config = createRequestJsonConfig(fetchImpl, {
       retries: 1,
-      hooks: { onRetry }
+      hooks: { onRetry, onError }
     });
 
-    await expect(requestJson(config, "/faculties")).rejects.toBeInstanceOf(BsuirApiError);
+    const error: unknown = await captureRejection(requestJson(config, "/faculties"));
+    expect(error).toBeInstanceOf(BsuirApiError);
+    expect((error as BsuirApiError).status).toBe(503);
+    expect((error as BsuirApiError).retryAfterMs).toBe(120_000);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
-    expect(onRetry).toHaveBeenCalledWith(
-      expect.objectContaining({
-        reason: "retry_after_too_large",
-        status: 503
-      })
+    expect(onRetry).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledOnce();
+  });
+
+  it("exposes Retry-After on errors that are not retried at all", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ status: 429, headers: { "Retry-After": "7" }, body: null })
+    ]);
+    const config = createRequestJsonConfig(fetchImpl, { retries: 0 });
+    const error: unknown = await captureRejection(requestJson(config, "/faculties"));
+    expect((error as BsuirApiError).retryAfterMs).toBe(7000);
+
+    const noHint = createRequestJsonConfig(
+      mockFetchSequence([createJsonResponse({ status: 500, body: null })]),
+      { retries: 0 }
     );
+    const plain: unknown = await captureRejection(requestJson(noHint, "/faculties"));
+    expect((plain as BsuirApiError).retryAfterMs).toBeUndefined();
   });
 
   it("retries network errors and eventually succeeds", async () => {

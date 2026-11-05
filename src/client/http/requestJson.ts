@@ -8,14 +8,16 @@ import type {
 import { setCache, tryReadCacheEntry } from "./cache";
 import { invokeHookSafely } from "./hooks";
 import { baseHookContext, performRequestWithRetry } from "./performRequest";
-import { hasPrivateHeaders } from "./privateHeaders";
 import { buildRequestKey } from "./requestCacheKey";
-import { serializeRequestBody } from "./serializeBody";
 import { buildUrl } from "./url";
 import { deepFreezeJson } from "../../utils/deepFreezeJson";
 
 /**
- * Executes JSON HTTP request with timeout, retry/backoff, deduplication and cache support.
+ * Executes a JSON GET request with timeout, retry/backoff, deduplication and cache support.
+ *
+ * The SDK is read-only: every IIS endpoint it wraps is a GET, and callers cannot pass
+ * headers or bodies, so requests carry no per-identity data and are safe to cache/share.
+ * The resolved payload is always deep-frozen (network, cache hit or deduplicated).
  */
 export async function requestJson<T>(
   config: Readonly<InternalClientConfig>,
@@ -23,53 +25,28 @@ export async function requestJson<T>(
   options: RequestOptions = {}
 ): Promise<T> {
   const endpoint = buildUrl(config.baseUrl, path, options.query);
-  const method = options.method ?? "GET";
-  const requestCanRetry = method === "GET";
-  const maxRetries = requestCanRetry ? config.retries : 0;
+  const maxRetries = config.retries;
   const maxAttempts = maxRetries + 1;
-  const headers = new Headers({
-    Accept: "application/json"
-  });
-
+  const headers = new Headers({ Accept: "application/json" });
   if (config.userAgent) {
     headers.set("User-Agent", config.userAgent);
   }
-  if (options.headers) {
-    const requestHeaders = new Headers(options.headers);
-    for (const [key, value] of requestHeaders) {
-      headers.set(key, value);
-    }
-  }
-
-  const body = serializeRequestBody(options.body, headers);
 
   const cacheMode = options.cache ?? "default";
   // Caching is disabled only when a relevant signal is already aborted. A live
-  // signal is fine — its job is to cancel the network request, not to signal
-  // "this caller has private data." In-flight dedup is still disabled for
-  // per-call signals so callers do not inherit each other's cancellation semantics.
+  // signal is fine — its job is to cancel the network request. In-flight dedup is
+  // still disabled for per-call signals so callers do not inherit each other's
+  // cancellation semantics.
   const signalAborted = options.signal?.aborted === true || config.signal?.aborted === true;
-  const hasPrivateRequestHeaders = hasPrivateHeaders(headers);
-  const canUseCaching =
-    config.cacheTtlMs !== undefined &&
-    method === "GET" &&
-    !signalAborted &&
-    !hasPrivateRequestHeaders;
+  const canUseCaching = config.cacheTtlMs !== undefined && !signalAborted;
   const canReadFromCache = canUseCaching && cacheMode === "default";
   const canWriteToCache = canUseCaching && cacheMode !== "no-store";
-  const perCallSignalProvided = options.signal !== undefined;
   const canUseDedup =
     config.dedupeInFlight &&
-    method === "GET" &&
     !signalAborted &&
-    !hasPrivateRequestHeaders &&
     cacheMode === "default" &&
-    !perCallSignalProvided;
-  let requestKey: string | undefined;
-  const ensureRequestKey = (): string => {
-    requestKey ??= buildRequestKey(method, endpoint, headers);
-    return requestKey;
-  };
+    options.signal === undefined;
+  const requestKey = buildRequestKey(endpoint);
 
   let lastSuccessResponse:
     { hookCtx: RequestHookContext; durationMs: number; status: number } | undefined;
@@ -79,7 +56,7 @@ export async function requestJson<T>(
       return;
     }
     const responseMeta = lastSuccessResponse ?? {
-      hookCtx: baseHookContext(method, path, endpoint, maxAttempts, maxAttempts, options.query),
+      hookCtx: baseHookContext(path, endpoint, maxAttempts, maxAttempts, options.query),
       durationMs: 0
     };
     try {
@@ -96,10 +73,10 @@ export async function requestJson<T>(
   };
 
   if (canReadFromCache) {
-    const cached = tryReadCacheEntry(config, ensureRequestKey());
+    const cached = tryReadCacheEntry(config, requestKey);
     if (cached !== undefined) {
       const cacheHitCtx: ResponseHookContext = {
-        ...baseHookContext(method, path, endpoint, 1, maxAttempts, options.query),
+        ...baseHookContext(path, endpoint, 1, maxAttempts, options.query),
         // Entries written by this pipeline always carry the real status; the 200
         // fallback only covers hand-populated cache maps.
         status: cached.status ?? 200,
@@ -120,9 +97,7 @@ export async function requestJson<T>(
       config,
       path,
       endpoint,
-      method,
       headers,
-      body,
       options,
       maxRetries,
       maxAttempts,
@@ -132,31 +107,31 @@ export async function requestJson<T>(
     });
     runResponseValidator(payload);
     if (canWriteToCache) {
-      const cached = setCache(config, ensureRequestKey(), payload, lastSuccessResponse?.status);
+      const cached = setCache(config, requestKey, payload, lastSuccessResponse?.status);
       if (cached !== undefined) {
         return cached;
       }
     }
-    return payload;
+    // Same shape guarantee on every path: cache hits, deduplicated and plain network
+    // responses are all deep-frozen, so mutability never depends on client options.
+    return deepFreezeJson(payload);
   };
 
   if (canUseDedup) {
-    const key = ensureRequestKey();
-    const inFlight = config.inFlightRequests.get(key);
+    const inFlight = config.inFlightRequests.get(requestKey);
     if (inFlight) {
       return (await inFlight) as T;
     }
 
     const inFlightPromise: Promise<T> = (async () => {
       try {
-        // Every concurrent caller receives this same object: freeze it so one caller
-        // cannot mutate what another is reading (cache hits are frozen the same way).
-        return deepFreezeJson(await requestAndMaybeCache());
+        // Every concurrent caller receives this same (already frozen) object.
+        return await requestAndMaybeCache();
       } finally {
-        config.inFlightRequests.delete(key);
+        config.inFlightRequests.delete(requestKey);
       }
     })();
-    config.inFlightRequests.set(key, inFlightPromise);
+    config.inFlightRequests.set(requestKey, inFlightPromise);
     return await inFlightPromise;
   }
 

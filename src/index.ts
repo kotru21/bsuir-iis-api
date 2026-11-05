@@ -43,6 +43,7 @@ export { filterLessons, normalizeSchedule } from "./modules/schedule";
 export {
   BsuirApiError,
   BsuirConfigurationError,
+  BsuirError,
   BsuirNetworkError,
   BsuirResponsePayloadTooLargeError,
   BsuirResponseValidationError,

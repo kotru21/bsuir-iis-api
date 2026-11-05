@@ -23,7 +23,17 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       - run: npm ci
+      # The release job runs on the same push as CI but independently of it, so it must
+      # not publish anything that has not passed the full check suite itself.
+      - name: Lint and format
+        run: |
+          npm run lint
+          npm run format:check
+      - run: npm run typecheck
+      - run: npm test
       - run: npm run build
+      - run: npm run smoke:dist
+      - run: npm run api:report:check
       - run: npx --yes @cyclonedx/cyclonedx-npm --output-file sbom.cdx.json
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

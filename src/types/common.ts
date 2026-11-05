@@ -13,8 +13,8 @@ export type Weekday = (typeof WEEKDAYS)[number];
 
 /** Compact student-group reference nested under announcements. */
 export interface StudentGroupShort {
-  id: number;
-  name: string;
+  readonly id: number;
+  readonly name: string;
 }
 
 /** Nullable value helper used across IIS DTOs (`T | null`). */

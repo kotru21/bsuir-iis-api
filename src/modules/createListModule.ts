@@ -1,25 +1,29 @@
 import { BsuirResponseValidationError } from "../client/errors";
 import { fetchAllSpringPages } from "../client/fetchAllPages";
 import { requestJson } from "../client/http";
-import { assertArrayResponse } from "../client/responseValidators";
+import { assertArrayResponse, describeValue } from "../client/responseValidators";
 import { unwrapSpringPageContent } from "../client/springPage";
 import type { InternalClientConfig } from "../client/types";
+import { deepFreezeJson } from "../utils/deepFreezeJson";
 import type { ReadOptions } from "./types";
 
 /** Hard safety cap on Spring pages fetched for one catalog `listAllPages` call. */
 const MAX_CATALOG_PAGES = 50;
 
-/** Catalog module with first-page `listAll` and multi-page `listAllPages`. */
+/**
+ * Catalog module with first-page `listAll` and multi-page `listAllPages`.
+ * Results are deep-frozen: copy (`[...items]`, `items.toSorted()`) before reordering.
+ */
 export interface ListModule<T> {
-  listAll(options?: ReadOptions): Promise<T[]>;
-  listAllPages(options?: ReadOptions): Promise<T[]>;
+  listAll(options?: ReadOptions): Promise<readonly T[]>;
+  listAllPages(options?: ReadOptions): Promise<readonly T[]>;
 }
 
 function assertUnwrappedList(payload: unknown, endpoint: string): unknown[] {
   const unwrapped = unwrapSpringPageContent(payload);
   if (!Array.isArray(unwrapped)) {
     throw new BsuirResponseValidationError(
-      `Invalid response payload for ${endpoint}: expected array, got ${typeof unwrapped}`,
+      `Invalid response payload for ${endpoint}: expected array, got ${describeValue(unwrapped)}`,
       endpoint
     );
   }
@@ -47,22 +51,23 @@ export function createListModule<T>(
      * the SDK always resolves to `T[]`. Additional pages are not fetched — use
      * {@link ListModule.listAllPages} when the catalog may span multiple pages.
      */
-    async listAll(options: ReadOptions = {}): Promise<T[]> {
+    async listAll(options: ReadOptions = {}): Promise<readonly T[]> {
       const payload = await requestJson<unknown>(config, endpoint, {
         signal: options.signal,
         cache: options.cache,
         responseValidator: config.validateResponses ? responseValidator : undefined
       });
-      return assertUnwrappedList(payload, endpoint) as T[];
+      // Unwrapped from an already deep-frozen payload.
+      return assertUnwrappedList(payload, endpoint) as readonly T[];
     },
 
     /**
      * Returns all catalog items across Spring Data pages (safety cap: 50 pages).
      *
      * Prefer this when IIS paginates the catalog. Plain array responses are
-     * returned as-is. Exceeding the page cap throws `BsuirConfigurationError`.
+     * returned as-is. Exceeding the page cap throws `BsuirResponseValidationError`.
      */
-    async listAllPages(options: ReadOptions = {}): Promise<T[]> {
+    async listAllPages(options: ReadOptions = {}): Promise<readonly T[]> {
       const fetchPage = async (query: Record<string, string | number>): Promise<unknown> =>
         requestJson<unknown>(config, endpoint, {
           signal: options.signal,
@@ -76,16 +81,12 @@ export function createListModule<T>(
         {},
         {
           maxPages: MAX_CATALOG_PAGES,
-          resourceLabel: "Catalog"
+          resourceLabel: "Catalog",
+          endpoint
         }
       );
-      if (!Array.isArray(items)) {
-        throw new BsuirResponseValidationError(
-          `Invalid response payload for ${endpoint}: expected array, got ${typeof items}`,
-          endpoint
-        );
-      }
-      return items;
+      // Items are frozen page payloads; freeze the concatenated list as well.
+      return deepFreezeJson(items);
     }
   };
 }

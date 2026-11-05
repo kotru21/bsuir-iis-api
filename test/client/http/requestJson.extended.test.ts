@@ -3,11 +3,12 @@ import { BsuirResponseValidationError, BsuirTimeoutError, createBsuirClient } fr
 import { createJsonResponse, mockFetchSequence } from "../../helpers/fetchMock";
 
 describe("requestJson — additional branches", () => {
-  // lines 72-73 — options.headers provided → iterated and set on request
-  it("forwards custom headers to fetch (lines 72-73)", async () => {
+  it("sends GET with Accept: application/json", async () => {
     let capturedHeaders: Headers | undefined;
+    let capturedMethod: string | undefined;
     const fetchImpl = vi.fn(async (_url: string, init: RequestInit) => {
       capturedHeaders = new Headers(init.headers);
+      capturedMethod = init.method;
       return createJsonResponse({ body: { ok: true } });
     }) as unknown as typeof globalThis.fetch;
 
@@ -20,6 +21,7 @@ describe("requestJson — additional branches", () => {
     await clientWithHook.schedule.getGroup("053503");
     expect(onRequest).toHaveBeenCalledOnce();
     expect(capturedHeaders?.get("Accept")).toBe("application/json");
+    expect(capturedMethod).toBe("GET");
   });
 
   // requestJson combines per-call and global signals through mergeSignals([...], timeout)
@@ -118,7 +120,7 @@ describe("requestJson — additional branches", () => {
 
     const cached = await client.groups.listAll();
     const push = (): void => {
-      cached.push({ id: 2 } as (typeof cached)[number]);
+      (cached as (typeof cached)[number][]).push({ id: 2 } as (typeof cached)[number]);
     };
     expect(push).toThrow();
     expect(cached).toHaveLength(1);

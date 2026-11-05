@@ -1,6 +1,12 @@
 import type { ScheduleResponse } from "../../src/types/schedule";
+import type { DeepMutable } from "../../src/utils/mutable";
 
-export function buildScheduleResponse(overrides: Partial<ScheduleResponse> = {}): ScheduleResponse {
+/** Fixtures are owned by each test, so they are typed as mutable copies. */
+type MutableScheduleResponse = DeepMutable<ScheduleResponse>;
+
+export function buildScheduleResponse(
+  overrides: Partial<MutableScheduleResponse> = {}
+): MutableScheduleResponse {
   return {
     employeeDto: null,
     studentGroupDto: null,
@@ -90,7 +96,7 @@ export function buildScheduleResponse(overrides: Partial<ScheduleResponse> = {})
 }
 
 /** Minimal next-term Monday map for `nextSchedules` opt-in tests. */
-export function buildNextTermMondayLesson(): NonNullable<ScheduleResponse["nextSchedules"]> {
+export function buildNextTermMondayLesson(): NonNullable<MutableScheduleResponse["nextSchedules"]> {
   return {
     Понедельник: [
       {

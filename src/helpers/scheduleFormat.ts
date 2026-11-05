@@ -52,23 +52,34 @@ export function formatLessonSubgroup(lesson: Pick<FlattenedScheduleItem, "numSub
   return `${String(lesson.numSubgroup)} \u{43F}\u{43E}\u{434}\u{433}\u{440}\u{443}\u{43F}\u{43F}\u{430}`;
 }
 
+/** Weeks of the BSUIR study cycle; a lesson held on all of them runs every week. */
+const FULL_STUDY_CYCLE = [1, 2, 3, 4] as const;
+
 /**
  * Formats the week numbers list as a compact string.
  *
- * Returns `"кажд. нед."` when `weekNumber` is `null` or empty.
- * Returns `"1, 3 нед."` for a specific set of weeks.
+ * Returns `"кажд. нед."` when the lesson runs every week: `weekNumber` is `null`,
+ * empty, or covers the whole 4-week cycle (`[1, 2, 3, 4]` — how IIS encodes weekly
+ * lessons). Returns `"1, 3 нед."` for a specific set of weeks.
  *
  * @example
  * ```ts
- * formatLessonWeekNumbers({ weekNumber: [1, 3] }); // "1, 3 нед."
- * formatLessonWeekNumbers({ weekNumber: null });    // "кажд. нед."
+ * formatLessonWeekNumbers({ weekNumber: [1, 3] });       // "1, 3 нед."
+ * formatLessonWeekNumbers({ weekNumber: [1, 2, 3, 4] }); // "кажд. нед."
+ * formatLessonWeekNumbers({ weekNumber: null });         // "кажд. нед."
  * ```
  */
 export function formatLessonWeekNumbers(lesson: Pick<FlattenedScheduleItem, "weekNumber">): string {
-  if (!lesson.weekNumber || lesson.weekNumber.length === 0) {
+  const weeks = lesson.weekNumber;
+  const everyWeek =
+    !weeks ||
+    weeks.length === 0 ||
+    (weeks.length === FULL_STUDY_CYCLE.length &&
+      FULL_STUDY_CYCLE.every((week) => weeks.includes(week)));
+  if (everyWeek) {
     return "\u{43A}\u{430}\u{436}\u{434}. \u{43D}\u{435}\u{434}.";
   }
-  return `${lesson.weekNumber.join(", ")} \u{43D}\u{435}\u{434}.`;
+  return `${weeks.join(", ")} \u{43D}\u{435}\u{434}.`;
 }
 
 /**

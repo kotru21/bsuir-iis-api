@@ -28,7 +28,7 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "default": "./dist/index.js"
     }
   },
   "main": "./dist/index.js",
@@ -42,7 +42,7 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.baseline.json",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format:check": "prettier --check .",
@@ -54,6 +54,7 @@
     "check:full": "npm run lint && npm run typecheck && npm run format:check && npm run test:coverage",
     "api:report": "api-extractor run --local",
     "api:report:check": "api-extractor run",
+    "smoke:dist": "node -e \"const m = require('bsuir-iis-api'); if (typeof m.createBsuirClient !== 'function') { process.exit(1); }\" && node --input-type=module -e \"const m = await import('bsuir-iis-api'); if (typeof m.createBsuirClient !== 'function') { process.exit(1); }\"",
     "prepublishOnly": "npm run build",
     "release:dry": "npm pack --dry-run"
   },

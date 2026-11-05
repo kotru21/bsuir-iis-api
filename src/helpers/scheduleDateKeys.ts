@@ -1,3 +1,4 @@
+import { BsuirValidationError } from "../client/errors";
 import { WEEKDAYS, type Weekday } from "../types/common";
 import { parseDdMmYyyyParts, type DdMmYyyyParts } from "../utils/date";
 import { dayOfWeekFromOrdinal, toDayOrdinal } from "../utils/timeZone";
@@ -34,11 +35,11 @@ export function toWeekday(ordinal: number): Weekday | null {
  */
 export function toDateOrThrow(value: Date, fieldName: string): Date {
   if (!(value instanceof Date)) {
-    throw new TypeError(`'${fieldName}' must be a Date object`);
+    throw new BsuirValidationError(`'${fieldName}' must be a Date object`, fieldName, value);
   }
   const cloned = new Date(value);
   if (Number.isNaN(cloned.getTime())) {
-    throw new TypeError(`'${fieldName}' must be a valid Date`);
+    throw new BsuirValidationError(`'${fieldName}' must be a valid Date`, fieldName, value);
   }
   return cloned;
 }

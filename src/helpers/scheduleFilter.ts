@@ -39,18 +39,23 @@ function matchesFilter(item: FlattenedScheduleItem, filter: ScheduleFilterOption
     return false;
   }
 
-  if (filter.lessonTypeAbbrev) {
-    const types = Array.isArray(filter.lessonTypeAbbrev)
-      ? filter.lessonTypeAbbrev
-      : [filter.lessonTypeAbbrev];
-    if (!item.lessonTypeAbbrev || !types.includes(item.lessonTypeAbbrev)) {
-      return false;
-    }
+  // A non-empty string or list filters; `""` / `[]` mean "no type filter" (an empty list
+  // used to exclude every lesson, e.g. when a UI multi-select was cleared).
+  const types: readonly string[] =
+    typeof filter.lessonTypeAbbrev === "string"
+      ? [filter.lessonTypeAbbrev].filter((type) => type.length > 0)
+      : (filter.lessonTypeAbbrev ?? []);
+  if (types.length > 0 && (!item.lessonTypeAbbrev || !types.includes(item.lessonTypeAbbrev))) {
+    return false;
   }
 
   if (filter.subjectQuery) {
     const query = filter.subjectQuery.toLowerCase();
-    const haystack = `${item.subject} ${item.subjectFullName} ${item.note ?? ""}`.toLowerCase();
+    // Sparse/announcement rows may lack names: never let "null"/"undefined" become searchable text.
+    const haystack = [item.subject, item.subjectFullName, item.note]
+      .filter((part): part is string => typeof part === "string")
+      .join(" ")
+      .toLowerCase();
     if (!haystack.includes(query)) {
       return false;
     }

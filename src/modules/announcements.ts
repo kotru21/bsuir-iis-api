@@ -1,9 +1,10 @@
-import { BsuirApiError, BsuirResponseValidationError } from "../client/errors";
+import { BsuirApiError } from "../client/errors";
 import { fetchAllSpringPages } from "../client/fetchAllPages";
 import { requestJson } from "../client/http";
 import { assertAnnouncementListResponse } from "../client/responseValidators";
 import type { InternalClientConfig } from "../client/types";
 import type { Announcement } from "../types/announcement";
+import { deepFreezeJson } from "../utils/deepFreezeJson";
 import { assertEmployeeUrlId, assertPositiveInt } from "../utils/guards";
 import type { ReadOptions } from "./types";
 
@@ -57,7 +58,7 @@ function isFirstPageNotFound(
  *
  * @returns The full announcement list, or empty array for first-request 404 when `treat404AsEmpty` is `true`
  * @throws {BsuirApiError} For non-404 errors, mid-pagination 404, or any 404 when `treat404AsEmpty` is `false`
- * @throws {BsuirConfigurationError} When pagination exceeds the 50-page safety cap
+ * @throws {BsuirResponseValidationError} On malformed pages or more than the 50-page safety cap
  * @throws {BsuirNetworkError} On transport failures
  * @throws {BsuirTimeoutError} When request times out
  */
@@ -65,7 +66,7 @@ async function requestAnnouncementList(
   config: Readonly<InternalClientConfig>,
   path: string,
   options: AnnouncementReadOptions & { query: Record<string, string | number> }
-): Promise<Announcement[]> {
+): Promise<readonly Announcement[]> {
   const treat404AsEmpty = options.treat404AsEmpty ?? true;
   const baseQuery = options.query;
 
@@ -86,18 +87,14 @@ async function requestAnnouncementList(
   try {
     const items = await fetchAllSpringPages<Announcement>(fetchPage, baseQuery, {
       maxPages: MAX_ANNOUNCEMENT_PAGES,
-      resourceLabel: "Announcements"
+      resourceLabel: "Announcements",
+      endpoint: path
     });
-    if (!Array.isArray(items)) {
-      throw new BsuirResponseValidationError(
-        `Invalid response payload for ${path}: expected array, got ${typeof items}`,
-        path
-      );
-    }
-    return items;
+    // Items are frozen page payloads; freeze the concatenated list as well.
+    return deepFreezeJson(items);
   } catch (error) {
     if (error instanceof BsuirApiError && isFirstPageNotFound(error, path, treat404AsEmpty)) {
-      return [];
+      return Object.freeze([]);
     }
     throw error;
   }
@@ -105,8 +102,8 @@ async function requestAnnouncementList(
 
 /** Announcements module: employee / department list helpers. */
 export interface AnnouncementsModule {
-  byEmployee(urlId: string, options?: AnnouncementReadOptions): Promise<Announcement[]>;
-  byDepartment(id: number, options?: AnnouncementReadOptions): Promise<Announcement[]>;
+  byEmployee(urlId: string, options?: AnnouncementReadOptions): Promise<readonly Announcement[]>;
+  byDepartment(id: number, options?: AnnouncementReadOptions): Promise<readonly Announcement[]>;
 }
 
 /**
@@ -129,7 +126,7 @@ export function createAnnouncementsModule(
     async byEmployee(
       urlId: string,
       options: AnnouncementReadOptions = {}
-    ): Promise<Announcement[]> {
+    ): Promise<readonly Announcement[]> {
       assertEmployeeUrlId(urlId, "urlId");
       return requestAnnouncementList(config, "/announcements/employees", {
         ...options,
@@ -147,7 +144,10 @@ export function createAnnouncementsModule(
      * When IIS returns a paginated Spring Data envelope, all pages are fetched
      * (safety cap: 50 pages) and concatenated into a single `Announcement[]`.
      */
-    async byDepartment(id: number, options: AnnouncementReadOptions = {}): Promise<Announcement[]> {
+    async byDepartment(
+      id: number,
+      options: AnnouncementReadOptions = {}
+    ): Promise<readonly Announcement[]> {
       assertPositiveInt(id, "id");
       return requestAnnouncementList(config, "/announcements/departments", {
         ...options,

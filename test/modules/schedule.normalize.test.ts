@@ -131,10 +131,10 @@ describe("schedule module — normalize and raw", () => {
       expect(Object.isFrozen(mondayFirst)).toBe(true);
       expect(mondayFirst.weekNumber && Object.isFrozen(mondayFirst.weekNumber)).toBe(true);
       expect(() => {
-        mondayFirst.note = "mutated";
+        (mondayFirst as { note: string | null }).note = "mutated";
       }).toThrow(TypeError);
       expect(() => {
-        mondayFirst.weekNumber?.push(4);
+        (mondayFirst.weekNumber as number[] | null)?.push(4);
       }).toThrow(TypeError);
     }
 
@@ -148,7 +148,7 @@ describe("schedule module — normalize and raw", () => {
     const first = normalized.lessons[0];
     if (first) {
       expect(() => {
-        normalized.lessons.push(first);
+        (normalized.lessons as (typeof first)[]).push(first);
       }).toThrow(TypeError);
       const employees = first.employees;
       if (Array.isArray(employees)) {

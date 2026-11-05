@@ -1,24 +1,15 @@
-import { BsuirConfigurationError } from "./errors";
+import { BsuirResponseValidationError } from "./errors";
+import { describeValue } from "./responseValidators";
 import { readSpringPageMeta, unwrapSpringPageContent, type SpringPageMeta } from "./springPage";
 
 /** Options for {@link fetchAllSpringPages}. */
 export interface FetchAllSpringPagesOptions {
   /** Hard safety cap on pages fetched for one logical call. */
   maxPages: number;
-  /** Human label for configuration errors (e.g. "Announcements"). */
+  /** Human label for error messages (e.g. "Announcements"). */
   resourceLabel: string;
-}
-
-function assertWithinPageCap(
-  totalPages: number | undefined,
-  maxPages: number,
-  resourceLabel: string
-): void {
-  if (typeof totalPages === "number" && totalPages > maxPages) {
-    throw new BsuirConfigurationError(
-      `${resourceLabel} pagination exceeded safety cap of ${String(maxPages)} pages (totalPages=${String(totalPages)})`
-    );
-  }
+  /** Request path reported on `BsuirResponseValidationError`. */
+  endpoint: string;
 }
 
 function hasMorePages(meta: SpringPageMeta, nextPage: number, contentLength: number): boolean {
@@ -36,45 +27,49 @@ function hasMorePages(meta: SpringPageMeta, nextPage: number, contentLength: num
   return contentLength >= meta.pageSize;
 }
 
-/** Cap is expressed as 0-based page index (`nextPage >= maxPages`). */
-function assertNextPageWithinCap(nextPage: number, maxPages: number, resourceLabel: string): void {
-  if (nextPage >= maxPages) {
-    throw new BsuirConfigurationError(
-      `${resourceLabel} pagination exceeded safety cap of ${String(maxPages)} pages`
-    );
-  }
-}
-
-function assertPageItemsArray(
-  pageItems: unknown,
-  resourceLabel: string
-): asserts pageItems is unknown[] {
-  if (!Array.isArray(pageItems)) {
-    throw new BsuirConfigurationError(
-      `${resourceLabel} pagination returned a non-array page payload`
-    );
-  }
-}
-
 /**
  * Fetches all Spring Data pages (or returns a plain array payload as-is).
  * Caller supplies `fetchPage`; this helper only handles unwrap + page loop + cap.
+ *
+ * Every failure here is about the shape of what IIS returned (non-array page,
+ * pagination that never advances, more pages than the safety cap), so all of them
+ * are reported as {@link BsuirResponseValidationError} with the request `endpoint`.
  */
 export async function fetchAllSpringPages<T>(
   fetchPage: (query: Record<string, string | number>) => Promise<unknown>,
   baseQuery: Record<string, string | number>,
   options: FetchAllSpringPagesOptions
 ): Promise<T[]> {
-  const { maxPages, resourceLabel } = options;
+  const { maxPages, resourceLabel, endpoint } = options;
+  const fail = (detail: string): never => {
+    throw new BsuirResponseValidationError(
+      `Invalid response payload for ${endpoint}: ${resourceLabel} ${detail}`,
+      endpoint
+    );
+  };
+  const asPageItems = (payload: unknown): T[] => {
+    const pageItems = unwrapSpringPageContent(payload);
+    if (!Array.isArray(pageItems)) {
+      return fail(`page must be an array or a page envelope, got ${describeValue(pageItems)}`);
+    }
+    return pageItems as T[];
+  };
+  const assertWithinCap = (pageCount: number): void => {
+    if (pageCount > maxPages) {
+      fail(`pagination exceeds the SDK safety cap of ${String(maxPages)} pages`);
+    }
+  };
+
   const firstPayload = await fetchPage(baseQuery);
+  const firstItems = asPageItems(firstPayload);
   const firstMeta = readSpringPageMeta(firstPayload);
   if (!firstMeta) {
-    return unwrapSpringPageContent(firstPayload) as T[];
+    return firstItems;
   }
 
-  assertWithinPageCap(firstMeta.totalPages, maxPages, resourceLabel);
-  // firstMeta is only set when `content` is an array, so unwrap is safe here.
-  const firstItems = unwrapSpringPageContent(firstPayload) as T[];
+  if (typeof firstMeta.totalPages === "number") {
+    assertWithinCap(firstMeta.totalPages);
+  }
   const items = [...firstItems];
   let pageNumber = firstMeta.pageNumber;
   let meta = firstMeta;
@@ -82,26 +77,24 @@ export async function fetchAllSpringPages<T>(
 
   while (hasMorePages(meta, pageNumber + 1, pageContentLength)) {
     const nextPage = pageNumber + 1;
-    assertNextPageWithinCap(nextPage, maxPages, resourceLabel);
+    // `nextPage` is 0-based, so fetching it means `nextPage + 1` pages in total.
+    assertWithinCap(nextPage + 1);
     const pagePayload = await fetchPage({
       ...baseQuery,
       page: nextPage,
       size: firstMeta.pageSize
     });
+    const pageItems = asPageItems(pagePayload);
+    items.push(...pageItems);
     const pageMeta = readSpringPageMeta(pagePayload);
-    const pageItems = unwrapSpringPageContent(pagePayload);
-    assertPageItemsArray(pageItems, resourceLabel);
-    items.push(...(pageItems as T[]));
     if (!pageMeta) {
       // Plain-array follow-up (or non-page envelope): accept items and stop.
       break;
     }
-    // Cap checks use nextPage = pageNumber + 1; if the envelope never advances
-    // pageNumber while last remains false, the loop would otherwise never end.
+    // If the envelope never advances pageNumber while `last` stays false, the loop
+    // would otherwise never end.
     if (pageMeta.pageNumber <= pageNumber) {
-      throw new BsuirConfigurationError(
-        `${resourceLabel} pagination did not advance (pageNumber stayed at ${String(pageMeta.pageNumber)})`
-      );
+      fail(`pagination did not advance (pageNumber stayed at ${String(pageMeta.pageNumber)})`);
     }
     pageNumber = pageMeta.pageNumber;
     meta = pageMeta;

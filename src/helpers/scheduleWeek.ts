@@ -79,25 +79,33 @@ function academicYearFirstMonday(year: number): number {
   return mondayOfWeek(firstDay);
 }
 
+/** Monday that starts week 1 of the academic year the week of `monday` belongs to. */
+function academicYearStart(monday: number): number {
+  const { year } = fromDayOrdinal(monday);
+  const start = academicYearFirstMonday(year);
+  return monday < start ? academicYearFirstMonday(year - 1) : start;
+}
+
 /**
  * BSUIR study week (1–4) of a calendar day.
  *
- * With an anchor, weeks are counted from the anchor's week (they change on Mondays).
- * Otherwise the academic calendar is used: week 1 is the Monday–Sunday week containing
- * 1 September and the 4-week cycle runs continuously through the academic year
- * (https://www.bsuir.by/en/understanding-your-timetable).
+ * With an anchor, weeks are counted from the anchor's week (they change on Mondays) —
+ * but only within the anchor's academic year: the cycle restarts at week 1 every
+ * September, so days in another academic year fall back to the calendar.
+ * Without an anchor the academic calendar is used: week 1 is the Monday–Sunday week
+ * containing 1 September and the 4-week cycle runs continuously through the academic
+ * year (https://www.bsuir.by/en/understanding-your-timetable).
  */
 export function studyWeekForDay(ordinal: number, anchor?: StudyWeekAnchor): number {
   const monday = mondayOfWeek(ordinal);
+  const yearStart = academicYearStart(monday);
   if (anchor) {
-    return cycleWeek(anchor.week, (monday - mondayOfWeek(anchor.ordinal)) / 7);
+    const anchorMonday = mondayOfWeek(anchor.ordinal);
+    if (academicYearStart(anchorMonday) === yearStart) {
+      return cycleWeek(anchor.week, (monday - anchorMonday) / 7);
+    }
   }
-  const { year } = fromDayOrdinal(ordinal);
-  let firstMonday = academicYearFirstMonday(year);
-  if (monday < firstMonday) {
-    firstMonday = academicYearFirstMonday(year - 1);
-  }
-  return cycleWeek(1, (monday - firstMonday) / 7);
+  return cycleWeek(1, (monday - yearStart) / 7);
 }
 
 /**

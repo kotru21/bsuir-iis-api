@@ -209,8 +209,8 @@ describe("announcements module", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
-  it("throws BsuirConfigurationError when totalPages exceeds safety cap", async () => {
-    const { BsuirConfigurationError } = await import("../../src/client/errors");
+  it("throws BsuirResponseValidationError when totalPages exceeds safety cap", async () => {
+    const { BsuirResponseValidationError } = await import("../../src/client/errors");
     const body = {
       content: [{ id: 1 }],
       pageable: { pageNumber: 0, pageSize: 20 },
@@ -221,7 +221,7 @@ describe("announcements module", () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body })]);
     const client = createBsuirClient({ fetch: fetchImpl, retries: 0 });
     await expect(client.announcements.byEmployee("v-petrov")).rejects.toBeInstanceOf(
-      BsuirConfigurationError
+      BsuirResponseValidationError
     );
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });

@@ -5,7 +5,10 @@ import type {
   ScheduleItem,
   ScheduleResponse
 } from "../types/schedule";
+import type { Weekday } from "../types/common";
 import { assertPositiveInt } from "../utils/guards";
+import { deepFreezeJson } from "../utils/deepFreezeJson";
+import { cloneMutable, type DeepMutable } from "../utils/mutable";
 import { asDayLessonArray } from "../helpers/scheduleDayLessons";
 import { filterLessons, lessonMatchesSubgroup } from "../helpers/scheduleFilter";
 import { shouldIncludeNextSchedules } from "./scheduleNormalize";
@@ -26,18 +29,18 @@ export interface ScheduleSubjectMethods {
     id: string,
     filter: ScheduleFilterOptions,
     options?: ScheduleReadOptions
-  ): Promise<FlattenedScheduleItem[]>;
-  getExams(id: string, options?: ScheduleReadOptions): Promise<FlattenedScheduleItem[]>;
+  ): Promise<readonly FlattenedScheduleItem[]>;
+  getExams(id: string, options?: ScheduleReadOptions): Promise<readonly FlattenedScheduleItem[]>;
   getBySubgroup(
     id: string,
     subgroup: number,
     options?: ScheduleReadOptions
-  ): Promise<FlattenedScheduleItem[]>;
+  ): Promise<readonly FlattenedScheduleItem[]>;
   getBySubgroupRaw(
     id: string,
     subgroup: number,
     options?: ScheduleReadOptions
-  ): Promise<ScheduleItem[]>;
+  ): Promise<readonly ScheduleItem[]>;
   getBySubgroupEnvelope(
     id: string,
     subgroup: number,
@@ -94,19 +97,19 @@ export function filterRawSubgroupEnvelope(
   subgroup: number,
   options: SubgroupFilterOptions
 ): ScheduleResponse {
-  const cloned = structuredClone(response);
+  const cloned = cloneMutable(response);
+  const keepSubgroup = (dayItems: unknown, field: string): DeepMutable<ScheduleItem>[] =>
+    (asDayLessonArray(dayItems, options.endpoint, field) as DeepMutable<ScheduleItem>[]).filter(
+      (lesson) => lessonMatchesSubgroup(lesson.numSubgroup, subgroup)
+    );
   const schedules = cloned.schedules ?? {};
-  for (const day of Object.keys(schedules) as (keyof typeof schedules)[]) {
-    const items = asDayLessonArray(schedules[day], options.endpoint, `schedules.${day}`);
-    schedules[day] = items.filter((lesson) => lessonMatchesSubgroup(lesson.numSubgroup, subgroup));
+  for (const day of Object.keys(schedules) as Weekday[]) {
+    schedules[day] = keepSubgroup(schedules[day], `schedules.${day}`);
   }
   if (options.includeNextSchedules === true) {
     const nextSchedules = cloned.nextSchedules ?? {};
-    for (const day of Object.keys(nextSchedules) as (keyof typeof nextSchedules)[]) {
-      const items = asDayLessonArray(nextSchedules[day], options.endpoint, `nextSchedules.${day}`);
-      nextSchedules[day] = items.filter((lesson) =>
-        lessonMatchesSubgroup(lesson.numSubgroup, subgroup)
-      );
+    for (const day of Object.keys(nextSchedules) as Weekday[]) {
+      nextSchedules[day] = keepSubgroup(nextSchedules[day], `nextSchedules.${day}`);
     }
   } else {
     delete cloned.nextSchedules;
@@ -124,7 +127,7 @@ export function createScheduleSubjectMethods(
     id: string,
     filter: ScheduleFilterOptions,
     options: ScheduleReadOptions = {}
-  ): Promise<FlattenedScheduleItem[]> {
+  ): Promise<readonly FlattenedScheduleItem[]> {
     const normalized = await fetcher.getNormalized(id, {
       ...(options.signal === undefined ? {} : { signal: options.signal }),
       ...(options.cache === undefined ? {} : { cache: options.cache }),
@@ -132,13 +135,13 @@ export function createScheduleSubjectMethods(
         ? {}
         : { includeNextSchedules: options.includeNextSchedules })
     });
-    return filterLessons(normalized, filter);
+    return deepFreezeJson(filterLessons(normalized, filter));
   }
 
   async function getExams(
     id: string,
     options: ScheduleReadOptions = {}
-  ): Promise<FlattenedScheduleItem[]> {
+  ): Promise<readonly FlattenedScheduleItem[]> {
     return getFiltered(id, { source: "exams" }, options);
   }
 
@@ -146,7 +149,7 @@ export function createScheduleSubjectMethods(
     id: string,
     subgroup: number,
     options: ScheduleReadOptions = {}
-  ): Promise<FlattenedScheduleItem[]> {
+  ): Promise<readonly FlattenedScheduleItem[]> {
     assertPositiveInt(subgroup, "subgroup");
     const normalized = await fetcher.getNormalized(id, {
       ...(options.signal === undefined ? {} : { signal: options.signal }),
@@ -157,21 +160,29 @@ export function createScheduleSubjectMethods(
     });
     // Normalization already applied the next-term rule (explicit option or empty
     // current term), so only exams are dropped here.
-    return filterLessons(normalized, { subgroup }).filter((item) => item.source !== "exams");
+    return deepFreezeJson(
+      filterLessons(normalized, { subgroup }).filter((item) => item.source !== "exams")
+    );
   }
 
   async function getBySubgroupRaw(
     id: string,
     subgroup: number,
     options: ScheduleReadOptions = {}
-  ): Promise<ScheduleItem[]> {
+  ): Promise<readonly ScheduleItem[]> {
     assertPositiveInt(subgroup, "subgroup");
     const raw = await fetcher.getRaw(id, options);
     const endpoint = fetcher.endpoint(id);
-    return filterRawSubgroupLessons(raw, subgroup, {
-      endpoint,
-      includeNextSchedules: shouldIncludeNextSchedules(raw, options.includeNextSchedules, endpoint)
-    });
+    return deepFreezeJson(
+      filterRawSubgroupLessons(raw, subgroup, {
+        endpoint,
+        includeNextSchedules: shouldIncludeNextSchedules(
+          raw,
+          options.includeNextSchedules,
+          endpoint
+        )
+      })
+    );
   }
 
   async function getBySubgroupEnvelope(
@@ -182,10 +193,16 @@ export function createScheduleSubjectMethods(
     assertPositiveInt(subgroup, "subgroup");
     const raw = await fetcher.getRaw(id, options);
     const endpoint = fetcher.endpoint(id);
-    return filterRawSubgroupEnvelope(raw, subgroup, {
-      endpoint,
-      includeNextSchedules: shouldIncludeNextSchedules(raw, options.includeNextSchedules, endpoint)
-    });
+    return deepFreezeJson(
+      filterRawSubgroupEnvelope(raw, subgroup, {
+        endpoint,
+        includeNextSchedules: shouldIncludeNextSchedules(
+          raw,
+          options.includeNextSchedules,
+          endpoint
+        )
+      })
+    );
   }
 
   return {

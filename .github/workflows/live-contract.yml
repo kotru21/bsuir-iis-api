@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   live-contract:
@@ -23,3 +24,19 @@ jobs:
       - run: npm run test:live
         env:
           BSUIR_LIVE_TESTS: "1"
+      # A scheduled failure means IIS changed its contract (e.g. `subject: null` rows in
+      # November 2026). Nobody watches scheduled runs, so open — or update — an issue.
+      - name: Report contract drift
+        if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Live contract against IIS is failing"
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "in:title \"$title\"" --json number --jq '.[0].number // empty')
+          body="Scheduled live contract run failed: $RUN_URL"
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
+          fi

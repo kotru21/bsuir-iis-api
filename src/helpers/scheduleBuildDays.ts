@@ -1,5 +1,5 @@
 import { filterLessons } from "./scheduleFilter";
-import { WEEKDAYS } from "../types/common";
+import { WEEKDAYS, type Weekday } from "../types/common";
 import type {
   BuildScheduleDaysOptions,
   FlattenedLessonsByDay,
@@ -34,10 +34,11 @@ import {
 
 type WeekResolver = (ordinal: number) => number | null;
 
-function createEmptyLessonsByDay(): FlattenedLessonsByDay {
-  return Object.fromEntries(
-    WEEKDAYS.map((day) => [day, [] as FlattenedScheduleItem[]])
-  ) as FlattenedLessonsByDay;
+function createEmptyLessonsByDay(): Record<Weekday, FlattenedScheduleItem[]> {
+  return Object.fromEntries(WEEKDAYS.map((day) => [day, [] as FlattenedScheduleItem[]])) as Record<
+    Weekday,
+    FlattenedScheduleItem[]
+  >;
 }
 
 function usesFourWeekCycle(response: NormalizedScheduleResponse): boolean {

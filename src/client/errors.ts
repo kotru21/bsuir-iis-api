@@ -1,20 +1,46 @@
+/**
+ * Common base class of every error the SDK throws on purpose.
+ *
+ * Catch it to tell SDK failures apart from bugs in your own code:
+ * `if (error instanceof BsuirError) { ... }`. A caller's own `AbortSignal`
+ * reason is re-thrown as-is and is therefore not a `BsuirError`.
+ */
+export class BsuirError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = "BsuirError";
+  }
+}
+
 /** HTTP error returned by IIS (non-2xx) after the SDK parses the body. */
-export class BsuirApiError extends Error {
+export class BsuirApiError extends BsuirError {
   readonly status: number;
   readonly endpoint: string;
   readonly body: unknown;
+  /**
+   * Server `Retry-After` hint in milliseconds, when the response carried a valid one.
+   * Set even when the SDK did not retry (e.g. the hint exceeded the 60 s ceiling).
+   */
+  readonly retryAfterMs: number | undefined;
 
-  constructor(message: string, status: number, endpoint: string, body: unknown) {
+  constructor(
+    message: string,
+    status: number,
+    endpoint: string,
+    body: unknown,
+    retryAfterMs?: number
+  ) {
     super(message);
     this.name = "BsuirApiError";
     this.status = status;
     this.endpoint = endpoint;
     this.body = body;
+    this.retryAfterMs = retryAfterMs;
   }
 }
 
 /** Thrown when a response body exceeds the configured `maxResponseBytes` limit. */
-export class BsuirResponsePayloadTooLargeError extends Error {
+export class BsuirResponsePayloadTooLargeError extends BsuirError {
   readonly status: number;
   readonly endpoint: string;
   readonly maxResponseBytes: number;
@@ -29,7 +55,7 @@ export class BsuirResponsePayloadTooLargeError extends Error {
 }
 
 /** Transport / network failure while talking to IIS. */
-export class BsuirNetworkError extends Error {
+export class BsuirNetworkError extends BsuirError {
   readonly endpoint: string;
 
   constructor(message: string, endpoint: string, cause: unknown) {
@@ -40,7 +66,7 @@ export class BsuirNetworkError extends Error {
 }
 
 /** Request aborted because the client-side timeout elapsed. */
-export class BsuirTimeoutError extends Error {
+export class BsuirTimeoutError extends BsuirError {
   readonly endpoint: string;
   readonly timeoutMs: number;
 
@@ -53,7 +79,7 @@ export class BsuirTimeoutError extends Error {
 }
 
 /** Invalid caller input (group number, urlId, ids, etc.). */
-export class BsuirValidationError extends Error {
+export class BsuirValidationError extends BsuirError {
   readonly field: string | undefined;
   readonly value: unknown;
 
@@ -69,10 +95,11 @@ export class BsuirValidationError extends Error {
  * Response shape failed runtime validation.
  *
  * Thrown for always-on structural envelope guards (catalog/announcement unwraps,
- * schedule maps/day buckets/`exams`) and for deep item/field checks when
+ * schedule maps/day buckets/`exams`, the `current-week` value, Spring pagination
+ * that is malformed or exceeds the safety cap) and for deep item/field checks when
  * `validateResponses` is enabled / `createBsuirClient.strict()` is used.
  */
-export class BsuirResponseValidationError extends Error {
+export class BsuirResponseValidationError extends BsuirError {
   readonly endpoint: string;
 
   constructor(message: string, endpoint: string) {
@@ -82,8 +109,11 @@ export class BsuirResponseValidationError extends Error {
   }
 }
 
-/** Misconfigured client or unsafe pagination (missing fetch, page-cap exceeded, etc.). */
-export class BsuirConfigurationError extends Error {
+/**
+ * Misconfigured client: missing `fetch`, invalid option values, a disallowed `baseUrl`,
+ * or a response redirected to a host outside `allowedBaseUrlHosts`.
+ */
+export class BsuirConfigurationError extends BsuirError {
   constructor(message: string) {
     super(message);
     this.name = "BsuirConfigurationError";

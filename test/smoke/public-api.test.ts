@@ -3,6 +3,7 @@ import type { AnnouncementReadOptions, CacheStore, ScheduleReadOptions } from ".
 import {
   BsuirApiError,
   BsuirConfigurationError,
+  BsuirError,
   BsuirNetworkError,
   BsuirResponsePayloadTooLargeError,
   BsuirResponseValidationError,
@@ -30,6 +31,7 @@ describe("public api", () => {
 
     expect(client).toHaveProperty("schedule");
     expect(BsuirApiError).toBeDefined();
+    expect(new BsuirApiError("x", 500, "/x", null)).toBeInstanceOf(BsuirError);
     expect(BsuirConfigurationError).toBeDefined();
     expect(BsuirNetworkError).toBeDefined();
     expect(BsuirResponseValidationError).toBeDefined();
