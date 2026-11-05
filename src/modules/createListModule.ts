@@ -1,7 +1,6 @@
-import { BsuirResponseValidationError } from "../client/errors";
 import { fetchAllSpringPages } from "../client/fetchAllPages";
 import { requestJson } from "../client/http";
-import { assertCatalogResponse, describeValue } from "../client/responseValidators";
+import { assertCatalogResponse, assertListPayload } from "../client/responseValidators";
 import { unwrapSpringPageContent } from "../client/springPage";
 import type { InternalClientConfig } from "../client/types";
 import type { Schema } from "../schema/core";
@@ -20,17 +19,6 @@ export interface ListModule<T> {
   listAllPages(options?: ReadOptions): Promise<readonly T[]>;
 }
 
-function assertUnwrappedList(payload: unknown, endpoint: string): unknown[] {
-  const unwrapped = unwrapSpringPageContent(payload);
-  if (!Array.isArray(unwrapped)) {
-    throw new BsuirResponseValidationError(
-      `Invalid response payload for ${endpoint}: expected array, got ${describeValue(unwrapped)}`,
-      endpoint
-    );
-  }
-  return unwrapped;
-}
-
 /**
  * Creates a simple catalog-like module exposing `listAll()` / `listAllPages()` for a fixed endpoint.
  * `itemSchema` (bound to the DTO interface) validates every item in strict mode.
@@ -40,9 +28,14 @@ export function createListModule<T>(
   endpoint: string,
   itemSchema: Schema<T>
 ): ListModule<T> {
+  // Always set, so even the structural check runs before the cache write and on cache
+  // hits: a 2xx HTML page used to be cached and fail every call until the TTL expired.
   function responseValidator(value: unknown): void {
-    const unwrapped = unwrapSpringPageContent(value);
-    assertCatalogResponse(unwrapped, endpoint, itemSchema);
+    if (config.validateResponses) {
+      assertCatalogResponse(unwrapSpringPageContent(value), endpoint, itemSchema);
+    } else {
+      assertListPayload(value, endpoint);
+    }
   }
 
   return {
@@ -58,10 +51,10 @@ export function createListModule<T>(
       const payload = await requestJson<unknown>(config, endpoint, {
         signal: options.signal,
         cache: options.cache,
-        responseValidator: config.validateResponses ? responseValidator : undefined
+        responseValidator
       });
-      // Unwrapped from an already deep-frozen payload.
-      return assertUnwrappedList(payload, endpoint) as readonly T[];
+      // `responseValidator` proved the shape; unwrapped from an already deep-frozen payload.
+      return unwrapSpringPageContent(payload) as readonly T[];
     },
 
     /**
@@ -76,7 +69,7 @@ export function createListModule<T>(
           signal: options.signal,
           cache: options.cache,
           query,
-          responseValidator: config.validateResponses ? responseValidator : undefined
+          responseValidator
         });
 
       const items = await fetchAllSpringPages<T>(

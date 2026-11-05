@@ -125,26 +125,20 @@ export async function requestJson<T>(
   const canUseDedup = config.dedupeInFlight && !signalAborted && cacheMode === "default";
   const requestKey = buildRequestKey(endpoint);
 
-  let lastSuccessResponse:
-    { hookCtx: RequestHookContext; durationMs: number; status: number } | undefined;
-
-  const runResponseValidator = (payload: T): void => {
+  /**
+   * Runs `responseValidator`; a rejection is reported to `onError` (with the context of
+   * the attempt / cache hit that produced the payload) and re-thrown. `onResponse` is
+   * fired by the callers only after this passes, so every call ends with exactly one
+   * of the two.
+   */
+  const validateOrReport = (payload: T, hookCtx: RequestHookContext, durationMs: number): void => {
     if (!options.responseValidator) {
       return;
     }
-    const responseMeta = lastSuccessResponse ?? {
-      hookCtx: baseHookContext(path, endpoint, maxAttempts, maxAttempts, options.query),
-      durationMs: 0
-    };
     try {
       options.responseValidator(payload);
     } catch (error: unknown) {
-      const errorCtx: ErrorHookContext = {
-        ...responseMeta.hookCtx,
-        durationMs: responseMeta.durationMs,
-        error,
-        deduplicated: false
-      };
+      const errorCtx: ErrorHookContext = { ...hookCtx, durationMs, error, deduplicated: false };
       invokeHookSafely(config.hooks.onError, errorCtx);
       throw error;
     }
@@ -153,8 +147,20 @@ export async function requestJson<T>(
   if (canReadFromCache) {
     const cached = tryReadCacheEntry(config, requestKey);
     if (cached !== undefined) {
-      const cacheHitCtx: ResponseHookContext = {
-        ...baseHookContext(path, endpoint, 1, maxAttempts, options.query),
+      const cacheHitCtx = baseHookContext(path, endpoint, 1, maxAttempts, options.query);
+      // Re-validate on cache hit so a shared/hand-populated store cannot bypass
+      // responseValidator when the current client has validation configured.
+      const cachedValue = cached.value as T;
+      try {
+        validateOrReport(cachedValue, cacheHitCtx, 0);
+      } catch (error: unknown) {
+        // Evict the rejected entry: otherwise every call fails from cache until the
+        // TTL expires, while the next network response might well be valid.
+        config.responseCache.delete(requestKey);
+        throw error;
+      }
+      const cacheHitResponseCtx: ResponseHookContext = {
+        ...cacheHitCtx,
         // Entries written by this pipeline always carry the real status; the 200
         // fallback only covers hand-populated cache maps.
         status: cached.status ?? 200,
@@ -162,18 +168,7 @@ export async function requestJson<T>(
         fromCache: true,
         deduplicated: false
       };
-      invokeHookSafely(config.hooks.onResponse, cacheHitCtx);
-      // Re-validate on cache hit so a shared/hand-populated store cannot bypass
-      // responseValidator when the current client has validation configured.
-      const cachedValue = cached.value as T;
-      try {
-        runResponseValidator(cachedValue);
-      } catch (error: unknown) {
-        // Evict the rejected entry: otherwise every call fails from cache until the
-        // TTL expires, while the next network response might well be valid.
-        config.responseCache.delete(requestKey);
-        throw error;
-      }
+      invokeHookSafely(config.hooks.onResponse, cacheHitResponseCtx);
       return cachedValue;
     }
   }
@@ -181,20 +176,24 @@ export async function requestJson<T>(
   const requestAndMaybeCache = async (
     signal: AbortSignal | undefined
   ): Promise<SharedRequestResult> => {
-    const payload = await performRequestWithRetry<T>({
+    const { payload, hookCtx, durationMs, status } = await performRequestWithRetry<T>({
       config,
       path,
       endpoint,
       headers,
       options: { ...options, signal },
       maxRetries,
-      maxAttempts,
-      onSuccessMeta: (meta) => {
-        lastSuccessResponse = meta;
-      }
+      maxAttempts
     });
-    runResponseValidator(payload);
-    const status = lastSuccessResponse?.status;
+    validateOrReport(payload, hookCtx, durationMs);
+    const responseCtx: ResponseHookContext = {
+      ...hookCtx,
+      status,
+      durationMs,
+      fromCache: false,
+      deduplicated: false
+    };
+    invokeHookSafely(config.hooks.onResponse, responseCtx);
     if (canWriteToCache) {
       const cached = setCache(config, requestKey, payload, status);
       if (cached !== undefined) {

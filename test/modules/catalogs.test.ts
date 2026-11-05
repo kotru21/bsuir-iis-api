@@ -163,6 +163,37 @@ describe("catalog modules", () => {
     expect(groups.toSorted((a, b) => a.id - b.id).map((group) => group.id)).toEqual([1, 2]);
   });
 
+  it("does not cache a 2xx HTML page and refetches on the next call (non-strict)", async () => {
+    const html = (): Response =>
+      new Response("<html>maintenance</html>", {
+        status: 200,
+        headers: { "Content-Type": "text/html" }
+      });
+    const fetchImpl = mockFetchSequence([
+      html(),
+      createJsonResponse({ body: [{ id: 1, name: "F", abbrev: "F" }] }),
+      html(),
+      createJsonResponse({ body: [{ id: 2 }] })
+    ]);
+    const onResponse = vi.fn();
+    const onError = vi.fn();
+    const client = createBsuirClient({
+      fetch: fetchImpl,
+      cache: { ttlMs: 60_000 },
+      hooks: { onResponse, onError }
+    });
+
+    await expect(client.faculties.listAll()).rejects.toBeInstanceOf(BsuirResponseValidationError);
+    // The failed call ends with onError only — never a misleading onResponse.
+    expect(onResponse).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledOnce();
+    await expect(client.faculties.listAll()).resolves.toHaveLength(1);
+
+    await expect(client.groups.listAllPages()).rejects.toBeInstanceOf(BsuirResponseValidationError);
+    await expect(client.groups.listAllPages()).resolves.toEqual([{ id: 2 }]);
+    expect(fetchImpl).toHaveBeenCalledTimes(4);
+  });
+
   it("freezes the concatenated listAllPages result", async () => {
     const fetchImpl = mockFetchSequence([
       createJsonResponse({ body: { content: [{ id: 1 }], number: 0, size: 1, last: false } }),

@@ -12,6 +12,7 @@ import {
   studentGroupCatalogItemSchema
 } from "../../src/schema/dto";
 import { BsuirResponseValidationError } from "../../src/client/errors";
+import { normalizeSchedule } from "../../src";
 import { buildScheduleResponse } from "../modules/scheduleFixtures";
 
 describe("response validators", () => {
@@ -217,6 +218,27 @@ describe("response validators — schedule item level", () => {
       });
     }
     expect(() => assertScheduleResponse(payload, "/schedule")).not.toThrow();
+  });
+
+  it("accepts announcement rows with auditories: null (live: group 450504, Nov 2026)", () => {
+    const payload = buildScheduleResponse();
+    const lesson = payload.schedules?.Понедельник?.[0];
+    if (lesson) {
+      Object.assign(lesson, {
+        subject: null,
+        lessonTypeAbbrev: null,
+        auditories: null,
+        announcement: true,
+        startLessonTime: "01:00",
+        endLessonTime: "23:00",
+        dateLesson: "06.11.2026"
+      });
+    }
+    expect(() => assertScheduleResponse(payload, "/schedule")).not.toThrow();
+    // Normalized views keep their array guarantee.
+    const normalized = normalizeSchedule(payload, { validate: true });
+    expect(normalized.lessonsByDay.Понедельник[0]?.auditories).toEqual([]);
+    expect(normalized.schedules.Понедельник?.[0]?.auditories).toEqual([]);
   });
 
   it("still rejects non-string, non-null subject", () => {

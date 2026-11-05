@@ -8,6 +8,7 @@ import {
   type Schema
 } from "../schema/core";
 import { announcementSchema, scheduleResponseSchema } from "../schema/dto";
+import { unwrapSpringPageContent } from "./springPage";
 import type { Announcement } from "../types/announcement";
 import type { ScheduleResponse } from "../types/schedule";
 
@@ -37,6 +38,23 @@ function ensureRecord(
 }
 
 const announcementListSchema = array(announcementSchema);
+
+/**
+ * Always-on list shape for catalogs and announcements: a plain array or a Spring page
+ * envelope whose `content` is an array. Item fields are left to strict mode.
+ *
+ * Runs as the request's `responseValidator` (before the cache write and on cache hits),
+ * so a 2xx maintenance page is never cached and served until the TTL expires.
+ */
+export function assertListPayload(payload: unknown, endpoint: string): void {
+  const items = unwrapSpringPageContent(payload);
+  if (!Array.isArray(items)) {
+    throw new BsuirResponseValidationError(
+      `Invalid response payload for ${endpoint}: expected array, got ${describeValue(items)}`,
+      endpoint
+    );
+  }
+}
 
 /**
  * Asserts that a catalog payload is an array whose items match `itemSchema`.

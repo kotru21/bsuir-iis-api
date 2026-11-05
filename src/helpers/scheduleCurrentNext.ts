@@ -94,6 +94,33 @@ function parseLessonTime(
 }
 
 /**
+ * IIS announcement rows (`announcement: true`) sit in the timetable next to real lessons,
+ * sometimes spanning almost the whole day ("01:00–23:00"). Current/next lookups prefer
+ * regular lessons and fall back to such rows only when no regular lesson qualifies.
+ */
+function isAnnouncementRow(lesson: LessonWithTime): boolean {
+  return (lesson as { announcement?: unknown }).announcement === true;
+}
+
+/** First lesson matching `predicate`, regular lessons before announcement rows. */
+function findPreferringLessons<T extends LessonWithTime>(
+  sortedLessons: readonly T[],
+  predicate: (lesson: T) => boolean
+): T | null {
+  let announcementMatch: T | null = null;
+  for (const lesson of sortedLessons) {
+    if (!predicate(lesson)) {
+      continue;
+    }
+    if (!isAnnouncementRow(lesson)) {
+      return lesson;
+    }
+    announcementMatch ??= lesson;
+  }
+  return announcementMatch;
+}
+
+/**
  * Returns a new lessons array sorted by start time, then by end time.
  * Invalid or missing time strings are kept at the end in original order.
  *
@@ -137,7 +164,9 @@ export function sortLessonsByTime<T extends LessonWithTime>(
  *
  * Time comparison uses the wall-clock time of `now` in `options.timeZone` (Minsk by
  * default): `startLessonTime <= now < endLessonTime`. A lesson is not considered active
- * exactly at its end time.
+ * exactly at its end time. A regular lesson wins over an IIS announcement row
+ * (`announcement: true`, e.g. one spanning "01:00–23:00"); such a row is returned only
+ * when no regular lesson is active.
  *
  * @param lessons - Lessons for one day (or any same-day set).
  * @param now - Optional current moment override.
@@ -157,18 +186,15 @@ export function getCurrentLesson<T extends LessonWithTime>(
   const nowMinutes = minutesOfDay(now, options?.timeZone);
   const hook = options?.onInvalidTime;
   const sortedLessons = sortLessonsByTime(lessons, { onInvalidTime: hook });
-  for (const lesson of sortedLessons) {
+  return findPreferringLessons(sortedLessons, (lesson) => {
     // Hook already fired during sort; re-parse without reporting again.
     const start = parseLessonTime(lesson, "startLessonTime", undefined);
     const end = parseLessonTime(lesson, "endLessonTime", undefined);
     if (start === null || end === null || end <= start) {
-      continue;
+      return false;
     }
-    if (nowMinutes >= start && nowMinutes < end) {
-      return lesson;
-    }
-  }
-  return null;
+    return nowMinutes >= start && nowMinutes < end;
+  });
 }
 
 /**
@@ -177,6 +203,8 @@ export function getCurrentLesson<T extends LessonWithTime>(
  * A lesson starting exactly at `now` is not returned (use {@link getCurrentLesson} instead).
  * A lesson that just ended at `now` is also not returned as current — the next one is.
  * `now` is read as wall-clock time in `options.timeZone` (Minsk by default).
+ * The earliest upcoming regular lesson wins over IIS announcement rows
+ * (`announcement: true`); such a row is returned only when no regular lesson is upcoming.
  *
  * @param lessons - Lessons for one day (or any same-day set).
  * @param now - Optional current moment override.
@@ -196,15 +224,9 @@ export function getNextLesson<T extends LessonWithTime>(
   const nowMinutes = minutesOfDay(now, options?.timeZone);
   const hook = options?.onInvalidTime;
   const sortedLessons = sortLessonsByTime(lessons, { onInvalidTime: hook });
-  for (const lesson of sortedLessons) {
+  return findPreferringLessons(sortedLessons, (lesson) => {
     // Hook already fired during sort; re-parse without reporting again.
     const start = parseLessonTime(lesson, "startLessonTime", undefined);
-    if (start === null) {
-      continue;
-    }
-    if (start > nowMinutes) {
-      return lesson;
-    }
-  }
-  return null;
+    return start !== null && start > nowMinutes;
+  });
 }

@@ -6,6 +6,8 @@ const GROUP_NUMBER_PATTERN = /^\d+$/;
 // Live IIS slugs transliterate the soft sign as an apostrophe ("a-kuz'mich",
 // "e-mel'nikova"), so it is allowed between letters like the hyphen.
 const EMPLOYEE_URL_ID_PATTERN = /^[a-z0-9]+(?:['-][a-z0-9]+)*$/i;
+// Department slugs from `/departments` (`kaf-vmip`, `kaf-in.iaz`): also allow dots.
+const DEPARTMENT_URL_ID_PATTERN = /^[a-z0-9]+(?:[.'-][a-z0-9]+)*$/i;
 
 /**
  * Asserts that a value is a non-empty string.
@@ -46,6 +48,33 @@ export function assertEmployeeUrlId(value: unknown, fieldName = "urlId"): assert
   if (!EMPLOYEE_URL_ID_PATTERN.test(value)) {
     throw new BsuirValidationError(
       `'${fieldName}' must be a valid slug (letters, digits, hyphens, apostrophes)`,
+      fieldName,
+      value
+    );
+  }
+}
+
+/**
+ * Asserts that a value is a department `urlId` slug (`Department.urlId`, e.g. `"kaf-vmip"`).
+ *
+ * A number gets a dedicated message: 2.x `byDepartment(id)` took the numeric `Department.id`,
+ * which IIS rejects with HTTP 400.
+ */
+export function assertDepartmentUrlId(
+  value: unknown,
+  fieldName = "urlId"
+): asserts value is string {
+  if (typeof value === "number") {
+    throw new BsuirValidationError(
+      `'${fieldName}' must be the department urlId slug (Department.urlId, e.g. "kaf-vmip"), not its numeric id`,
+      fieldName,
+      value
+    );
+  }
+  assertNonEmptyString(value, fieldName);
+  if (!DEPARTMENT_URL_ID_PATTERN.test(value)) {
+    throw new BsuirValidationError(
+      `'${fieldName}' must be a valid department slug (letters, digits, hyphens, dots), e.g. "kaf-vmip"`,
       fieldName,
       value
     );

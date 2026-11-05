@@ -133,11 +133,11 @@ Catalog list methods always resolve to arrays. If IIS returns a Spring Data page
 ### Announcements
 
 - `client.announcements.byEmployee(urlId, options?)`
-- `client.announcements.byDepartment(id, options?)`
+- `client.announcements.byDepartment(urlId, options?)` — `urlId` is the department slug (`Department.urlId` from `client.departments.listAll()`, e.g. `"kaf-vmip"`), not the numeric `id`
 
 Both methods always resolve to `Announcement[]`. IIS may respond with a plain JSON array (legacy) or a Spring Data page envelope (`{ content: [...], pageable, totalElements, ... }`); the SDK unwraps `content` automatically so callers do not need to handle the envelope.
 
-When IIS responds with HTTP `404` (the employee or department has no announcements), these methods resolve to an empty array `[]` instead of throwing `BsuirApiError`. Pass `treat404AsEmpty: false` to receive the underlying `BsuirApiError` instead. Client-side validation still runs first (`urlId`, department `id`); all other HTTP errors (including `400`) are always thrown so malformed-request bugs are not silently masked.
+When IIS responds with HTTP `404` (the employee or department has no announcements), these methods resolve to an empty array `[]` instead of throwing `BsuirApiError`. Pass `treat404AsEmpty: false` to receive the underlying `BsuirApiError` instead. Client-side validation still runs first (employee and department `urlId`); all other HTTP errors (including `400`) are always thrown so malformed-request bugs are not silently masked.
 
 **Pagination note:** IIS serves announcements as Spring Data pages (default `size` 20) using `page` / `size` query params. The SDK fetches **all pages** and returns the concatenated `Announcement[]`. If IIS reports more than **50** pages, or a page is malformed, the SDK throws `BsuirResponseValidationError` (safety cap). Catalog **`listAll()`** still unwraps the first page only; use **`listAllPages()`** to fetch every catalog page under the same 50-page cap.
 
@@ -355,6 +355,9 @@ Search hints: `getGroup`, `getEmployee`, `BySubgroup`, `Filtered(`, `Exams(`.
 - **Every client result is deep-frozen**, with or without `cache` / `dedupeInFlight`. Previously only cached/deduplicated payloads were frozen, so in-place mutation worked in development and threw `TypeError` once caching was on.
 - **DTO and result types are `readonly`** (`readonly T[]` lists, `readonly` fields), matching the frozen runtime data.
 - `ScheduleItem.subject` / `subjectFullName` are `string | null`: IIS sends `null` on announcement rows. `createBsuirClient.strict()` used to reject the whole schedule of such groups.
+- `ScheduleItem.auditories` is `readonly string[] | null`: announcement rows without a room carry `auditories: null` (strict mode rejected those schedules). Normalized lessons (`FlattenedScheduleItem`, and the `schedules` / `exams` maps of `schedule.get`) still always have an array.
+- **`announcements.byDepartment(urlId)`** takes the department slug (`Department.urlId`, e.g. `"kaf-vmip"`; the field is new on `Department`). The numeric `id` it took in 2.x is rejected by IIS with HTTP 400 on every call; a number now fails fast with `BsuirValidationError`.
+- **`getCurrentLesson` / `getNextLesson`** (and `buildScheduleDays`' `currentLesson` / `nextLesson`) prefer regular lessons over IIS announcement rows, which can span `01:00–23:00` and used to be reported as the current lesson all day.
 - **Error classes:** every SDK error extends the new `BsuirError`. `getCurrentWeek()` reports a bad body as `BsuirResponseValidationError` (was `BsuirValidationError`). Malformed or over-cap pagination is `BsuirResponseValidationError` (was `BsuirConfigurationError`). Invalid `Date` arguments to helpers throw `BsuirValidationError` (was `TypeError`).
 - **`currentWeek` anchor** applies within its academic year only: dates from 1 September onwards restart at week 1.
 - **`baseUrl`:** explicit ports are accepted for any allowlisted host; `allowInsecureHttp` works for any allowlisted host except `iis.bsuir.by`; redirects outside `allowedBaseUrlHosts` are rejected.
@@ -366,7 +369,8 @@ Search hints: `getGroup`, `getEmployee`, `BySubgroup`, `Filtered(`, `Exams(`.
 - **`dedupeInFlight` works with per-call signals** (see Client options) instead of being silently disabled. `ResponseHookContext` / `ErrorHookContext` gain `deduplicated: boolean`; joined callers now get their own `onResponse` / `onError`.
 - **Strict mode** (`validateResponses` / `createBsuirClient.strict()` / `normalizeSchedule(…, { validate: true })`) rejects lessons under a day key other than the six BSUIR weekdays (e.g. `"Воскресенье"`). Without strict mode such buckets are kept in `normalized.schedules` instead of being dropped (they are still not part of `lessons` / `lessonsByDay`).
 - **`buildScheduleDays({ onInvalidTime })`** reports malformed times for every day of the range, once per lesson and field. It used to report only today's lessons, twice.
-- **Cache:** a cached entry that fails validation is evicted, and a junk `current-week` body is no longer cached.
+- **Cache:** a cached entry that fails validation is evicted, and a body that fails the always-on checks (a 2xx maintenance page from any endpoint — schedules, `current-week`, catalogs, announcements) is no longer cached.
+- **Hooks:** `onResponse` fires only after the response (or cache hit) passed validation, so a rejected body ends with `onError` alone. It used to fire `onResponse` followed by `onError` (and only `onResponse` for a non-array catalog body).
 - `formatEmployeeShortName` returns `"И.И."` (no leading space) when the last name is empty.
 
 **Mapping**

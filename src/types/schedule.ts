@@ -16,13 +16,18 @@ export interface LessonStudentGroup {
  *
  * IIS also places announcement rows in the timetable (`announcement: true`, e.g.
  * "Последняя лекция в семестре"): they carry a `note` and a `dateLesson`, but
- * `subject`, `subjectFullName` and `lessonTypeAbbrev` are `null`.
+ * `subject`, `subjectFullName` and `lessonTypeAbbrev` are `null`, and `auditories`
+ * is `null` when no room is attached.
  */
 export interface ScheduleItem {
   readonly weekNumber: readonly number[] | null;
   readonly studentGroups: readonly LessonStudentGroup[];
   readonly numSubgroup: number;
-  readonly auditories: readonly string[];
+  /**
+   * Room names; `null` on announcement rows without a room. {@link normalizeSchedule}
+   * turns `null` into `[]` (see {@link FlattenedScheduleItem.auditories}).
+   */
+  readonly auditories: readonly string[] | null;
   readonly startLessonTime: string;
   readonly endLessonTime: string;
   /** Short subject name; `null` on announcement rows (`announcement: true`). */
@@ -69,6 +74,8 @@ export type FlattenedScheduleSource = "schedules" | "exams" | "nextSchedules";
 
 /** Schedule lesson with weekday / source metadata added by {@link normalizeSchedule}. */
 export interface FlattenedScheduleItem extends ScheduleItem {
+  /** Always an array after normalization (`null` in the raw payload becomes `[]`). */
+  readonly auditories: readonly string[];
   readonly day: Weekday | null;
   readonly source: FlattenedScheduleSource;
 }
@@ -76,7 +83,7 @@ export interface FlattenedScheduleItem extends ScheduleItem {
 /** Lessons grouped by BSUIR weekday after normalization. */
 export type FlattenedLessonsByDay = Readonly<Record<Weekday, readonly FlattenedScheduleItem[]>>;
 
-/** Criteria for {@link filterLessons} and schedule `get*Filtered` helpers. */
+/** Criteria for {@link filterLessons} and the `filter` option of `schedule.get` / `normalizeSchedule`. */
 export interface ScheduleFilterOptions {
   source?: FlattenedScheduleSource;
   weekday?: Weekday;

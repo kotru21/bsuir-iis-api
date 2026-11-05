@@ -28,7 +28,7 @@ export interface AnnouncementReadOptions extends ReadOptions {
 // @public
 export interface AnnouncementsModule {
     // (undocumented)
-    byDepartment(id: number, options?: AnnouncementReadOptions): Promise<readonly Announcement[]>;
+    byDepartment(urlId: string, options?: AnnouncementReadOptions): Promise<readonly Announcement[]>;
     // (undocumented)
     byEmployee(urlId: string, options?: AnnouncementReadOptions): Promise<readonly Announcement[]>;
 }
@@ -263,6 +263,7 @@ export interface Department {
     readonly id: number;
     // (undocumented)
     readonly name: string;
+    readonly urlId: string;
 }
 
 // @public
@@ -351,6 +352,7 @@ export type FlattenedLessonsByDay = Readonly<Record<Weekday, readonly FlattenedS
 
 // @public
 export interface FlattenedScheduleItem extends ScheduleItem {
+    readonly auditories: readonly string[];
     // (undocumented)
     readonly day: Weekday | null;
     // (undocumented)
@@ -559,8 +561,7 @@ export interface ScheduleFilterOptions {
 export interface ScheduleItem {
     // (undocumented)
     readonly announcement: boolean;
-    // (undocumented)
-    readonly auditories: readonly string[];
+    readonly auditories: readonly string[] | null;
     // (undocumented)
     readonly dateLesson: Maybe<string>;
     // (undocumented)

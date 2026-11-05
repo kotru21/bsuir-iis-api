@@ -10,6 +10,8 @@ export interface Department {
   readonly id: number;
   readonly name: string;
   readonly abbrev: string;
+  /** Slug such as `"kaf-vmip"`; pass it to `announcements.byDepartment`. */
+  readonly urlId: string;
 }
 
 /** Education form (full-time, part-time, etc.) nested under specialities. */

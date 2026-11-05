@@ -18,7 +18,8 @@ import { deepFreezeJson } from "../utils/deepFreezeJson";
 import { lessonAuditories } from "../utils/lessonAuditories";
 import { cloneMutable, type DeepMutable } from "../utils/mutable";
 
-type MutableItem = DeepMutable<ScheduleItem>;
+/** Owned lesson after {@link normalizeSchedule} replaced a `null` `auditories` with `[]`. */
+type MutableItem = DeepMutable<ScheduleItem> & { auditories: string[] };
 
 function shouldFlattenNextSchedules(
   includeNextSchedules: boolean | undefined,
@@ -70,6 +71,8 @@ export function normalizeSchedule(
   options?: NormalizeScheduleOptions
 ): NormalizedScheduleResponse {
   type MutableDayMap = Record<string, MutableItem[]>;
+  /** Owned day map before `ownedBucket` normalized its lessons. */
+  type SourceDayMap = Record<string, DeepMutable<ScheduleItem>[]>;
   const endpoint = options?.endpoint ?? "/schedule";
   const filter: ScheduleFilterOptions | undefined = options?.filter;
   if (filter) {
@@ -124,7 +127,7 @@ export function normalizeSchedule(
 
   // Current term. The next-term fallback below is decided on the unfiltered count:
   // filtering one subgroup out of a populated term must not pull in next-term rows.
-  const sourceSchedules: MutableDayMap = source.schedules ?? {};
+  const sourceSchedules: SourceDayMap = source.schedules ?? {};
   const normalizedSchedules: MutableDayMap = {};
   let currentLessonCount = 0;
   for (const day of WEEKDAYS) {
@@ -156,7 +159,7 @@ export function normalizeSchedule(
 
   // Next term: flattened per the rule above; the map itself is narrowed when filtering.
   const flattenNext = shouldFlattenNextSchedules(options?.includeNextSchedules, currentLessonCount);
-  const sourceNext: MutableDayMap | null | undefined = source.nextSchedules;
+  const sourceNext: SourceDayMap | null | undefined = source.nextSchedules;
   const filteredNext: MutableDayMap = {};
   if (sourceNext && (flattenNext || filter)) {
     for (const day of WEEKDAYS) {

@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { createBsuirClient } from "../../src";
-import { BsuirApiError } from "../../src/client/errors";
+import {
+  BsuirApiError,
+  BsuirResponseValidationError,
+  BsuirValidationError
+} from "../../src/client/errors";
 import { createJsonResponse, mockFetchSequence } from "../helpers/fetchMock";
 
 describe("announcements module", () => {
@@ -71,7 +75,9 @@ describe("announcements module", () => {
   it("rethrows 400 errors", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ status: 400, body: {} })]);
     const client = createBsuirClient({ fetch: fetchImpl });
-    await expect(client.announcements.byDepartment(1)).rejects.toBeInstanceOf(BsuirApiError);
+    await expect(client.announcements.byDepartment("kaf-vmip")).rejects.toBeInstanceOf(
+      BsuirApiError
+    );
   });
 
   it("rethrows non-404/400 errors", async () => {
@@ -108,7 +114,7 @@ describe("announcements module", () => {
       createJsonResponse({ status: 404, body: { message: "No announcements" } })
     ]);
     const client = createBsuirClient({ fetch: fetchImpl, retries: 0 });
-    await expect(client.announcements.byDepartment(5)).resolves.toEqual([]);
+    await expect(client.announcements.byDepartment("kaf-vmip")).resolves.toEqual([]);
   });
 
   it("invokes onError for 404 before treat404AsEmpty maps to empty array", async () => {
@@ -133,8 +139,49 @@ describe("announcements module", () => {
     const body = [{ id: 2, text: "Расписание" }];
     const fetchImpl = mockFetchSequence([createJsonResponse({ body })]);
     const client = createBsuirClient({ fetch: fetchImpl });
-    const result = await client.announcements.byDepartment(5);
+    const result = await client.announcements.byDepartment("kaf-vmip");
     expect(result).toHaveLength(1);
+  });
+
+  it("sends the department slug as url-id (IIS rejects a numeric id with HTTP 400)", async () => {
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: [] })]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+    await client.announcements.byDepartment("kaf-in.iaz");
+    const input = vi.mocked(fetchImpl).mock.calls[0]?.[0];
+    const url = new URL(
+      typeof input === "string" ? input : String(input instanceof URL ? input : "")
+    );
+    expect(url.pathname).toBe("/api/v1/announcements/departments");
+    expect(url.searchParams.get("url-id")).toBe("kaf-in.iaz");
+    expect(url.searchParams.has("id")).toBe(false);
+  });
+
+  it("rejects a numeric department id with a migration hint, before any request", async () => {
+    const fetchImpl = mockFetchSequence([]);
+    const client = createBsuirClient({ fetch: fetchImpl });
+    // Untyped 2.x-style call sites still pass the numeric `Department.id`.
+    const untyped = client.announcements as unknown as {
+      byDepartment: (urlId: unknown) => Promise<unknown>;
+    };
+    await expect(untyped.byDepartment(20_036)).rejects.toThrow(/urlId slug.*not its numeric id/);
+    await expect(untyped.byDepartment("kaf vmip")).rejects.toBeInstanceOf(BsuirValidationError);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("does not cache a 2xx HTML page and refetches on the next call (non-strict)", async () => {
+    const fetchImpl = mockFetchSequence([
+      new Response("<html>maintenance</html>", {
+        status: 200,
+        headers: { "Content-Type": "text/html" }
+      }),
+      createJsonResponse({ body: [{ id: 1 }] })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl, cache: { ttlMs: 60_000 } });
+    await expect(client.announcements.byDepartment("kaf-vmip")).rejects.toBeInstanceOf(
+      BsuirResponseValidationError
+    );
+    await expect(client.announcements.byDepartment("kaf-vmip")).resolves.toEqual([{ id: 1 }]);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
   it("unwraps empty content array from paginated envelope", async () => {
@@ -146,7 +193,7 @@ describe("announcements module", () => {
     };
     const fetchImpl = mockFetchSequence([createJsonResponse({ body })]);
     const client = createBsuirClient({ fetch: fetchImpl });
-    await expect(client.announcements.byDepartment(1)).resolves.toEqual([]);
+    await expect(client.announcements.byDepartment("kaf-vmip")).resolves.toEqual([]);
   });
 
   it("fetches all pages and concatenates announcement content", async () => {
@@ -210,7 +257,6 @@ describe("announcements module", () => {
   });
 
   it("throws BsuirResponseValidationError when totalPages exceeds safety cap", async () => {
-    const { BsuirResponseValidationError } = await import("../../src/client/errors");
     const body = {
       content: [{ id: 1 }],
       pageable: { pageNumber: 0, pageSize: 20 },

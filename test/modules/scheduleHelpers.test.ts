@@ -323,6 +323,41 @@ describe("schedule helpers", () => {
     expect(next?.subject).toBe("Пара 2");
   });
 
+  it("prefers regular lessons over IIS announcement rows for current/next", () => {
+    // Shape of a live IIS row (group 450504, 06.11.2026): an all-day announcement.
+    const allDayAnnouncement = makeLesson({
+      subject: null,
+      subjectFullName: null,
+      lessonTypeAbbrev: null,
+      auditories: null,
+      note: "Сдать КП",
+      announcement: true,
+      startLessonTime: "01:00",
+      endLessonTime: "23:00"
+    });
+    const lecture = makeLesson({
+      subject: "СхемТ",
+      startLessonTime: "10:05",
+      endLessonTime: "11:30"
+    });
+    const earlyAnnouncement = makeLesson({
+      subject: null,
+      announcement: true,
+      startLessonTime: "11:40",
+      endLessonTime: "11:50"
+    });
+    const lab = makeLesson({ subject: "ИиУВМ", startLessonTime: "12:00", endLessonTime: "13:25" });
+    const lessons = [allDayAnnouncement, lecture, earlyAnnouncement, lab];
+
+    expect(getCurrentLesson(lessons, minskTime(2026, 10, 6, 10, 30))?.subject).toBe("СхемТ");
+    expect(getNextLesson(lessons, minskTime(2026, 10, 6, 11, 35))?.subject).toBe("ИиУВМ");
+    // Falls back to the announcement row when no regular lesson qualifies.
+    expect(getCurrentLesson(lessons, minskTime(2026, 10, 6, 20, 0))).toBe(allDayAnnouncement);
+    expect(getNextLesson([earlyAnnouncement], minskTime(2026, 10, 6, 11, 0))).toBe(
+      earlyAnnouncement
+    );
+  });
+
   it("builds schedule day models and supports empty-day filtering", () => {
     const schedule = buildNormalizedSchedule();
     const now = minskTime(2025, 4, 12, 9, 30);

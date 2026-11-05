@@ -5,8 +5,8 @@ import type { LiveClient } from "./client";
 /** Known employee fixture used by announcements + schedule probes. */
 export const LIVE_EMPLOYEE_URL_ID = "s-nesterenkov";
 
-/** Known department id used by announcements.byDepartment. */
-export const LIVE_DEPARTMENT_ID = 20_027;
+/** Known department slug (`Department.urlId`) used by announcements.byDepartment. */
+export const LIVE_DEPARTMENT_URL_ID = "kaf-vmip";
 
 const PROBE_LIMIT = 50;
 /** Stop scanning when IIS schedule looks degraded (avoids beforeAll hook timeouts). */

@@ -83,7 +83,8 @@ export const facultySchema = object<Faculty>({
 export const departmentSchema = object<Department>({
   id: number(),
   name: string(),
-  abbrev: string()
+  abbrev: string(),
+  urlId: string()
 });
 
 const educationFormSchema = object<EducationForm>({
@@ -163,7 +164,8 @@ export const scheduleItemSchema = object<ScheduleItem>({
   weekNumber: nullable(array(number())),
   studentGroups: array(lessonStudentGroupSchema),
   numSubgroup: number(),
-  auditories: array(string()),
+  // Announcement rows without a room carry `auditories: null` on live IIS payloads.
+  auditories: nullable(array(string())),
   startLessonTime: string(),
   endLessonTime: string(),
   // Announcement rows (`announcement: true`) carry `subject: null` on live IIS payloads.

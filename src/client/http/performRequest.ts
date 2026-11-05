@@ -14,7 +14,6 @@ import type {
   QueryParams,
   RequestHookContext,
   RequestOptions,
-  ResponseHookContext,
   RetryHookContext
 } from "../types";
 import { isAbortError } from "../../utils/guards";
@@ -96,19 +95,28 @@ export interface PerformRequestParams {
   options: RequestOptions;
   maxRetries: number;
   maxAttempts: number;
-  onSuccessMeta: (meta: {
-    hookCtx: RequestHookContext;
-    durationMs: number;
-    status: number;
-  }) => void;
+}
+
+/** Parsed 2xx body plus what the caller needs to report it to `onResponse`. */
+export interface PerformRequestResult<T> {
+  payload: T;
+  /** Context of the attempt that succeeded. */
+  hookCtx: RequestHookContext;
+  durationMs: number;
+  status: number;
 }
 
 /**
  * Executes a single HTTP request with retry/backoff and lifecycle hooks.
+ *
+ * Fires `onRequest` / `onRetry` / `onError`, but not `onResponse`: the caller reports
+ * success only after its `responseValidator` accepted the payload, so a rejected body
+ * ends with `onError` alone (one terminal event per call).
  */
-export async function performRequestWithRetry<T>(params: PerformRequestParams): Promise<T> {
-  const { config, path, endpoint, headers, options, maxRetries, maxAttempts, onSuccessMeta } =
-    params;
+export async function performRequestWithRetry<T>(
+  params: PerformRequestParams
+): Promise<PerformRequestResult<T>> {
+  const { config, path, endpoint, headers, options, maxRetries, maxAttempts } = params;
 
   let previousAttempt: { hookCtx: RequestHookContext; startedAt: number } | undefined;
 
@@ -184,17 +192,12 @@ export async function performRequestWithRetry<T>(params: PerformRequestParams): 
       }
 
       const parsed = (await parseBody(response, config.maxResponseBytes, endpoint)) as T;
-      const durationMs = Date.now() - startedAt;
-      const responseCtx: ResponseHookContext = {
-        ...hookCtx,
-        status: response.status,
-        durationMs,
-        fromCache: false,
-        deduplicated: false
+      return {
+        payload: parsed,
+        hookCtx,
+        durationMs: Date.now() - startedAt,
+        status: response.status
       };
-      invokeHookSafely(config.hooks.onResponse, responseCtx);
-      onSuccessMeta({ hookCtx, durationMs, status: response.status });
-      return parsed;
     } catch (error: unknown) {
       // Non-2xx, invalid JSON on 2xx, oversized bodies and disallowed redirects are final
       // (and must not fall through to the network-error branch below, which retries).

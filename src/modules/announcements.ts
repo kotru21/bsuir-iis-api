@@ -1,11 +1,11 @@
 import { BsuirApiError } from "../client/errors";
 import { fetchAllSpringPages } from "../client/fetchAllPages";
 import { requestJson } from "../client/http";
-import { assertAnnouncementListResponse } from "../client/responseValidators";
+import { assertAnnouncementListResponse, assertListPayload } from "../client/responseValidators";
 import type { InternalClientConfig } from "../client/types";
 import type { Announcement } from "../types/announcement";
 import { deepFreezeJson } from "../utils/deepFreezeJson";
-import { assertEmployeeUrlId, assertPositiveInt } from "../utils/guards";
+import { assertDepartmentUrlId, assertEmployeeUrlId } from "../utils/guards";
 import type { ReadOptions } from "./types";
 
 /** Hard safety cap on Spring pages fetched for one announcements call. */
@@ -77,11 +77,15 @@ async function requestAnnouncementList(
       signal: options.signal,
       cache: options.cache,
       query,
-      responseValidator: config.validateResponses
-        ? (value) => {
-            assertAnnouncementListResponse(value, path);
-          }
-        : undefined
+      // Always set: the structural check must run before the cache write, or a 2xx HTML
+      // page would be cached and fail every call until the TTL expired.
+      responseValidator: (value) => {
+        if (config.validateResponses) {
+          assertAnnouncementListResponse(value, path);
+        } else {
+          assertListPayload(value, path);
+        }
+      }
     });
 
   try {
@@ -103,7 +107,11 @@ async function requestAnnouncementList(
 /** Announcements module: employee / department list helpers. */
 export interface AnnouncementsModule {
   byEmployee(urlId: string, options?: AnnouncementReadOptions): Promise<readonly Announcement[]>;
-  byDepartment(id: number, options?: AnnouncementReadOptions): Promise<readonly Announcement[]>;
+  /**
+   * @param urlId - Department slug from the `/departments` catalog (`Department.urlId`,
+   * e.g. `"kaf-vmip"`) — not the numeric `Department.id`, which IIS rejects with HTTP 400.
+   */
+  byDepartment(urlId: string, options?: AnnouncementReadOptions): Promise<readonly Announcement[]>;
 }
 
 /**
@@ -135,23 +143,25 @@ export function createAnnouncementsModule(
     },
 
     /**
-     * Lists announcements for a department.
+     * Lists announcements for a department, identified by its `urlId` slug
+     * (`Department.urlId` from `client.departments.listAll()`, e.g. `"kaf-vmip"`).
      *
-     * IIS responds with HTTP 404 when the department has no announcements. By default
-     * the SDK maps that to `[]`; pass `treat404AsEmpty: false` to receive the
-     * underlying `BsuirApiError` instead.
+     * IIS answers an unknown slug with `[]`; a 404 is mapped to `[]` as well unless
+     * `treat404AsEmpty: false` is passed.
      *
      * When IIS returns a paginated Spring Data envelope, all pages are fetched
      * (safety cap: 50 pages) and concatenated into a single `Announcement[]`.
      */
     async byDepartment(
-      id: number,
+      urlId: string,
       options: AnnouncementReadOptions = {}
     ): Promise<readonly Announcement[]> {
-      assertPositiveInt(id, "id");
+      assertDepartmentUrlId(urlId, "urlId");
+      // IIS reads `url-id` (the department slug); the numeric `id` it used to take now
+      // fails with HTTP 400.
       return requestAnnouncementList(config, "/announcements/departments", {
         ...options,
-        query: { id }
+        query: { "url-id": urlId }
       });
     }
   };

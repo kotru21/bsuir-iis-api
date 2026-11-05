@@ -100,7 +100,10 @@ export interface RetryHookContext extends RequestHookContext {
   status: number | undefined;
 }
 
-/** Context passed to `hooks.onResponse` after a successful parse. */
+/**
+ * Context passed to `hooks.onResponse` once a response (or cache hit) was parsed and
+ * accepted by the endpoint's response checks. A body rejected by them fires `onError` instead.
+ */
 export interface ResponseHookContext extends RequestHookContext {
   status: number;
   durationMs: number;
