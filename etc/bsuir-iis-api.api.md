@@ -41,14 +41,13 @@ export interface Auditory {
     readonly buildingNumber: BuildingNumber;
     // (undocumented)
     readonly capacity: number | null;
-    // (undocumented)
-    readonly department: AuditoryDepartment;
+    readonly department: AuditoryDepartment | null;
     // (undocumented)
     readonly id: number;
     // (undocumented)
     readonly name: string;
     // (undocumented)
-    readonly note: string;
+    readonly note: string | null;
 }
 
 // @public
@@ -292,8 +291,7 @@ export interface Employee {
     readonly jobPositions: Maybe<readonly string[]>;
     // (undocumented)
     readonly lastName: string;
-    // (undocumented)
-    readonly middleName: string;
+    readonly middleName: Maybe<string>;
     // (undocumented)
     readonly photoLink: string;
     // (undocumented)
@@ -318,18 +316,17 @@ export interface EmployeeCatalogItem {
     readonly id: number;
     // (undocumented)
     readonly lastName: string;
-    // (undocumented)
-    readonly middleName: string;
+    readonly middleName: Maybe<string>;
     // (undocumented)
     readonly photoLink: string;
-    // (undocumented)
-    readonly rank: string;
+    readonly rank: Maybe<string>;
     // (undocumented)
     readonly urlId: string;
 }
 
 // @public
 export interface ErrorHookContext extends RequestHookContext {
+    deduplicated: boolean;
     // (undocumented)
     durationMs: number;
     // (undocumented)
@@ -470,6 +467,7 @@ export function normalizeSchedule(response: ScheduleResponse, options?: Normaliz
 // @public
 export interface NormalizeScheduleOptions {
     endpoint?: string;
+    filter?: ScheduleFilterOptions;
     includeNextSchedules?: boolean;
     validate?: boolean;
 }
@@ -507,6 +505,7 @@ export interface ResponseCacheEntry {
 
 // @public
 export interface ResponseHookContext extends RequestHookContext {
+    deduplicated: boolean;
     // (undocumented)
     durationMs: number;
     // (undocumented)
@@ -553,7 +552,6 @@ export interface ScheduleFilterOptions {
     subjectQuery?: string;
     // (undocumented)
     weekday?: Weekday;
-    // (undocumented)
     weekNumber?: number;
 }
 
@@ -593,40 +591,14 @@ export interface ScheduleItem {
 
 // @public
 export interface ScheduleModule {
-    // (undocumented)
+    get(target: ScheduleTarget, options?: ScheduleReadOptions): Promise<NormalizedScheduleResponse>;
     getCurrentWeek(options?: ReadOptions): Promise<number>;
-    // (undocumented)
-    getEmployee(urlId: string, options?: ScheduleReadOptions): Promise<NormalizedScheduleResponse>;
-    // (undocumented)
-    getEmployeeBySubgroup(urlId: string, subgroup: number, options?: ScheduleReadOptions): Promise<readonly FlattenedScheduleItem[]>;
-    // (undocumented)
-    getEmployeeBySubgroupEnvelope(urlId: string, subgroup: number, options?: ScheduleReadOptions): Promise<ScheduleResponse>;
-    // (undocumented)
-    getEmployeeBySubgroupRaw(urlId: string, subgroup: number, options?: ScheduleReadOptions): Promise<readonly ScheduleItem[]>;
-    // (undocumented)
-    getEmployeeExams(urlId: string, options?: ScheduleReadOptions): Promise<readonly FlattenedScheduleItem[]>;
-    // (undocumented)
-    getEmployeeFiltered(urlId: string, filter: ScheduleFilterOptions, options?: ScheduleReadOptions): Promise<readonly FlattenedScheduleItem[]>;
-    // (undocumented)
-    getEmployeeRaw(urlId: string, options?: ReadOptions): Promise<ScheduleResponse>;
-    // (undocumented)
-    getGroup(groupNumber: string, options?: ScheduleReadOptions): Promise<NormalizedScheduleResponse>;
-    // (undocumented)
-    getGroupBySubgroup(groupNumber: string, subgroup: number, options?: ScheduleReadOptions): Promise<readonly FlattenedScheduleItem[]>;
-    // (undocumented)
-    getGroupBySubgroupEnvelope(groupNumber: string, subgroup: number, options?: ScheduleReadOptions): Promise<ScheduleResponse>;
-    // (undocumented)
-    getGroupBySubgroupRaw(groupNumber: string, subgroup: number, options?: ScheduleReadOptions): Promise<readonly ScheduleItem[]>;
-    // (undocumented)
-    getGroupExams(groupNumber: string, options?: ScheduleReadOptions): Promise<readonly FlattenedScheduleItem[]>;
-    // (undocumented)
-    getGroupFiltered(groupNumber: string, filter: ScheduleFilterOptions, options?: ScheduleReadOptions): Promise<readonly FlattenedScheduleItem[]>;
-    // (undocumented)
-    getGroupRaw(groupNumber: string, options?: ReadOptions): Promise<ScheduleResponse>;
+    getRaw(target: ScheduleTarget, options?: ReadOptions): Promise<ScheduleResponse>;
 }
 
 // @public
 export interface ScheduleReadOptions extends ReadOptions {
+    filter?: ScheduleFilterOptions;
     includeNextSchedules?: boolean;
 }
 
@@ -654,6 +626,15 @@ export interface ScheduleResponse {
     // (undocumented)
     readonly studentGroupDto: Maybe<StudentGroupCatalogItem>;
 }
+
+// @public
+export type ScheduleTarget = {
+    readonly group: string;
+    readonly employee?: never;
+} | {
+    readonly employee: string;
+    readonly group?: never;
+};
 
 // @public
 export interface ScheduleTimeZoneOptions {
@@ -688,8 +669,7 @@ export type SpecialityEducationForm = EducationForm | readonly EducationForm[];
 export interface StudentGroupCatalogItem {
     // (undocumented)
     readonly calendarId: string;
-    // (undocumented)
-    readonly course: number;
+    readonly course: number | null;
     // (undocumented)
     readonly educationDegree?: number;
     // (undocumented)

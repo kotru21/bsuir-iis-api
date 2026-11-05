@@ -4,7 +4,8 @@ import type { Maybe } from "./common";
 export interface Employee {
   readonly firstName: string;
   readonly lastName: string;
-  readonly middleName: string;
+  /** `null` for employees without a patronymic. */
+  readonly middleName: Maybe<string>;
   readonly degree: string;
   readonly degreeAbbrev?: string;
   readonly email: Maybe<string>;
@@ -20,9 +21,11 @@ export interface Employee {
 export interface EmployeeCatalogItem {
   readonly firstName: string;
   readonly lastName: string;
-  readonly middleName: string;
+  /** `null` for employees without a patronymic. */
+  readonly middleName: Maybe<string>;
   readonly degree: string;
-  readonly rank: string;
+  /** Academic rank; `null` for most employees on live IIS payloads. */
+  readonly rank: Maybe<string>;
   readonly photoLink: string;
   readonly calendarId: string;
   readonly academicDepartment?: readonly string[];

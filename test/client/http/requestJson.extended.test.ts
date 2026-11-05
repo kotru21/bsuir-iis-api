@@ -18,7 +18,7 @@ describe("requestJson — additional branches", () => {
       validateResponses: false,
       hooks: { onRequest }
     });
-    await clientWithHook.schedule.getGroup("053503");
+    await clientWithHook.schedule.get({ group: "053503" });
     expect(onRequest).toHaveBeenCalledOnce();
     expect(capturedHeaders?.get("Accept")).toBe("application/json");
     expect(capturedMethod).toBe("GET");

@@ -3,17 +3,22 @@ import {
   assertScheduleStructuralEnvelope
 } from "../client/responseValidators";
 import { asDayLessonArray } from "../helpers/scheduleDayLessons";
-import { WEEKDAYS, type Weekday } from "../types/common";
+import { assertScheduleFilter, lessonMatchesFilter } from "../helpers/scheduleFilter";
+import { isWeekday, WEEKDAYS, type Weekday } from "../types/common";
 import type {
   FlattenedScheduleItem,
+  FlattenedScheduleSource,
   NormalizeScheduleOptions,
   NormalizedScheduleResponse,
+  ScheduleFilterOptions,
   ScheduleItem,
   ScheduleResponse
 } from "../types/schedule";
 import { deepFreezeJson } from "../utils/deepFreezeJson";
 import { lessonAuditories } from "../utils/lessonAuditories";
 import { cloneMutable, type DeepMutable } from "../utils/mutable";
+
+type MutableItem = DeepMutable<ScheduleItem>;
 
 function shouldFlattenNextSchedules(
   includeNextSchedules: boolean | undefined,
@@ -30,22 +35,10 @@ function shouldFlattenNextSchedules(
   return currentLessonCount === 0;
 }
 
-/**
- * Same next-term rule as {@link normalizeSchedule}, applied to a raw envelope:
- * explicit `includeNextSchedules` wins, otherwise next-term rows are used only when
- * current-term `schedules` has no lessons.
- */
-export function shouldIncludeNextSchedules(
-  response: ScheduleResponse,
-  includeNextSchedules: boolean | undefined,
-  endpoint: string
-): boolean {
-  const schedules = response.schedules ?? {};
-  const currentLessonCount = WEEKDAYS.reduce(
-    (count, day) => count + asDayLessonArray(schedules[day], endpoint, `schedules.${day}`).length,
-    0
-  );
-  return shouldFlattenNextSchedules(includeNextSchedules, currentLessonCount);
+/** Lessons of one bucket that pass the filter, in raw and flattened form. */
+interface BucketView {
+  items: MutableItem[];
+  flattened: FlattenedScheduleItem[];
 }
 
 /**
@@ -56,106 +49,157 @@ export function shouldIncludeNextSchedules(
  * automatically. Pass `includeNextSchedules: true` to always include them, or
  * `false` to keep current-term rows only.
  *
- * The returned payload is **deep-frozen**: every view (`lessons`,
- * `lessonsByDay`, `scheduleLessons`, `examLessons`, `schedules`, `exams`) and
- * all nested objects share one immutable structure, so mutating any part of it
- * throws in strict mode. Clone a lesson explicitly if you need a mutable copy.
- * The input `response` is never mutated or frozen — normalization works on an
- * owned deep clone via `structuredClone`, so the input must be JSON-cloneable
- * (plain objects, arrays and primitives; no functions or class instances).
+ * With `filter`, **every** view is narrowed to matching lessons — `lessons`,
+ * `lessonsByDay`, `scheduleLessons`, `examLessons` and the `schedules` / `exams` /
+ * `nextSchedules` maps — so the result is a complete schedule of, e.g., one subgroup
+ * that date helpers (`buildScheduleDays`, …) accept as-is. The next-term rule above is
+ * decided on the unfiltered timetable.
+ *
+ * Only {@link WEEKDAYS} buckets are flattened into `lessons` / `lessonsByDay`.
+ * Buckets under any other key (e.g. `"Воскресенье"`) are kept in `schedules` as-is;
+ * with `validate: true` a non-empty one fails with `BsuirResponseValidationError`.
+ *
+ * The returned payload is **deep-frozen**: every view and all nested objects share one
+ * immutable structure, so mutating any part of it throws in strict mode. Clone a lesson
+ * explicitly if you need a mutable copy. The input `response` is never mutated or
+ * frozen — normalization works on an owned deep clone via `structuredClone`, so the
+ * input must be JSON-cloneable (plain objects, arrays and primitives).
  */
 export function normalizeSchedule(
   response: ScheduleResponse,
   options?: NormalizeScheduleOptions
 ): NormalizedScheduleResponse {
+  type MutableDayMap = Record<string, MutableItem[]>;
   const endpoint = options?.endpoint ?? "/schedule";
+  const filter: ScheduleFilterOptions | undefined = options?.filter;
+  if (filter) {
+    assertScheduleFilter(filter);
+  }
   if (options?.validate) {
-    // Full envelope + item-field validation via the single source of truth.
+    // Full envelope + DTO schema validation.
     assertScheduleResponse(response, endpoint);
   } else {
-    // Always-on structural shape (maps/arrays) — same rules as the deep path,
-    // without item-field checks. Prevents silent empty schedules when IIS
-    // returns `schedules: []` / non-array `exams`.
+    // Always-on structural shape (maps/arrays), without item-field checks. Prevents
+    // silent empty schedules when IIS returns `schedules: []` / non-array `exams`.
     assertScheduleStructuralEnvelope(response, endpoint);
   }
 
   // Own the data before building frozen views: freezing must never leak into the
   // caller's raw object through shared DTO references (employeeDto, nextSchedules…).
-  type MutableItem = DeepMutable<ScheduleItem>;
   const source = cloneMutable(response);
-  const ownedDayItems = (dayItems: unknown, field: string): MutableItem[] =>
+
+  /** Day bucket as an owned array with normalized `auditories`. */
+  const ownedBucket = (dayItems: unknown, field: string): MutableItem[] => {
     // The structural guard above accepted the bucket; the clone is ours to edit.
-    asDayLessonArray(dayItems, endpoint, field) as MutableItem[];
+    const items = asDayLessonArray(dayItems, endpoint, field) as MutableItem[];
+    for (const item of items) {
+      item.auditories = lessonAuditories(item);
+    }
+    return items;
+  };
+
+  /** Flattens a bucket and keeps the lessons (raw + flattened) that pass `filter`. */
+  const viewOf = (
+    items: MutableItem[],
+    day: Weekday | null,
+    lessonSource: FlattenedScheduleSource
+  ): BucketView => {
+    const view: BucketView = { items: [], flattened: [] };
+    for (const item of items) {
+      const flattened: FlattenedScheduleItem = { ...item, day, source: lessonSource };
+      if (filter && !lessonMatchesFilter(flattened, filter)) {
+        continue;
+      }
+      view.items.push(item);
+      view.flattened.push(flattened);
+    }
+    return view;
+  };
 
   const scheduleLessons: FlattenedScheduleItem[] = [];
-  const examLessons: FlattenedScheduleItem[] = [];
   const nextScheduleLessons: FlattenedScheduleItem[] = [];
   const lessonsByDay = Object.fromEntries(
     WEEKDAYS.map((day) => [day, [] as FlattenedScheduleItem[]])
   ) as Record<Weekday, FlattenedScheduleItem[]>;
-  const sourceSchedules = source.schedules ?? {};
-  const normalizedSchedules: Partial<Record<Weekday, MutableItem[]>> = {};
-  // Structural guard already rejected non-array non-nullish exams; null/absent → [].
-  const normalizedExams = source.exams ?? [];
 
+  // Current term. The next-term fallback below is decided on the unfiltered count:
+  // filtering one subgroup out of a populated term must not pull in next-term rows.
+  const sourceSchedules: MutableDayMap = source.schedules ?? {};
+  const normalizedSchedules: MutableDayMap = {};
+  let currentLessonCount = 0;
   for (const day of WEEKDAYS) {
-    const dayItems = ownedDayItems(sourceSchedules[day], `schedules.${day}`);
-    for (const item of dayItems) {
-      item.auditories = lessonAuditories(item);
-    }
+    const items = ownedBucket(sourceSchedules[day], `schedules.${day}`);
+    currentLessonCount += items.length;
+    const view = viewOf(items, day, "schedules");
     if (Object.hasOwn(sourceSchedules, day)) {
-      normalizedSchedules[day] = dayItems;
+      normalizedSchedules[day] = view.items;
     }
-
-    const flattenedDayItems: FlattenedScheduleItem[] = dayItems.map((item) => ({
-      ...item,
-      day,
-      source: "schedules" as const
-    }));
-    lessonsByDay[day] = flattenedDayItems;
-    scheduleLessons.push(...flattenedDayItems);
+    lessonsByDay[day] = view.flattened;
+    scheduleLessons.push(...view.flattened);
+  }
+  // Keys outside WEEKDAYS (e.g. "Воскресенье") cannot be flattened into the weekday
+  // views, but must not silently vanish either: they stay in `schedules` like any other
+  // bucket. `validate: true` / strict clients reject non-empty ones as contract drift.
+  for (const [key, dayItems] of Object.entries(sourceSchedules)) {
+    if (isWeekday(key)) {
+      continue;
+    }
+    normalizedSchedules[key] = viewOf(
+      ownedBucket(dayItems, `schedules.${key}`),
+      null,
+      "schedules"
+    ).items;
   }
 
-  for (const exam of normalizedExams) {
-    exam.auditories = lessonAuditories(exam);
-    const flattenedExam: FlattenedScheduleItem = {
-      ...exam,
-      day: null,
-      source: "exams"
-    };
-    examLessons.push(flattenedExam);
-  }
+  // Structural guard already rejected non-array non-nullish exams; null/absent → [].
+  const examView = viewOf(ownedBucket(source.exams ?? [], "exams"), null, "exams");
 
-  if (shouldFlattenNextSchedules(options?.includeNextSchedules, scheduleLessons.length)) {
-    const sourceNext = source.nextSchedules ?? {};
+  // Next term: flattened per the rule above; the map itself is narrowed when filtering.
+  const flattenNext = shouldFlattenNextSchedules(options?.includeNextSchedules, currentLessonCount);
+  const sourceNext: MutableDayMap | null | undefined = source.nextSchedules;
+  const filteredNext: MutableDayMap = {};
+  if (sourceNext && (flattenNext || filter)) {
     for (const day of WEEKDAYS) {
-      const dayItems = ownedDayItems(sourceNext[day], `nextSchedules.${day}`);
-      for (const item of dayItems) {
-        item.auditories = lessonAuditories(item);
-      }
-      const flattenedDayItems: FlattenedScheduleItem[] = dayItems.map((item) => ({
-        ...item,
+      const view = viewOf(
+        ownedBucket(sourceNext[day], `nextSchedules.${day}`),
         day,
-        source: "nextSchedules" as const
-      }));
-      lessonsByDay[day] = [...lessonsByDay[day], ...flattenedDayItems];
-      nextScheduleLessons.push(...flattenedDayItems);
+        "nextSchedules"
+      );
+      if (Object.hasOwn(sourceNext, day)) {
+        filteredNext[day] = view.items;
+      }
+      if (!flattenNext) {
+        continue;
+      }
+      lessonsByDay[day] = [...lessonsByDay[day], ...view.flattened];
+      nextScheduleLessons.push(...view.flattened);
+    }
+    for (const [key, dayItems] of Object.entries(sourceNext)) {
+      if (isWeekday(key)) {
+        continue;
+      }
+      filteredNext[key] = viewOf(
+        ownedBucket(dayItems, `nextSchedules.${key}`),
+        null,
+        "nextSchedules"
+      ).items;
     }
   }
 
-  const lessons = [...scheduleLessons, ...examLessons, ...nextScheduleLessons];
+  const lessons = [...scheduleLessons, ...examView.flattened, ...nextScheduleLessons];
 
   // One freeze pass over the whole result keeps every view consistent: flattened
-  // items share nested references with `schedules` / `exams`, so freezing per-view
-  // used to leave those maps half-mutable (nested arrays frozen, item objects not).
+  // items share nested references with the maps, so freezing per-view used to leave
+  // those maps half-mutable (nested arrays frozen, item objects not).
   const normalized: NormalizedScheduleResponse = {
     ...source,
+    ...(filter && sourceNext ? { nextSchedules: filteredNext } : {}),
     schedules: normalizedSchedules,
-    exams: normalizedExams,
+    exams: examView.items,
     lessons,
     lessonsByDay,
     scheduleLessons,
-    examLessons
+    examLessons: examView.flattened
   };
   return deepFreezeJson(normalized);
 }

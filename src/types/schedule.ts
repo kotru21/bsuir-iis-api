@@ -80,6 +80,12 @@ export type FlattenedLessonsByDay = Readonly<Record<Weekday, readonly FlattenedS
 export interface ScheduleFilterOptions {
   source?: FlattenedScheduleSource;
   weekday?: Weekday;
+  /**
+   * Positive week number. Matches lessons whose `weekNumber` list contains it, plus
+   * weekly timetable rows with a `null` / empty `weekNumber` (they run every week,
+   * as in `getLessonsForDate`). Exams and rows pinned to a `dateLesson` match only an
+   * explicit list.
+   */
   weekNumber?: number;
   /**
    * Positive subgroup number (1 or 2 on typical IIS payloads).
@@ -111,6 +117,14 @@ export interface NormalizeScheduleOptions {
    * Pass `false` to never flatten `nextSchedules`.
    */
   includeNextSchedules?: boolean;
+  /**
+   * Narrows **every** view of the result (`lessons`, `lessonsByDay`, `scheduleLessons`,
+   * `examLessons` and the `schedules` / `exams` / `nextSchedules` maps) to lessons
+   * matching these criteria — e.g. `{ subgroup: 2 }` yields a complete schedule of one
+   * subgroup (shared `numSubgroup: 0` lessons included) for the date helpers. The
+   * `includeNextSchedules` fallback is decided on the unfiltered timetable.
+   */
+  filter?: ScheduleFilterOptions;
 }
 
 /**
@@ -189,10 +203,11 @@ export interface BuildScheduleDaysOptions extends StudyWeekOptions {
    */
   includeCurrentAndNextLessons?: boolean;
   /**
-   * Callback fired once per lesson whose `startLessonTime` or `endLessonTime`
-   * cannot be parsed as `HH:MM`. The lesson is otherwise still included in the
-   * day's `lessons` array but sorted to the end. Use this to surface upstream
-   * data issues that would otherwise be silently ignored.
+   * Callback fired once per lesson and malformed field (`startLessonTime` /
+   * `endLessonTime` that cannot be parsed as `HH:MM`) found on any day of the range —
+   * a weekly lesson repeated on several days is reported once. The lesson is otherwise
+   * still included in the day's `lessons` array but sorted to the end. Use this to
+   * surface upstream data issues that would otherwise be silently ignored.
    *
    * Errors thrown by the hook are caught and discarded.
    */

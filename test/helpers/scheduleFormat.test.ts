@@ -173,6 +173,10 @@ describe("formatEmployeeShortName", () => {
     expect(formatEmployeeShortName(makeEmployee({ firstName: "", middleName: "" }))).toBe("Иванов");
   });
 
+  it("returns only the initials, without a leading space, when lastName is empty", () => {
+    expect(formatEmployeeShortName(makeEmployee({ lastName: "  " }))).toBe("И.И.");
+  });
+
   it("trims whitespace in name parts", () => {
     expect(
       formatEmployeeShortName(

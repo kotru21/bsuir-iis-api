@@ -1,5 +1,6 @@
 import type { InternalClientConfig } from "../client/types";
 import type { Auditory } from "../types/catalog";
+import { auditorySchema } from "../schema/dto";
 import { createListModule, type ListModule } from "./createListModule";
 
 /**
@@ -8,5 +9,5 @@ import { createListModule, type ListModule } from "./createListModule";
 export function createAuditoriesModule(
   config: Readonly<InternalClientConfig>
 ): ListModule<Auditory> {
-  return createListModule<Auditory>(config, "/auditories");
+  return createListModule<Auditory>(config, "/auditories", auditorySchema);
 }

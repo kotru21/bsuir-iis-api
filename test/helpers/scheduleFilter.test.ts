@@ -64,6 +64,32 @@ describe("scheduleFilter", () => {
     expect(filterLessons(schedule, { weekNumber: 2 })).toHaveLength(0);
   });
 
+  it("treats weekly rows with null/empty weekNumber as every-week lessons", () => {
+    const schedule = makeSchedule({
+      schedules: {
+        Понедельник: [
+          makeItem({ subject: "NULL", weekNumber: null }),
+          makeItem({ subject: "EMPTY", weekNumber: [] }),
+          makeItem({ subject: "WEEK-1", weekNumber: [1] })
+        ]
+      }
+    });
+    const subjects = (week: number) =>
+      filterLessons(schedule, { weekNumber: week }).map((lesson) => lesson.subject);
+    expect(subjects(1)).toEqual(["NULL", "EMPTY", "WEEK-1"]);
+    expect(subjects(2)).toEqual(["NULL", "EMPTY"]);
+  });
+
+  it("does not place date-bound rows (exams, dateLesson) into a week without a list", () => {
+    const schedule = makeSchedule({
+      schedules: {
+        Понедельник: [makeItem({ subject: "DATED", weekNumber: null, dateLesson: "02.11.2026" })]
+      },
+      exams: [makeItem({ subject: "EXAM", weekNumber: null, dateLesson: "10.01.2027" })]
+    });
+    expect(filterLessons(schedule, { weekNumber: 1 })).toEqual([]);
+  });
+
   it("filters by subgroup", () => {
     const schedule = makeSchedule({
       schedules: { Понедельник: [makeItem({ numSubgroup: 2 })] }

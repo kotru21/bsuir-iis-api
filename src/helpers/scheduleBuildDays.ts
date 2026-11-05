@@ -73,10 +73,34 @@ function createWeekResolver(
   };
 }
 
+/**
+ * Wraps `hook` so it fires at most once per lesson and field within one helper call.
+ * A weekly lesson appears on several days of a range as the same object, and the
+ * day sort would otherwise report its malformed time again for every occurrence.
+ */
+function reportOncePerLesson(
+  hook: InvalidLessonTimeHook | undefined
+): InvalidLessonTimeHook | undefined {
+  if (!hook) {
+    return undefined;
+  }
+  const reported = new WeakMap<object, Set<string>>();
+  return (info) => {
+    const fields = reported.get(info.lesson) ?? new Set<string>();
+    if (fields.has(info.field)) {
+      return;
+    }
+    fields.add(info.field);
+    reported.set(info.lesson, fields);
+    hook(info);
+  };
+}
+
 function lessonsForDay(
   normalizedSchedule: NormalizedScheduleResponse,
   ordinal: number,
-  weekNumber: number | null
+  weekNumber: number | null,
+  onInvalidTime?: InvalidLessonTimeHook
 ): FlattenedScheduleItem[] {
   const weekday = toWeekday(ordinal);
   return sortLessonsByTime(
@@ -107,7 +131,8 @@ function lessonsForDay(
       }
 
       return isWithinLessonDateRange(ordinal, lesson.startLessonDate, lesson.endLessonDate);
-    })
+    }),
+    { onInvalidTime }
   );
 }
 
@@ -279,15 +304,19 @@ export function buildScheduleDays(
   const weekFor = createWeekResolver(normalizedSchedule, resolved);
   const includeEmptyDays = options.includeEmptyDays ?? true;
   const includeCurrentAndNextLessons = options.includeCurrentAndNextLessons ?? true;
-  const onInvalidTime = options.onInvalidTime as InvalidLessonTimeHook | undefined;
+  // Reported while sorting each day's lessons, once per lesson and field for the whole
+  // range — for every day, not only today, and independent of current/next lookups.
+  const onInvalidTime = reportOncePerLesson(options.onInvalidTime);
   const todayOrdinal = zonedDayOrdinal(now, resolved.timeZone);
   const rangeStart = zonedDayOrdinal(startDate, resolved.timeZone);
+  // Today's lessons were already reported by the day sort above.
+  const lessonTimeOptions = { timeZone: resolved.timeZone };
 
   const scheduleDays: ScheduleDay[] = [];
   for (let index = 0; index < days; index += 1) {
     const ordinal = rangeStart + index;
     const weekNumber = weekFor(ordinal);
-    const lessons = lessonsForDay(normalizedSchedule, ordinal, weekNumber);
+    const lessons = lessonsForDay(normalizedSchedule, ordinal, weekNumber, onInvalidTime);
     const isToday = ordinal === todayOrdinal;
     const hasLessons = lessons.length > 0;
 
@@ -297,7 +326,6 @@ export function buildScheduleDays(
 
     const parts = fromDayOrdinal(ordinal);
     const weekday = toWeekday(ordinal);
-    const lessonTimeOptions = { onInvalidTime, timeZone: resolved.timeZone };
     scheduleDays.push({
       date: startOfZonedDay(parts, resolved.timeZone),
       dateKey: toDateKey(parts),

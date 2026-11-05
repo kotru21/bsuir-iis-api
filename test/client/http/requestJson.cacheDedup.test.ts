@@ -144,11 +144,8 @@ describe("requestJson — in-flight deduplication", () => {
     expect(Object.isFrozen(plain)).toBe(true);
   });
 
-  it("does not deduplicate GET requests when caller passes a per-call AbortSignal", async () => {
-    const fetchImpl = mockFetchSequence([
-      createJsonResponse({ body: { ok: true } }),
-      createJsonResponse({ body: { ok: true } })
-    ]);
+  it("deduplicates GET requests that carry per-call AbortSignals", async () => {
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: { ok: true } })]);
     const config = createRequestJsonConfig(fetchImpl);
     const signalA = new AbortController().signal;
     const signalB = new AbortController().signal;
@@ -158,6 +155,7 @@ describe("requestJson — in-flight deduplication", () => {
       requestJson<{ ok: boolean }>(config, "/faculties", { signal: signalB })
     ]);
 
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    // Abort semantics of shared requests: requestJson.dedupSignal.test.ts.
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 });

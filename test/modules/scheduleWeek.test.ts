@@ -198,6 +198,16 @@ describe("getLessonsForDate week selection", () => {
     expect(subjects(getLessonsForWeek(schedule, 2))).toEqual(["NEXT"]);
   });
 
+  it("getLessonsForWeek and getLessonsForDate agree on null-weekNumber lessons", () => {
+    const schedule = makeSchedule({
+      schedules: { Среда: [makeLesson({ subject: "EVERY", weekNumber: null })] }
+    });
+    const wednesday = minskTime(2026, 10, 4, 12);
+    const week = getStudyWeek(wednesday);
+    expect(subjects(getLessonsForDate(schedule, wednesday))).toEqual(["EVERY"]);
+    expect(subjects(getLessonsForWeek(schedule, week))).toEqual(["EVERY"]);
+  });
+
   it("counts absolute weeks from the Monday of startDate when weekNumber exceeds 4", () => {
     const schedule = makeSchedule({
       startDate: "03.09.2026",

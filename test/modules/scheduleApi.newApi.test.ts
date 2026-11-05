@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { createBsuirClient } from "../../src";
 import { createJsonResponse } from "../helpers/fetchMock";
 
-describe("schedule module — explicit raw/envelope API", () => {
-  it("getGroupRaw returns raw envelope with schedules field", async () => {
+describe("schedule module — raw envelope and subgroup filter", () => {
+  it("getRaw returns raw envelope with schedules field", async () => {
     const fetchImpl = vi.fn(async () =>
       createJsonResponse({
         body: {
@@ -20,11 +20,11 @@ describe("schedule module — explicit raw/envelope API", () => {
     ) as unknown as typeof fetch;
 
     const client = createBsuirClient({ fetch: fetchImpl });
-    const raw = await client.schedule.getGroupRaw("053503");
+    const raw = await client.schedule.getRaw({ group: "053503" });
     expect(raw).toHaveProperty("schedules");
   });
 
-  it("getGroupBySubgroupEnvelope filters subgroup and returns ScheduleResponse envelope", async () => {
+  it("get({ group }) with a subgroup filter narrows the schedules map", async () => {
     const body = {
       employeeDto: null,
       studentGroupDto: null,
@@ -43,13 +43,13 @@ describe("schedule module — explicit raw/envelope API", () => {
     const fetchImpl = vi.fn(async () => createJsonResponse({ body })) as unknown as typeof fetch;
     const client = createBsuirClient({ fetch: fetchImpl });
 
-    const envelope = await client.schedule.getGroupBySubgroupEnvelope("053503", 2);
+    const envelope = await client.schedule.get({ group: "053503" }, { filter: { subgroup: 2 } });
     expect(envelope).toHaveProperty("schedules");
-    expect(envelope.schedules?.Понедельник).toHaveLength(1);
-    expect(envelope.schedules?.Понедельник?.[0]?.numSubgroup).toBe(2);
+    expect(envelope.schedules.Понедельник).toHaveLength(1);
+    expect(envelope.schedules.Понедельник?.[0]?.numSubgroup).toBe(2);
   });
 
-  it("getEmployeeBySubgroupEnvelope filters subgroup and returns ScheduleResponse envelope", async () => {
+  it("get({ employee }) with a subgroup filter narrows the schedules map", async () => {
     const body = {
       employeeDto: null,
       studentGroupDto: null,
@@ -68,9 +68,12 @@ describe("schedule module — explicit raw/envelope API", () => {
     const fetchImpl = vi.fn(async () => createJsonResponse({ body })) as unknown as typeof fetch;
     const client = createBsuirClient({ fetch: fetchImpl });
 
-    const envelope = await client.schedule.getEmployeeBySubgroupEnvelope("s-nesterenkov", 2);
+    const envelope = await client.schedule.get(
+      { employee: "s-nesterenkov" },
+      { filter: { subgroup: 2 } }
+    );
     expect(envelope).toHaveProperty("schedules");
-    expect(envelope.schedules?.Вторник).toHaveLength(1);
-    expect(envelope.schedules?.Вторник?.[0]?.numSubgroup).toBe(2);
+    expect(envelope.schedules.Вторник).toHaveLength(1);
+    expect(envelope.schedules.Вторник?.[0]?.numSubgroup).toBe(2);
   });
 });

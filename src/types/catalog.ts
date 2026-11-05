@@ -43,7 +43,8 @@ export interface StudentGroupCatalogItem {
   readonly specialityDepartmentEducationFormId: number;
   readonly specialityName: string;
   readonly specialityAbbrev?: string;
-  readonly course: number;
+  /** `null` for some groups (e.g. retraining programmes). */
+  readonly course: number | null;
   readonly id: number;
   readonly calendarId: string;
   readonly educationDegree?: number;
@@ -74,9 +75,10 @@ export interface AuditoryDepartment {
 export interface Auditory {
   readonly id: number;
   readonly name: string;
-  readonly note: string;
+  readonly note: string | null;
   readonly capacity: number | null;
   readonly auditoryType: AuditoryType;
   readonly buildingNumber: BuildingNumber;
-  readonly department: AuditoryDepartment;
+  /** `null` for rooms not assigned to a department. */
+  readonly department: AuditoryDepartment | null;
 }

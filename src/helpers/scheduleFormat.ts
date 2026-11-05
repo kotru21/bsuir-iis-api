@@ -117,7 +117,8 @@ export function formatEmployeeShortName(
   if (first.length > 0) initials += `${first.charAt(0)}.`;
   if (middle.length > 0) initials += `${middle.charAt(0)}.`;
 
-  return initials.length > 0 ? `${lastName} ${initials}` : lastName;
+  // Without a last name the result is just the initials (no leading space).
+  return [lastName, initials].filter((part) => part.length > 0).join(" ");
 }
 
 /**

@@ -81,16 +81,16 @@ describe("validateResponses contract", () => {
       })
     ]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
-    await expect(client.schedule.getGroupRaw("053503")).rejects.toBeInstanceOf(
+    await expect(client.schedule.getRaw({ group: "053503" })).rejects.toBeInstanceOf(
       BsuirResponseValidationError
     );
-    await expect(client.schedule.getGroupRaw("053503")).rejects.toBeInstanceOf(
+    await expect(client.schedule.getRaw({ group: "053503" })).rejects.toBeInstanceOf(
       BsuirResponseValidationError
     );
-    await expect(client.schedule.getGroupRaw("053503")).rejects.toBeInstanceOf(
+    await expect(client.schedule.getRaw({ group: "053503" })).rejects.toBeInstanceOf(
       BsuirResponseValidationError
     );
-    await expect(client.schedule.getGroupRaw("053503")).rejects.toBeInstanceOf(
+    await expect(client.schedule.getRaw({ group: "053503" })).rejects.toBeInstanceOf(
       BsuirResponseValidationError
     );
   });
@@ -103,10 +103,10 @@ describe("validateResponses contract", () => {
       })
     ]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
-    await expect(client.schedule.getGroup("053503")).rejects.toBeInstanceOf(
+    await expect(client.schedule.get({ group: "053503" })).rejects.toBeInstanceOf(
       BsuirResponseValidationError
     );
-    await expect(client.schedule.getGroup("053503")).rejects.toBeInstanceOf(
+    await expect(client.schedule.get({ group: "053503" })).rejects.toBeInstanceOf(
       BsuirResponseValidationError
     );
   });
@@ -114,7 +114,7 @@ describe("validateResponses contract", () => {
   it("schedule getGroupRaw enforces deep envelope check when validateResponses is true", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: { schedules: [] } })]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
-    await expect(client.schedule.getGroupRaw("053503")).rejects.toBeInstanceOf(
+    await expect(client.schedule.getRaw({ group: "053503" })).rejects.toBeInstanceOf(
       BsuirResponseValidationError
     );
   });
@@ -122,7 +122,7 @@ describe("validateResponses contract", () => {
   it("schedule getGroupRaw accepts valid envelope when validateResponses is false", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: validScheduleBody })]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
-    await expect(client.schedule.getGroupRaw("053503")).resolves.toMatchObject({
+    await expect(client.schedule.getRaw({ group: "053503" })).resolves.toMatchObject({
       schedules: {}
     });
   });
@@ -130,7 +130,7 @@ describe("validateResponses contract", () => {
   it("schedule getGroupRaw accepts valid envelope when validateResponses is true", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: validScheduleBody })]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
-    await expect(client.schedule.getGroupRaw("053503")).resolves.toMatchObject({
+    await expect(client.schedule.getRaw({ group: "053503" })).resolves.toMatchObject({
       schedules: {}
     });
   });

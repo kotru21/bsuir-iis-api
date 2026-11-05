@@ -37,18 +37,27 @@ const INVALID_HEADER_LINE_BREAK = /[\r\n]/;
 // 5 minutes is a generous upper bound for any HTTP request in this context.
 const MAX_TIMEOUT_MS = 300_000;
 
+/**
+ * Resolves the `fetch` implementation and detaches it from any receiver.
+ *
+ * The pipeline stores it on the config object, so calling it directly would pass
+ * that object as `this`. Native `fetch` in browsers and Cloudflare Workers rejects
+ * any receiver other than the global object ("Illegal invocation"), which used to
+ * turn every browser request into a `BsuirNetworkError`. The wrapper always calls
+ * it without a receiver, which works for the global `fetch`, `window.fetch` passed
+ * by the user, and plain custom functions alike.
+ */
 function resolveFetch(customFetch?: typeof globalThis.fetch): typeof globalThis.fetch {
-  if (customFetch) {
-    return customFetch;
-  }
-
-  if (typeof globalThis.fetch !== "function") {
+  const fetchFn = customFetch ?? globalThis.fetch;
+  if (typeof fetchFn !== "function") {
     throw new BsuirConfigurationError(
-      "Global fetch is unavailable. Provide 'fetch' in createBsuirClient options."
+      customFetch === undefined
+        ? "Global fetch is unavailable. Provide 'fetch' in createBsuirClient options."
+        : "'fetch' must be a function"
     );
   }
 
-  return globalThis.fetch;
+  return (input, init) => fetchFn(input, init);
 }
 
 function assertIntegerOption(
@@ -215,10 +224,8 @@ function createInternalConfig(options: BsuirClientOptions): InternalClientConfig
 /**
  * Fully-typed public shape of the BSUIR API client.
  *
- * Use explicit raw/envelope helpers on the `schedule` module to obtain the
- * API's raw `ScheduleResponse` when required (e.g. `getGroupRaw`,
- * `getEmployeeRaw`, `getGroupBySubgroupEnvelope`). The default
- * `getGroup`/`getEmployee` return a normalized payload.
+ * `schedule.get(target, options)` returns a normalized schedule (optionally narrowed
+ * by `filter`); `schedule.getRaw(target)` returns the IIS envelope as-is.
  */
 export interface BsuirClientShape {
   schedule: ScheduleModule;
@@ -234,11 +241,9 @@ export interface BsuirClientShape {
 /**
  * Creates a configured BSUIR IIS API client.
  *
- * The `schedule` module exposes both normalized and explicit raw/envelope
- * helpers. Use `getGroup` / `getEmployee` for normalized payloads and
- * `getGroupRaw` / `getEmployeeRaw` when you need the original API envelope.
- * Subgroup shapes use `get*BySubgroup`, `get*BySubgroupRaw`, and
- * `get*BySubgroupEnvelope`.
+ * Schedules: `client.schedule.get({ group: "053503" })` or
+ * `client.schedule.get({ employee: "s-nesterenkov" }, { filter: { subgroup: 2 } })`
+ * for a normalized payload, `client.schedule.getRaw(target)` for the IIS envelope.
  *
  * Prefer {@link createBsuirClient.strict} in development/tests when you want
  * `validateResponses: true` without repeating the option.

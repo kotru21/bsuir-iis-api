@@ -12,7 +12,10 @@ export class BsuirError extends Error {
   }
 }
 
-/** HTTP error returned by IIS (non-2xx) after the SDK parses the body. */
+/**
+ * HTTP error returned by IIS (non-2xx) after the SDK parses the body.
+ * A 2xx response with a broken body is a {@link BsuirResponseValidationError} instead.
+ */
 export class BsuirApiError extends BsuirError {
   readonly status: number;
   readonly endpoint: string;
@@ -96,7 +99,8 @@ export class BsuirValidationError extends BsuirError {
  *
  * Thrown for always-on structural envelope guards (catalog/announcement unwraps,
  * schedule maps/day buckets/`exams`, the `current-week` value, Spring pagination
- * that is malformed or exceeds the safety cap) and for deep item/field checks when
+ * that is malformed or exceeds the safety cap), for a 2xx body declared as JSON that
+ * is empty or not valid JSON (not retried), and for deep item/field checks when
  * `validateResponses` is enabled / `createBsuirClient.strict()` is used.
  */
 export class BsuirResponseValidationError extends BsuirError {

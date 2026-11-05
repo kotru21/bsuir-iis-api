@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { parseBody } from "../../../src/client/http/response";
-import { BsuirApiError, BsuirResponsePayloadTooLargeError } from "../../../src/client/errors";
+import {
+  BsuirResponsePayloadTooLargeError,
+  BsuirResponseValidationError
+} from "../../../src/client/errors";
 
 function makeResponse(body: string, contentType: string, status = 200): Response {
   return new Response(body, {
@@ -27,16 +30,16 @@ describe("parseBody", () => {
     expect(result).toBeNull();
   });
 
-  it("throws BsuirApiError for empty JSON body on 2xx (declaredJson, empty text)", async () => {
+  it("throws BsuirResponseValidationError for empty JSON body on 2xx (declaredJson, empty text)", async () => {
     await expect(parseBody(makeResponse("", "application/json"), 1_000_000)).rejects.toBeInstanceOf(
-      BsuirApiError
+      BsuirResponseValidationError
     );
   });
 
-  it("throws BsuirApiError for malformed JSON with JSON content-type on 2xx", async () => {
+  it("throws BsuirResponseValidationError for malformed JSON with JSON content-type on 2xx", async () => {
     await expect(
       parseBody(makeResponse("not-json{{", "application/json"), 1_000_000)
-    ).rejects.toBeInstanceOf(BsuirApiError);
+    ).rejects.toBeInstanceOf(BsuirResponseValidationError);
   });
 
   it("preserves plain-text error body when non-2xx claims application/json", async () => {

@@ -9,7 +9,7 @@ describe("schedule module — normalize and raw", () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildScheduleResponse() })]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
 
-    const response = await client.schedule.getGroup("053503");
+    const response = await client.schedule.get({ group: "053503" });
 
     expect("lessons" in response).toBe(true);
     if ("lessons" in response) {
@@ -27,7 +27,7 @@ describe("schedule module — normalize and raw", () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildScheduleResponse() })]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
 
-    const response = await client.schedule.getGroup("053503");
+    const response = await client.schedule.get({ group: "053503" });
 
     expect("lessons" in response).toBe(true);
     if ("lessons" in response) {
@@ -43,7 +43,7 @@ describe("schedule module — normalize and raw", () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildScheduleResponse() })]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
 
-    const response = await client.schedule.getGroupRaw("053503");
+    const response = await client.schedule.getRaw({ group: "053503" });
 
     expect("lessons" in response).toBe(false);
     expect(response.exams).toHaveLength(1);
@@ -54,7 +54,7 @@ describe("schedule module — normalize and raw", () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: payload })]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
 
-    const response = await client.schedule.getEmployee("s-nesterenkov");
+    const response = await client.schedule.get({ employee: "s-nesterenkov" });
     expect("lessons" in response && response.lessons.some((item) => item.employees === null)).toBe(
       true
     );
@@ -77,8 +77,8 @@ describe("schedule module — normalize and raw", () => {
     ]);
     const client = createBsuirClient({ fetch: fetchImpl });
 
-    const raw = await client.schedule.getGroupRaw("053503");
-    const normalized = await client.schedule.getGroup("053503");
+    const raw = await client.schedule.getRaw({ group: "053503" });
+    const normalized = await client.schedule.get({ group: "053503" });
 
     expect(raw.schedules).toBeNull();
     expect(normalized.schedules).toEqual({});
@@ -92,7 +92,7 @@ describe("schedule module — normalize and raw", () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: payload })]);
     const client = createBsuirClient({ fetch: fetchImpl });
 
-    const normalized = await client.schedule.getGroup("053503");
+    const normalized = await client.schedule.get({ group: "053503" });
     expect(normalized.exams).toEqual([]);
     expect(normalized.examLessons).toEqual([]);
   });
@@ -108,7 +108,7 @@ describe("schedule module — normalize and raw", () => {
     ]);
     const client = createBsuirClient({ fetch: fetchImpl });
 
-    const response = await client.schedule.getGroup("053503");
+    const response = await client.schedule.get({ group: "053503" });
     expect(response.lessons).toHaveLength(0);
     expect(response.scheduleLessons).toHaveLength(0);
     expect(response.examLessons).toHaveLength(0);
@@ -235,7 +235,10 @@ describe("schedule module — normalize and raw", () => {
       })
     ]);
     const client = createBsuirClient({ fetch: fetchImpl });
-    const normalized = await client.schedule.getGroup("053503", { includeNextSchedules: true });
+    const normalized = await client.schedule.get(
+      { group: "053503" },
+      { includeNextSchedules: true }
+    );
 
     expect(normalized.lessons.some((lesson) => lesson.source === "nextSchedules")).toBe(true);
   });
@@ -250,7 +253,7 @@ describe("schedule module — normalize and raw", () => {
       })
     ]);
     const client = createBsuirClient({ fetch: fetchImpl });
-    const normalized = await client.schedule.getGroup("053503");
+    const normalized = await client.schedule.get({ group: "053503" });
 
     expect(normalized.lessons.some((lesson) => lesson.source === "nextSchedules")).toBe(true);
   });
@@ -285,7 +288,7 @@ describe("schedule module — normalize and raw", () => {
       })
     ]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
-    await expect(client.schedule.getGroup("053503")).rejects.toBeInstanceOf(
+    await expect(client.schedule.get({ group: "053503" })).rejects.toBeInstanceOf(
       BsuirResponseValidationError
     );
   });
@@ -337,7 +340,7 @@ describe("schedule module — normalize and raw", () => {
       })
     ]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
-    await expect(client.schedule.getGroup("053503")).rejects.toBeInstanceOf(
+    await expect(client.schedule.get({ group: "053503" })).rejects.toBeInstanceOf(
       BsuirResponseValidationError
     );
   });
@@ -351,8 +354,56 @@ describe("schedule module — normalize and raw", () => {
       })
     ]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
-    await expect(client.schedule.getGroup("053503")).rejects.toBeInstanceOf(
+    await expect(client.schedule.get({ group: "053503" })).rejects.toBeInstanceOf(
       BsuirResponseValidationError
     );
+  });
+
+  describe("day keys outside WEEKDAYS", () => {
+    function withSundayBucket(sundayLessons: "lesson" | "empty") {
+      const base = buildScheduleResponse();
+      const monday = base.schedules?.Понедельник?.[0];
+      if (!monday) {
+        throw new Error("fixture must have a Monday lesson");
+      }
+      return {
+        ...base,
+        schedules: {
+          ...base.schedules,
+          Воскресенье: sundayLessons === "lesson" ? [{ ...monday, subject: "SUN" }] : []
+        }
+      };
+    }
+
+    it("keeps the bucket in normalized schedules instead of dropping it", () => {
+      const normalized = normalizeSchedule(withSundayBucket("lesson"));
+      const kept = (normalized.schedules as Record<string, readonly { subject: string | null }[]>)
+        .Воскресенье;
+      expect(kept?.map((lesson) => lesson.subject)).toEqual(["SUN"]);
+      // Flattened views only cover WEEKDAYS.
+      expect(normalized.scheduleLessons.some((lesson) => lesson.subject === "SUN")).toBe(false);
+    });
+
+    it("rejects lessons under an unknown key in strict mode", async () => {
+      const fetchImpl = mockFetchSequence([
+        createJsonResponse({ body: withSundayBucket("lesson") })
+      ]);
+      const client = createBsuirClient.strict({ fetch: fetchImpl });
+      await expect(client.schedule.get({ group: "053503" })).rejects.toThrow(
+        /'schedules\.Воскресенье' is not a known weekday key/
+      );
+      expect(() => normalizeSchedule(withSundayBucket("lesson"), { validate: true })).toThrow(
+        BsuirResponseValidationError
+      );
+    });
+
+    it("tolerates an empty unknown bucket in strict mode", async () => {
+      const fetchImpl = mockFetchSequence([
+        createJsonResponse({ body: withSundayBucket("empty") })
+      ]);
+      const client = createBsuirClient.strict({ fetch: fetchImpl });
+      const normalized = await client.schedule.get({ group: "053503" });
+      expect(normalized.scheduleLessons.length).toBeGreaterThan(0);
+    });
   });
 });

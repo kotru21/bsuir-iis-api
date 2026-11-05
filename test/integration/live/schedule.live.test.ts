@@ -19,15 +19,15 @@ describeLive("live schedule contract", () => {
     }
   }, 60_000);
 
-  it("normalized getGroup / getEmployee expose lessons + schedules", async ({ skip }) => {
+  it("normalized get({ group | employee }) exposes lessons + schedules", async ({ skip }) => {
     if (!scheduleAvailable || !groupNumber || !employeeUrlId) {
       skip();
       return;
     }
 
     const [groupSchedule, employeeSchedule] = await Promise.all([
-      client.schedule.getGroup(groupNumber),
-      client.schedule.getEmployee(employeeUrlId)
+      client.schedule.get({ group: groupNumber }),
+      client.schedule.get({ employee: employeeUrlId })
     ]);
 
     expect(groupSchedule).toHaveProperty("lessons");
@@ -49,61 +49,35 @@ describeLive("live schedule contract", () => {
     }
 
     const [groupRaw, employeeRaw] = await Promise.all([
-      client.schedule.getGroupRaw(groupNumber),
-      client.schedule.getEmployeeRaw(employeeUrlId)
+      client.schedule.getRaw({ group: groupNumber }),
+      client.schedule.getRaw({ employee: employeeUrlId })
     ]);
 
     expect(groupRaw.schedules === null || typeof groupRaw.schedules === "object").toBe(true);
     expect(employeeRaw.schedules === null || typeof employeeRaw.schedules === "object").toBe(true);
   }, 60_000);
 
-  it("exams and filtered(source: schedules) return arrays", async ({ skip }) => {
+  it("filter narrows every view consistently (source / subgroup)", async ({ skip }) => {
     if (!scheduleAvailable || !groupNumber || !employeeUrlId) {
       skip();
       return;
     }
 
-    const [groupExams, employeeExams, groupFiltered, employeeFiltered] = await Promise.all([
-      client.schedule.getGroupExams(groupNumber),
-      client.schedule.getEmployeeExams(employeeUrlId),
-      client.schedule.getGroupFiltered(groupNumber, { source: "schedules" }),
-      client.schedule.getEmployeeFiltered(employeeUrlId, { source: "schedules" })
+    const [groupFull, groupExams, groupSub1, employeeSub1] = await Promise.all([
+      client.schedule.get({ group: groupNumber }),
+      client.schedule.get({ group: groupNumber }, { filter: { source: "exams" } }),
+      client.schedule.get({ group: groupNumber }, { filter: { subgroup: 1 } }),
+      client.schedule.get({ employee: employeeUrlId }, { filter: { subgroup: 1 } })
     ]);
 
-    expect(Array.isArray(groupExams)).toBe(true);
-    expect(Array.isArray(employeeExams)).toBe(true);
-    expect(Array.isArray(groupFiltered)).toBe(true);
-    expect(Array.isArray(employeeFiltered)).toBe(true);
-  }, 60_000);
-
-  it("subgroup 1 default / raw / envelope shapes", async ({ skip }) => {
-    if (!scheduleAvailable || !groupNumber || !employeeUrlId) {
-      skip();
-      return;
+    expect(groupExams.lessons).toEqual(groupFull.examLessons);
+    expect(groupExams.scheduleLessons).toEqual([]);
+    for (const schedule of [groupSub1, employeeSub1]) {
+      expect(schedule.lessons.every((l) => l.numSubgroup === 0 || l.numSubgroup === 1)).toBe(true);
+      const mapLessons = Object.values(schedule.schedules).flat();
+      expect(mapLessons.length).toBe(schedule.scheduleLessons.length);
     }
-
-    const [
-      groupBySubgroup,
-      groupBySubgroupRaw,
-      groupBySubgroupEnvelope,
-      employeeBySubgroup,
-      employeeBySubgroupRaw,
-      employeeBySubgroupEnvelope
-    ] = await Promise.all([
-      client.schedule.getGroupBySubgroup(groupNumber, 1),
-      client.schedule.getGroupBySubgroupRaw(groupNumber, 1),
-      client.schedule.getGroupBySubgroupEnvelope(groupNumber, 1),
-      client.schedule.getEmployeeBySubgroup(employeeUrlId, 1),
-      client.schedule.getEmployeeBySubgroupRaw(employeeUrlId, 1),
-      client.schedule.getEmployeeBySubgroupEnvelope(employeeUrlId, 1)
-    ]);
-
-    expect(Array.isArray(groupBySubgroup)).toBe(true);
-    expect(Array.isArray(groupBySubgroupRaw)).toBe(true);
-    expect(Array.isArray(employeeBySubgroup)).toBe(true);
-    expect(Array.isArray(employeeBySubgroupRaw)).toBe(true);
-    expect(groupBySubgroupEnvelope).toHaveProperty("schedules");
-    expect(employeeBySubgroupEnvelope).toHaveProperty("schedules");
+    expect(groupSub1.lessons.length).toBeLessThanOrEqual(groupFull.lessons.length);
   }, 60_000);
 
   it("getCurrentWeek returns a number", async ({ skip }) => {

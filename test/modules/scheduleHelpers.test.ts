@@ -223,6 +223,76 @@ describe("schedule helpers", () => {
     expect(calls).toEqual(["startLessonTime", "endLessonTime"]);
   });
 
+  describe("buildScheduleDays onInvalidTime", () => {
+    const weekdays = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"] as const;
+
+    function scheduleWithBrokenLessonEveryDay() {
+      return normalizeSchedule({
+        employeeDto: null,
+        studentGroupDto: null,
+        schedules: Object.fromEntries(
+          weekdays.map((day) => [
+            day,
+            [makeLesson({ subject: day, weekNumber: null, startLessonTime: "9-00" })]
+          ])
+        ),
+        exams: [],
+        startDate: null,
+        endDate: null,
+        startExamsDate: null,
+        endExamsDate: null
+      });
+    }
+
+    // Wednesday 2026-11-04, 08:00 in Minsk.
+    const now = minskTime(2026, 10, 4, 8);
+
+    it("reports malformed times for every day in the range, once each", () => {
+      const reported: string[] = [];
+      buildScheduleDays(scheduleWithBrokenLessonEveryDay(), {
+        now,
+        days: 6,
+        onInvalidTime: (info) => {
+          reported.push(`${(info.lesson as FlattenedScheduleItem).subject ?? ""}:${info.field}`);
+        }
+      });
+      // Wednesday..Monday (Sunday has no lessons): five distinct lessons, each once.
+      expect(reported).toHaveLength(5);
+      expect(new Set(reported)).toEqual(
+        new Set(
+          ["Среда", "Четверг", "Пятница", "Суббота", "Понедельник"].map(
+            (day) => `${day}:startLessonTime`
+          )
+        )
+      );
+    });
+
+    it("reports a weekly lesson repeated across the range only once", () => {
+      let calls = 0;
+      buildScheduleDays(scheduleWithBrokenLessonEveryDay(), {
+        now,
+        days: 21,
+        onInvalidTime: () => {
+          calls += 1;
+        }
+      });
+      expect(calls).toBe(weekdays.length);
+    });
+
+    it("reports even when current/next lesson lookup is disabled", () => {
+      let calls = 0;
+      buildScheduleDays(scheduleWithBrokenLessonEveryDay(), {
+        now,
+        days: 1,
+        includeCurrentAndNextLessons: false,
+        onInvalidTime: () => {
+          calls += 1;
+        }
+      });
+      expect(calls).toBe(1);
+    });
+  });
+
   it("tolerates nullish lesson times without throwing or firing onInvalidTime", () => {
     const sparse = {
       ...makeLesson({ subject: "Sparse" }),

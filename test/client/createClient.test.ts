@@ -16,6 +16,42 @@ describe("createBsuirClient", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
+  describe("fetch receiver (browser 'Illegal invocation')", () => {
+    // Native browser / Workers fetch is a WebIDL operation on the global object: it
+    // throws unless `this` is the global object or undefined.
+    function createReceiverCheckingFetch(): typeof fetch {
+      return function receiverCheckingFetch(this: unknown) {
+        if (this !== undefined && this !== globalThis) {
+          return Promise.reject(
+            new TypeError("Failed to execute 'fetch' on 'Window': Illegal invocation")
+          );
+        }
+        return Promise.resolve(createJsonResponse({ body: 3 }));
+      } as unknown as typeof fetch;
+    }
+
+    it("calls a user-provided native-like fetch without a foreign receiver", async () => {
+      const client = createBsuirClient({ fetch: createReceiverCheckingFetch(), retries: 0 });
+      await expect(client.schedule.getCurrentWeek()).resolves.toBe(3);
+    });
+
+    it("calls the global fetch without a foreign receiver", async () => {
+      vi.stubGlobal("fetch", createReceiverCheckingFetch());
+      try {
+        const client = createBsuirClient({ retries: 0 });
+        await expect(client.schedule.getCurrentWeek()).resolves.toBe(3);
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    });
+
+    it("rejects a non-function fetch option at construction", () => {
+      expect(() => createBsuirClient({ fetch: "nope" as unknown as typeof fetch })).toThrow(
+        new BsuirConfigurationError("'fetch' must be a function")
+      );
+    });
+  });
+
   it("throws BsuirConfigurationError when neither custom nor global fetch is available", () => {
     vi.stubGlobal("fetch", null);
     try {
@@ -166,7 +202,7 @@ describe("createBsuirClient", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
-  it("returns raw schedule payload when using getGroupRaw", async () => {
+  it("returns raw schedule payload from getRaw", async () => {
     const fetchImpl = vi.fn(async () =>
       createJsonResponse({
         body: {
@@ -183,7 +219,7 @@ describe("createBsuirClient", () => {
     ) as unknown as typeof fetch;
     const client = createBsuirClient({ fetch: fetchImpl });
 
-    const response = await client.schedule.getGroupRaw("053503");
+    const response = await client.schedule.getRaw({ group: "053503" });
     expect("lessons" in response).toBe(false);
   });
 

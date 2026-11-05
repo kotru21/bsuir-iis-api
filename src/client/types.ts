@@ -105,12 +105,20 @@ export interface ResponseHookContext extends RequestHookContext {
   status: number;
   durationMs: number;
   fromCache: boolean;
+  /**
+   * `true` when this call shared another caller's in-flight request
+   * (`dedupeInFlight`) instead of sending its own; `durationMs` is then the time
+   * it waited. Such calls fire no `onRequest` / `onRetry`.
+   */
+  deduplicated: boolean;
 }
 
 /** Context passed to `hooks.onError` when a request fails. */
 export interface ErrorHookContext extends RequestHookContext {
   durationMs: number;
   error: unknown;
+  /** `true` when this call was waiting on another caller's in-flight request. */
+  deduplicated: boolean;
 }
 
 /**
@@ -153,7 +161,8 @@ export interface RequestOptions {
   /**
    * Optional response validator. Runs on network responses before they are cached,
    * and again on every cache hit so entries from a shared or hand-populated store
-   * cannot bypass the current client's validation.
+   * cannot bypass the current client's validation. A cache entry that fails it is
+   * evicted, so the next call goes to the network instead of failing until the TTL.
    */
   responseValidator?: ((payload: unknown) => void) | undefined;
 }
@@ -190,15 +199,26 @@ export interface BsuirClientOptions {
    */
   allowedBaseUrlHosts?: string[];
   /**
-   * Custom `fetch` implementation. Useful for environments where the global
-   * `fetch` is unavailable (older Node.js versions) or when you want to wrap
-   * requests with a proxy, MSW handler, or test mock.
+   * Custom `fetch` implementation, e.g. to route requests through a proxy agent,
+   * add tracing, or use a test mock. Every supported runtime (Node.js 22.18 or newer
+   * and modern browsers) has a global `fetch`, so this is optional.
+   *
+   * The SDK always calls it as a plain function (no `this`), so passing a native
+   * method such as `window.fetch` directly is safe.
    *
    * @defaultValue globalThis.fetch
    * @example
    * ```ts
-   * import nodeFetch from "node-fetch";
-   * const client = createBsuirClient({ fetch: nodeFetch as typeof fetch });
+   * const client = createBsuirClient({
+   *   fetch: async (input, init) => {
+   *     console.time(String(input));
+   *     try {
+   *       return await fetch(input, init);
+   *     } finally {
+   *       console.timeEnd(String(input));
+   *     }
+   *   }
+   * });
    * ```
    */
   fetch?: typeof globalThis.fetch;
@@ -287,11 +307,17 @@ export interface BsuirClientOptions {
    * Enables in-flight GET request deduplication by request URL.
    *
    * When two identical GET requests are made concurrently, only the first one
-   * hits the network; the second one awaits the same `Promise`. This prevents
-   * duplicate API calls in scenarios like parallel component rendering.
+   * hits the network; the others wait for its response. This prevents duplicate
+   * API calls in scenarios like parallel component rendering.
    *
-   * Disabled automatically when the relevant `AbortSignal` is already aborted.
-   * Also disabled for per-call signals and non-default cache modes.
+   * Per-call signals are supported: a caller whose signal aborts stops waiting
+   * (rejecting with its own abort reason) without affecting the others, and the
+   * shared network request is cancelled only once **every** caller waiting for it
+   * has aborted. Not used for non-default cache modes or already-aborted signals.
+   *
+   * Hooks: the shared request fires the usual events (`deduplicated: false`); each
+   * caller that joined it gets its own `onResponse` / `onError` with
+   * `deduplicated: true`.
    *
    * Deduplicated responses are shared between callers. Like every SDK result they
    * are **deep-frozen**, so one caller cannot mutate another caller's data.
@@ -315,12 +341,17 @@ export interface BsuirClientOptions {
    * upstream API visible immediately instead of causing silent type-cast bugs later.
    *
    * Checked surfaces and depth (opt-in):
-   * - Schedule raw/normalized fetches: envelope plus field-level checks on every
-   *   lesson item in `schedules` / `nextSchedules` / `exams`. Fields are validated
-   *   when present — IIS may omit keys entirely on sparse payloads.
+   * Every check comes from one schema per DTO, compile-time bound to the exported
+   * interface, so strict mode validates exactly what the types promise:
+   * - Schedule raw/normalized fetches: envelope DTOs (`employeeDto`, `studentGroupDto`)
+   *   and every lesson in `schedules` / `nextSchedules` / `exams`, nested employees and
+   *   student groups included. Fields are validated
+   *   when present — IIS may omit keys entirely on sparse payloads. Lessons under a
+   *   day key other than the six `WEEKDAYS` (e.g. `"Воскресенье"`) are rejected: they
+   *   would be missing from the flattened lesson views.
    * - Announcements lists: array/page envelope plus field-level item checks.
-   * - Catalog lists: array of non-null objects (per-field catalog DTO checks are
-   *   intentionally out of scope).
+   * - Catalog lists: every item field by field against its DTO (`Faculty`,
+   *   `Auditory`, …).
    *
    * Independent of this flag, the SDK always applies lightweight **structural**
    * guards so return types stay honest (raw and normalized schedule paths)
@@ -368,6 +399,23 @@ export interface BsuirClientOptions {
   hooks?: ClientHooks;
 }
 
+/** Outcome of a deduplicated request shared between callers. */
+export interface SharedRequestResult {
+  /** Deep-frozen payload. */
+  value: unknown;
+  /** HTTP status of the response (for the waiters' `onResponse`). */
+  status: number | undefined;
+}
+
+/** One deduplicated network request and the callers waiting for it. */
+export interface InFlightRequest {
+  readonly result: Promise<SharedRequestResult>;
+  /** Cancels the shared request; aborted only when the last waiter aborts. */
+  readonly controller: AbortController;
+  /** Callers still waiting for `result`. */
+  waiters: number;
+}
+
 /** Resolved internal client config after `createBsuirClient` option normalization. */
 export interface InternalClientConfig {
   baseUrl: string;
@@ -388,5 +436,5 @@ export interface InternalClientConfig {
   validateResponses: boolean;
   hooks: ClientHooks;
   responseCache: CacheStore;
-  inFlightRequests: Map<string, Promise<unknown>>;
+  inFlightRequests: Map<string, InFlightRequest>;
 }

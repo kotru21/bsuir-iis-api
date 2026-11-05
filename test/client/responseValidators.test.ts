@@ -1,27 +1,36 @@
 import { describe, expect, it } from "vitest";
 import {
   assertAnnouncementListResponse,
-  assertArrayResponse,
+  assertCatalogResponse,
   assertScheduleResponse,
   assertScheduleStructuralEnvelope
 } from "../../src/client/responseValidators";
+import {
+  auditorySchema,
+  facultySchema,
+  specialitySchema,
+  studentGroupCatalogItemSchema
+} from "../../src/schema/dto";
 import { BsuirResponseValidationError } from "../../src/client/errors";
 import { buildScheduleResponse } from "../modules/scheduleFixtures";
 
 describe("response validators", () => {
   it("accepts array payloads", () => {
-    expect(() => assertArrayResponse([], "/x")).not.toThrow();
+    expect(() => assertCatalogResponse([], "/x", facultySchema)).not.toThrow();
   });
 
   it("rejects non-array payloads", () => {
-    expect(() => assertArrayResponse({}, "/x")).toThrow(BsuirResponseValidationError);
+    expect(() => assertCatalogResponse({}, "/x", facultySchema)).toThrow(
+      "Invalid response payload for /x: expected array, got object"
+    );
   });
 
-  // line 7 — assertArrayResponse: non-array but object (not null/primitive)
-  it("rejects null payload in assertArrayResponse", () => {
-    expect(() => assertArrayResponse(null, "/x")).toThrow(BsuirResponseValidationError);
-    expect(() => assertArrayResponse("string", "/x")).toThrow(BsuirResponseValidationError);
-    expect(() => assertArrayResponse(42, "/x")).toThrow(BsuirResponseValidationError);
+  it("rejects null and primitive catalog payloads", () => {
+    for (const payload of [null, "string", 42]) {
+      expect(() => assertCatalogResponse(payload, "/x", facultySchema)).toThrow(
+        BsuirResponseValidationError
+      );
+    }
   });
 
   it("accepts announcement list array payloads", () => {
@@ -129,13 +138,41 @@ describe("response validators", () => {
   });
 
   it("rejects catalog arrays with non-object elements", () => {
-    expect(() => assertArrayResponse([1, 2], "/student-groups")).toThrow(
+    const schema = studentGroupCatalogItemSchema;
+    expect(() => assertCatalogResponse([1, 2], "/student-groups", schema)).toThrow(
+      "'[0]' must be an object, got number"
+    );
+    expect(() => assertCatalogResponse([null], "/student-groups", schema)).toThrow(
       BsuirResponseValidationError
     );
-    expect(() => assertArrayResponse([null], "/student-groups")).toThrow(
-      BsuirResponseValidationError
-    );
-    expect(() => assertArrayResponse([{ id: 1 }], "/student-groups")).not.toThrow();
+    expect(() => assertCatalogResponse([{ id: 1 }], "/student-groups", schema)).not.toThrow();
+  });
+
+  it("checks catalog item fields against the DTO schema", () => {
+    expect(() =>
+      assertCatalogResponse([{ id: 1, name: 7, abbrev: "ФКСиС" }], "/faculties", facultySchema)
+    ).toThrow("Invalid response payload for /faculties: '[0].name' must be string, got number");
+    expect(() =>
+      assertCatalogResponse(
+        [{ id: 1, capacity: null, department: { idDepartment: "x" } }],
+        "/auditories",
+        auditorySchema
+      )
+    ).toThrow("'[0].department.idDepartment' must be a finite number, got string");
+  });
+
+  it("accepts both educationForm shapes of specialities and rejects others", () => {
+    const form = { id: 1, name: "дневная" };
+    expect(() =>
+      assertCatalogResponse(
+        [{ educationForm: form }, { educationForm: [form] }],
+        "/specialities",
+        specialitySchema
+      )
+    ).not.toThrow();
+    expect(() =>
+      assertCatalogResponse([{ educationForm: "дневная" }], "/specialities", specialitySchema)
+    ).toThrow("'[0].educationForm' must be an object or an array, got string");
   });
 
   it("rejects announcement items with wrong field types", () => {
@@ -240,6 +277,25 @@ describe("response validators — schedule item level", () => {
     (payload as { nextSchedules?: unknown }).nextSchedules = { Понедельник: "nope" };
     expect(() => assertScheduleResponse(payload, "/schedule")).toThrow(
       /nextSchedules\.Понедельник/
+    );
+  });
+
+  it("checks nested employees of a lesson against the Employee schema", () => {
+    const payload = buildScheduleResponse();
+    const employee = payload.schedules?.Понедельник?.[0]?.employees?.[0];
+    if (employee) {
+      (employee as { urlId: unknown }).urlId = 5;
+    }
+    expect(() => assertScheduleResponse(payload, "/schedule")).toThrow(
+      "'schedules.Понедельник[0].employees[0].urlId' must be string, got number"
+    );
+  });
+
+  it("checks envelope DTOs (studentGroupDto / employeeDto) field by field", () => {
+    const payload = buildScheduleResponse();
+    (payload as { studentGroupDto: unknown }).studentGroupDto = { name: "053503", course: "3" };
+    expect(() => assertScheduleResponse(payload, "/schedule")).toThrow(
+      "'studentGroupDto.course' must be a finite number or null, got string"
     );
   });
 

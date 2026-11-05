@@ -3,6 +3,7 @@ import {
   BsuirConfigurationError,
   BsuirNetworkError,
   BsuirResponsePayloadTooLargeError,
+  BsuirResponseValidationError,
   BsuirTimeoutError
 } from "../errors";
 import { getMergedSignalCleanup, mergeSignals } from "../mergeSignals";
@@ -122,7 +123,8 @@ export async function performRequestWithRetry<T>(params: PerformRequestParams): 
       invokeHookSafely(config.hooks.onError, {
         ...previousAttempt.hookCtx,
         durationMs: Date.now() - previousAttempt.startedAt,
-        error: reason
+        error: reason,
+        deduplicated: false
       });
       throw reason;
     }
@@ -187,22 +189,26 @@ export async function performRequestWithRetry<T>(params: PerformRequestParams): 
         ...hookCtx,
         status: response.status,
         durationMs,
-        fromCache: false
+        fromCache: false,
+        deduplicated: false
       };
       invokeHookSafely(config.hooks.onResponse, responseCtx);
       onSuccessMeta({ hookCtx, durationMs, status: response.status });
       return parsed;
     } catch (error: unknown) {
-      // Non-2xx, invalid JSON on 2xx, oversized bodies and disallowed redirects are final.
+      // Non-2xx, invalid JSON on 2xx, oversized bodies and disallowed redirects are final
+      // (and must not fall through to the network-error branch below, which retries).
       if (
         error instanceof BsuirApiError ||
+        error instanceof BsuirResponseValidationError ||
         error instanceof BsuirResponsePayloadTooLargeError ||
         error instanceof BsuirConfigurationError
       ) {
         const finalErrorCtx: ErrorHookContext = {
           ...hookCtx,
           durationMs: Date.now() - startedAt,
-          error
+          error,
+          deduplicated: false
         };
         invokeHookSafely(config.hooks.onError, finalErrorCtx);
         throw error;
@@ -214,7 +220,8 @@ export async function performRequestWithRetry<T>(params: PerformRequestParams): 
         const abortCtx: ErrorHookContext = {
           ...hookCtx,
           durationMs: Date.now() - startedAt,
-          error
+          error,
+          deduplicated: false
         };
         invokeHookSafely(config.hooks.onError, abortCtx);
         throw error;
@@ -230,7 +237,8 @@ export async function performRequestWithRetry<T>(params: PerformRequestParams): 
         const timeoutCtx: ErrorHookContext = {
           ...hookCtx,
           durationMs: Date.now() - startedAt,
-          error: timeoutError
+          error: timeoutError,
+          deduplicated: false
         };
         invokeHookSafely(config.hooks.onError, timeoutCtx);
         throw timeoutError;
@@ -257,7 +265,8 @@ export async function performRequestWithRetry<T>(params: PerformRequestParams): 
       const networkErrorCtx: ErrorHookContext = {
         ...hookCtx,
         durationMs: Date.now() - startedAt,
-        error: networkError
+        error: networkError,
+        deduplicated: false
       };
       invokeHookSafely(config.hooks.onError, networkErrorCtx);
       throw networkError;

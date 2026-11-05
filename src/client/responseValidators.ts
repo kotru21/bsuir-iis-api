@@ -1,12 +1,25 @@
 import { BsuirResponseValidationError } from "./errors";
+import {
+  array,
+  asRecord,
+  assertMatches,
+  describeValue,
+  failField,
+  type Schema
+} from "../schema/core";
+import { announcementSchema, scheduleResponseSchema } from "../schema/dto";
+import type { Announcement } from "../types/announcement";
 import type { ScheduleResponse } from "../types/schedule";
 
-function asRecord(payload: unknown): Record<string, unknown> | null {
-  if (typeof payload !== "object" || payload === null || Array.isArray(payload)) {
-    return null;
-  }
-  return payload as Record<string, unknown>;
-}
+export { describeValue } from "../schema/core";
+
+/*
+ * Two tiers of response checks:
+ * - always-on structural guards (this file, hand-written): the minimum the SDK needs to
+ *   honor its return types and never throw a raw `TypeError` while shaping data;
+ * - deep strict-mode checks (`validateResponses` / `createBsuirClient.strict()`): the DTO
+ *   schemas in `schema/dto`, compile-time bound to the public interfaces.
+ */
 
 function ensureRecord(
   payload: unknown,
@@ -23,166 +36,49 @@ function ensureRecord(
   return record;
 }
 
-function isNullableObject(value: unknown): boolean {
-  return (
-    value === null || value === undefined || (typeof value === "object" && !Array.isArray(value))
-  );
+const announcementListSchema = array(announcementSchema);
+
+/**
+ * Asserts that a catalog payload is an array whose items match `itemSchema`.
+ */
+export function assertCatalogResponse<T>(
+  payload: unknown,
+  endpoint: string,
+  itemSchema: Schema<T>
+): asserts payload is readonly T[] {
+  if (!Array.isArray(payload)) {
+    throw new BsuirResponseValidationError(
+      `Invalid response payload for ${endpoint}: expected array, got ${describeValue(payload)}`,
+      endpoint
+    );
+  }
+  assertMatches(array(itemSchema), payload, endpoint);
 }
 
-/** Short type label for error messages: `null`, `array`, or the `typeof` result. */
-export function describeValue(value: unknown): string {
-  if (value === null) {
-    return "null";
+/**
+ * Asserts announcements payload: a plain array or a paginated envelope with `content`,
+ * with every item checked against the `Announcement` schema.
+ */
+export function assertAnnouncementListResponse(
+  payload: unknown,
+  endpoint: string
+): asserts payload is readonly Announcement[] | { content: readonly Announcement[] } {
+  if (Array.isArray(payload)) {
+    assertMatches(announcementListSchema, payload, endpoint);
+    return;
   }
-  if (Array.isArray(value)) {
-    return "array";
-  }
-  return typeof value;
-}
 
-function failField(endpoint: string, location: string, expectation: string, value: unknown): never {
+  const record = asRecord(payload);
+  if (record && Array.isArray(record.content)) {
+    // Item locations stay `[index]` for both shapes.
+    assertMatches(announcementListSchema, record.content, endpoint);
+    return;
+  }
+
   throw new BsuirResponseValidationError(
-    `Invalid response payload for ${endpoint}: '${location}' must be ${expectation}, got ${describeValue(value)}`,
+    `Invalid response payload for ${endpoint}: expected array or paginated envelope with content`,
     endpoint
   );
-}
-
-// Item-level checks validate fields only when present: IIS omits some keys entirely
-// on sparse payloads, and strict mode should flag wrong shapes, not missing data.
-function assertNullableStringField(
-  record: Record<string, unknown>,
-  field: string,
-  location: string,
-  endpoint: string
-): void {
-  const value = record[field];
-  if (value !== undefined && value !== null && typeof value !== "string") {
-    failField(endpoint, `${location}.${field}`, "string or null", value);
-  }
-}
-
-function assertStringField(
-  record: Record<string, unknown>,
-  field: string,
-  location: string,
-  endpoint: string
-): void {
-  const value = record[field];
-  if (value !== undefined && typeof value !== "string") {
-    failField(endpoint, `${location}.${field}`, "string", value);
-  }
-}
-
-function assertFiniteNumberField(
-  record: Record<string, unknown>,
-  field: string,
-  location: string,
-  endpoint: string
-): void {
-  const value = record[field];
-  if (value !== undefined && (typeof value !== "number" || !Number.isFinite(value))) {
-    failField(endpoint, `${location}.${field}`, "a finite number", value);
-  }
-}
-
-function assertBooleanField(
-  record: Record<string, unknown>,
-  field: string,
-  location: string,
-  endpoint: string
-): void {
-  const value = record[field];
-  if (value !== undefined && typeof value !== "boolean") {
-    failField(endpoint, `${location}.${field}`, "boolean", value);
-  }
-}
-
-function assertObjectArrayField(
-  record: Record<string, unknown>,
-  field: string,
-  location: string,
-  endpoint: string,
-  { nullable }: { nullable: boolean }
-): void {
-  const value = record[field];
-  if (value === undefined || (nullable && value === null)) {
-    return;
-  }
-  if (!Array.isArray(value)) {
-    failField(endpoint, `${location}.${field}`, "an array of objects", value);
-  }
-  for (const [index, element] of value.entries()) {
-    if (!asRecord(element)) {
-      failField(endpoint, `${location}.${field}[${String(index)}]`, "an object", element);
-    }
-  }
-}
-
-function assertStringArrayField(
-  record: Record<string, unknown>,
-  field: string,
-  location: string,
-  endpoint: string
-): void {
-  const value = record[field];
-  if (value === undefined) {
-    return;
-  }
-  if (!Array.isArray(value)) {
-    failField(endpoint, `${location}.${field}`, "an array of strings", value);
-  }
-  for (const [index, element] of value.entries()) {
-    if (typeof element !== "string") {
-      failField(endpoint, `${location}.${field}[${String(index)}]`, "a string", element);
-    }
-  }
-}
-
-function assertScheduleItem(item: unknown, endpoint: string, location: string): void {
-  const record = asRecord(item);
-  if (!record) {
-    failField(endpoint, location, "an object", item);
-  }
-
-  const weekNumber = record.weekNumber;
-  if (weekNumber !== undefined && weekNumber !== null) {
-    if (!Array.isArray(weekNumber)) {
-      failField(endpoint, `${location}.weekNumber`, "an array of numbers or null", weekNumber);
-    }
-    for (const [index, week] of weekNumber.entries()) {
-      if (typeof week !== "number" || !Number.isFinite(week)) {
-        failField(endpoint, `${location}.weekNumber[${String(index)}]`, "a finite number", week);
-      }
-    }
-  }
-
-  const auditories = record.auditories;
-  if (auditories !== undefined) {
-    if (!Array.isArray(auditories)) {
-      failField(endpoint, `${location}.auditories`, "an array of strings", auditories);
-    }
-    for (const [index, auditory] of auditories.entries()) {
-      if (typeof auditory !== "string") {
-        failField(endpoint, `${location}.auditories[${String(index)}]`, "a string", auditory);
-      }
-    }
-  }
-
-  assertStringField(record, "startLessonTime", location, endpoint);
-  assertStringField(record, "endLessonTime", location, endpoint);
-  // Announcement rows (`announcement: true`) carry `subject: null` on live IIS payloads.
-  assertNullableStringField(record, "subject", location, endpoint);
-  assertNullableStringField(record, "subjectFullName", location, endpoint);
-  assertNullableStringField(record, "note", location, endpoint);
-  assertNullableStringField(record, "lessonTypeAbbrev", location, endpoint);
-  assertNullableStringField(record, "dateLesson", location, endpoint);
-  assertNullableStringField(record, "startLessonDate", location, endpoint);
-  assertNullableStringField(record, "endLessonDate", location, endpoint);
-  assertFiniteNumberField(record, "numSubgroup", location, endpoint);
-  assertBooleanField(record, "announcement", location, endpoint);
-  assertBooleanField(record, "split", location, endpoint);
-  assertObjectArrayField(record, "studentGroups", location, endpoint, { nullable: false });
-  assertObjectArrayField(record, "employees", location, endpoint, { nullable: true });
 }
 
 /**
@@ -207,93 +103,6 @@ function assertWeekScheduleMapShape(value: unknown, endpoint: string, field: str
   }
 }
 
-function assertWeekScheduleMap(value: unknown, endpoint: string, field: string): void {
-  assertWeekScheduleMapShape(value, endpoint, field);
-  if (value === null || value === undefined) {
-    return;
-  }
-  const record = asRecord(value);
-  if (!record) {
-    return;
-  }
-  for (const [day, dayItems] of Object.entries(record)) {
-    if (!Array.isArray(dayItems)) {
-      continue;
-    }
-    for (const [index, item] of dayItems.entries()) {
-      assertScheduleItem(item, endpoint, `${field}.${day}[${String(index)}]`);
-    }
-  }
-}
-
-function assertAnnouncementItem(item: unknown, endpoint: string, location: string): void {
-  const record = asRecord(item);
-  if (!record) {
-    failField(endpoint, location, "an object", item);
-  }
-  assertFiniteNumberField(record, "id", location, endpoint);
-  assertStringField(record, "employee", location, endpoint);
-  assertStringField(record, "content", location, endpoint);
-  assertStringField(record, "date", location, endpoint);
-  assertStringArrayField(record, "employeeDepartments", location, endpoint);
-  assertObjectArrayField(record, "studentGroups", location, endpoint, { nullable: false });
-}
-
-function assertAnnouncementItems(items: unknown[], endpoint: string): void {
-  for (const [index, item] of items.entries()) {
-    assertAnnouncementItem(item, endpoint, `[${String(index)}]`);
-  }
-}
-
-/**
- * Asserts that payload is an array of catalog objects.
- *
- * Catalog endpoints share this generic check: elements are validated as
- * non-null objects. Per-field catalog validation is intentionally out of
- * scope — catalog DTOs vary per endpoint and are consumed as typed views.
- */
-export function assertArrayResponse(
-  payload: unknown,
-  endpoint: string
-): asserts payload is unknown[] {
-  if (!Array.isArray(payload)) {
-    throw new BsuirResponseValidationError(
-      `Invalid response payload for ${endpoint}: expected array, got ${describeValue(payload)}`,
-      endpoint
-    );
-  }
-  for (const [index, item] of payload.entries()) {
-    if (!asRecord(item)) {
-      failField(endpoint, `[${String(index)}]`, "an object", item);
-    }
-  }
-}
-
-/**
- * Asserts announcements payload: a plain array or a paginated envelope with `content`,
- * with field-level checks on each announcement item.
- */
-export function assertAnnouncementListResponse(
-  payload: unknown,
-  endpoint: string
-): asserts payload is unknown[] | { content: unknown[] } {
-  if (Array.isArray(payload)) {
-    assertAnnouncementItems(payload, endpoint);
-    return;
-  }
-
-  const record = asRecord(payload);
-  if (record && Array.isArray(record.content)) {
-    assertAnnouncementItems(record.content, endpoint);
-    return;
-  }
-
-  throw new BsuirResponseValidationError(
-    `Invalid response payload for ${endpoint}: expected array or paginated envelope with content`,
-    endpoint
-  );
-}
-
 function assertNullableExamsField(value: unknown, endpoint: string): void {
   if (value !== null && value !== undefined && !Array.isArray(value)) {
     throw new BsuirResponseValidationError(
@@ -312,57 +121,24 @@ function assertNullableExamsField(value: unknown, endpoint: string): void {
  * fields and lesson items remain unchecked — use {@link assertScheduleResponse}).
  */
 export function assertScheduleStructuralEnvelope(payload: unknown, endpoint: string): void {
-  readScheduleStructuralEnvelope(payload, endpoint);
-}
-
-function readScheduleStructuralEnvelope(
-  payload: unknown,
-  endpoint: string
-): Record<string, unknown> {
   const record = ensureRecord(payload, endpoint, "object");
   assertWeekScheduleMapShape(record.schedules, endpoint, "schedules");
   assertWeekScheduleMapShape(record.nextSchedules, endpoint, "nextSchedules");
   assertNullableExamsField(record.exams, endpoint);
-  return record;
 }
 
 /**
  * Asserts that payload is a schedule response envelope.
  *
- * Checks the envelope (`schedules` / `nextSchedules` maps, `exams`, DTO fields)
- * and every lesson item: field-level shape checks apply when a field is
- * present (IIS may omit keys entirely on sparse payloads).
+ * Structural guards first (stable messages for the common envelope failures), then the
+ * `ScheduleResponse` schema: DTO fields, every lesson in `schedules` / `nextSchedules` /
+ * `exams` with its nested employees and student groups. Fields are checked when present
+ * (IIS may omit keys entirely on sparse payloads).
  */
 export function assertScheduleResponse(
   payload: unknown,
   endpoint: string
 ): asserts payload is ScheduleResponse {
-  const record = readScheduleStructuralEnvelope(payload, endpoint);
-
-  assertWeekScheduleMap(record.schedules, endpoint, "schedules");
-  assertWeekScheduleMap(record.nextSchedules, endpoint, "nextSchedules");
-
-  const exams = record.exams;
-  if (Array.isArray(exams)) {
-    for (const [index, exam] of exams.entries()) {
-      assertScheduleItem(exam, endpoint, `exams[${String(index)}]`);
-    }
-  }
-
-  const employeeDto = record.employeeDto;
-  if (!isNullableObject(employeeDto)) {
-    throw new BsuirResponseValidationError(
-      `Invalid response payload for ${endpoint}: 'employeeDto' must be object or null, got ${describeValue(employeeDto)}`,
-      endpoint
-    );
-  }
-
-  const studentGroupDto = record.studentGroupDto;
-
-  if (!isNullableObject(studentGroupDto)) {
-    throw new BsuirResponseValidationError(
-      `Invalid response payload for ${endpoint}: 'studentGroupDto' must be object or null, got ${describeValue(studentGroupDto)}`,
-      endpoint
-    );
-  }
+  assertScheduleStructuralEnvelope(payload, endpoint);
+  assertMatches(scheduleResponseSchema, payload, endpoint);
 }

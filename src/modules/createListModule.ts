@@ -1,9 +1,10 @@
 import { BsuirResponseValidationError } from "../client/errors";
 import { fetchAllSpringPages } from "../client/fetchAllPages";
 import { requestJson } from "../client/http";
-import { assertArrayResponse, describeValue } from "../client/responseValidators";
+import { assertCatalogResponse, describeValue } from "../client/responseValidators";
 import { unwrapSpringPageContent } from "../client/springPage";
 import type { InternalClientConfig } from "../client/types";
+import type { Schema } from "../schema/core";
 import { deepFreezeJson } from "../utils/deepFreezeJson";
 import type { ReadOptions } from "./types";
 
@@ -32,14 +33,16 @@ function assertUnwrappedList(payload: unknown, endpoint: string): unknown[] {
 
 /**
  * Creates a simple catalog-like module exposing `listAll()` / `listAllPages()` for a fixed endpoint.
+ * `itemSchema` (bound to the DTO interface) validates every item in strict mode.
  */
 export function createListModule<T>(
   config: Readonly<InternalClientConfig>,
-  endpoint: string
+  endpoint: string,
+  itemSchema: Schema<T>
 ): ListModule<T> {
   function responseValidator(value: unknown): void {
     const unwrapped = unwrapSpringPageContent(value);
-    assertArrayResponse(unwrapped, endpoint);
+    assertCatalogResponse(unwrapped, endpoint, itemSchema);
   }
 
   return {

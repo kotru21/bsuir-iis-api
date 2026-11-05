@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { BsuirApiError, BsuirResponsePayloadTooLargeError } from "../../../src/client/errors";
+import {
+  BsuirResponsePayloadTooLargeError,
+  BsuirResponseValidationError
+} from "../../../src/client/errors";
 import { parseBody } from "../../../src/client/http/response";
 
 function makeResponse(
@@ -56,22 +59,22 @@ describe("parseBody", () => {
 
   it("throws for empty body when content-type is JSON", async () => {
     const res = makeResponse("", { contentType: "application/json" });
-    await expect(parseBody(res, limit)).rejects.toBeInstanceOf(BsuirApiError);
+    await expect(parseBody(res, limit)).rejects.toBeInstanceOf(BsuirResponseValidationError);
   });
 
   it("treats application/json with parameters as JSON media type", async () => {
     const res = makeResponse("", { contentType: "application/json; charset=utf-8" });
-    await expect(parseBody(res, limit)).rejects.toBeInstanceOf(BsuirApiError);
+    await expect(parseBody(res, limit)).rejects.toBeInstanceOf(BsuirResponseValidationError);
   });
 
   it("treats +json media types as JSON (empty and invalid bodies)", async () => {
     const empty = makeResponse("", { contentType: "application/vnd.api+json" });
-    await expect(parseBody(empty, limit)).rejects.toBeInstanceOf(BsuirApiError);
+    await expect(parseBody(empty, limit)).rejects.toBeInstanceOf(BsuirResponseValidationError);
 
     const invalid = makeResponse("{not json}", {
       contentType: "application/vnd.api+json; charset=utf-8"
     });
-    await expect(parseBody(invalid, limit)).rejects.toBeInstanceOf(BsuirApiError);
+    await expect(parseBody(invalid, limit)).rejects.toBeInstanceOf(BsuirResponseValidationError);
 
     const ok = makeResponse('{"ok":true}', { contentType: "application/vnd.api+json" });
     await expect(parseBody(ok, limit)).resolves.toEqual({ ok: true });
@@ -91,7 +94,7 @@ describe("parseBody", () => {
 
   it("throws for invalid JSON when content-type is JSON", async () => {
     const res = makeResponse("{not json}", { contentType: "application/json" });
-    await expect(parseBody(res, limit)).rejects.toBeInstanceOf(BsuirApiError);
+    await expect(parseBody(res, limit)).rejects.toBeInstanceOf(BsuirResponseValidationError);
   });
 
   it("returns raw text for invalid JSON when content-type is not JSON", async () => {

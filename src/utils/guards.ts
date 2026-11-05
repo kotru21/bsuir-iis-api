@@ -3,7 +3,9 @@ import { BsuirValidationError } from "../client/errors";
 // BSUIR IIS API accepts only numeric group IDs (e.g., "053503").
 // Pattern is intentionally strict and covers only current IIS format.
 const GROUP_NUMBER_PATTERN = /^\d+$/;
-const EMPLOYEE_URL_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/i;
+// Live IIS slugs transliterate the soft sign as an apostrophe ("a-kuz'mich",
+// "e-mel'nikova"), so it is allowed between letters like the hyphen.
+const EMPLOYEE_URL_ID_PATTERN = /^[a-z0-9]+(?:['-][a-z0-9]+)*$/i;
 
 /**
  * Asserts that a value is a non-empty string.
@@ -43,7 +45,7 @@ export function assertEmployeeUrlId(value: unknown, fieldName = "urlId"): assert
   assertNonEmptyString(value, fieldName);
   if (!EMPLOYEE_URL_ID_PATTERN.test(value)) {
     throw new BsuirValidationError(
-      `'${fieldName}' must be a valid slug (letters, digits, hyphen)`,
+      `'${fieldName}' must be a valid slug (letters, digits, hyphens, apostrophes)`,
       fieldName,
       value
     );
