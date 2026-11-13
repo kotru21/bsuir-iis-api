@@ -47,7 +47,7 @@ describe("native browser fetch", () => {
   });
 
   it("works with window.fetch passed explicitly", async () => {
-    // eslint-disable-next-line unicorn/prefer-global-this, @typescript-eslint/unbound-method -- passing the unbound native method is the scenario under test
+    // oxlint-disable-next-line unicorn/prefer-global-this -- passing the unbound native method is the scenario under test
     const client = createLocalClient(window.fetch);
     expectHttpLevelOutcome(await captureFailure(() => client.faculties.listAll()));
   });

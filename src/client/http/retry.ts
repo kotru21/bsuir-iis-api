@@ -1,7 +1,7 @@
 import type { InternalClientConfig } from "../types";
 
 /** HTTP status codes retriable by the request pipeline. */
-export const RETRIABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
+export const RETRIABLE_STATUS_CODES: ReadonlySet<number> = new Set([429, 500, 502, 503, 504]);
 const MAX_ACCEPTED_RETRY_AFTER_MS = 60_000;
 // Hard internal cap applied to any Retry-After value (numeric or date-based) before
 // the higher-level decision logic compares it against MAX_ACCEPTED_RETRY_AFTER_MS.

@@ -40,12 +40,12 @@ import {
  * with these; the always-on structural guards live in `client/responseValidators`.
  */
 
-export const studentGroupShortSchema = object<StudentGroupShort>({
+export const studentGroupShortSchema: Schema<StudentGroupShort> = object<StudentGroupShort>({
   id: number(),
   name: string()
 });
 
-export const employeeSchema = object<Employee>({
+export const employeeSchema: Schema<Employee> = object<Employee>({
   firstName: string(),
   lastName: string(),
   middleName: nullable(string()),
@@ -60,7 +60,7 @@ export const employeeSchema = object<Employee>({
   jobPositions: nullable(array(string()))
 });
 
-export const employeeCatalogItemSchema = object<EmployeeCatalogItem>({
+export const employeeCatalogItemSchema: Schema<EmployeeCatalogItem> = object<EmployeeCatalogItem>({
   firstName: string(),
   lastName: string(),
   middleName: nullable(string()),
@@ -74,13 +74,13 @@ export const employeeCatalogItemSchema = object<EmployeeCatalogItem>({
   fio: string()
 });
 
-export const facultySchema = object<Faculty>({
+export const facultySchema: Schema<Faculty> = object<Faculty>({
   id: number(),
   name: string(),
   abbrev: string()
 });
 
-export const departmentSchema = object<Department>({
+export const departmentSchema: Schema<Department> = object<Department>({
   id: number(),
   name: string(),
   abbrev: string(),
@@ -92,7 +92,7 @@ const educationFormSchema = object<EducationForm>({
   name: string()
 });
 
-export const specialitySchema = object<Speciality>({
+export const specialitySchema: Schema<Speciality> = object<Speciality>({
   id: number(),
   name: string(),
   abbrev: string(),
@@ -101,19 +101,20 @@ export const specialitySchema = object<Speciality>({
   code: string()
 });
 
-export const studentGroupCatalogItemSchema = object<StudentGroupCatalogItem>({
-  name: string(),
-  facultyId: number(),
-  facultyName: optional(string()),
-  facultyAbbrev: optional(string()),
-  specialityDepartmentEducationFormId: number(),
-  specialityName: string(),
-  specialityAbbrev: optional(string()),
-  course: nullable(number()),
-  id: number(),
-  calendarId: string(),
-  educationDegree: optional(number())
-});
+export const studentGroupCatalogItemSchema: Schema<StudentGroupCatalogItem> =
+  object<StudentGroupCatalogItem>({
+    name: string(),
+    facultyId: number(),
+    facultyName: optional(string()),
+    facultyAbbrev: optional(string()),
+    specialityDepartmentEducationFormId: number(),
+    specialityName: string(),
+    specialityAbbrev: optional(string()),
+    course: nullable(number()),
+    id: number(),
+    calendarId: string(),
+    educationDegree: optional(number())
+  });
 
 const auditoryTypeSchema = object<AuditoryType>({
   id: number(),
@@ -133,7 +134,7 @@ const auditoryDepartmentSchema = object<AuditoryDepartment>({
   nameAndAbbrev: string()
 });
 
-export const auditorySchema = object<Auditory>({
+export const auditorySchema: Schema<Auditory> = object<Auditory>({
   id: number(),
   name: string(),
   note: nullable(string()),
@@ -143,7 +144,7 @@ export const auditorySchema = object<Auditory>({
   department: nullable(auditoryDepartmentSchema)
 });
 
-export const announcementSchema = object<Announcement>({
+export const announcementSchema: Schema<Announcement> = object<Announcement>({
   id: number(),
   employee: string(),
   content: string(),
@@ -160,7 +161,7 @@ const lessonStudentGroupSchema = object<LessonStudentGroup>({
   educationDegree: number()
 });
 
-export const scheduleItemSchema = object<ScheduleItem>({
+export const scheduleItemSchema: Schema<ScheduleItem> = object<ScheduleItem>({
   weekNumber: nullable(array(number())),
   studentGroups: array(lessonStudentGroupSchema),
   numSubgroup: number(),
@@ -221,7 +222,7 @@ function weekScheduleMap(item: Schema<ScheduleItem>): Schema<WeekScheduleMap> {
 
 const weekScheduleMapSchema = weekScheduleMap(scheduleItemSchema);
 
-export const scheduleResponseSchema = object<ScheduleResponse>({
+export const scheduleResponseSchema: Schema<ScheduleResponse> = object<ScheduleResponse>({
   employeeDto: nullable(employeeSchema),
   studentGroupDto: nullable(studentGroupCatalogItemSchema),
   schedules: nullable(weekScheduleMapSchema),

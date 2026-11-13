@@ -24,7 +24,7 @@ describe("createBsuirClient — baseUrl validation (lines 61, 65, 69, 82)", () =
   it("throws when baseUrl uses http:// without allowInsecureHttp (line 69)", () => {
     expect(() =>
       createBsuirClient({
-        // eslint-disable-next-line unicorn/prefer-https -- testing insecure HTTP rejection
+        // oxlint-disable-next-line unicorn-js/prefer-https -- testing insecure HTTP rejection
         baseUrl: "http://iis.bsuir.by/api/v1",
         allowedBaseUrlHosts: ["iis.bsuir.by"]
       })
@@ -34,7 +34,7 @@ describe("createBsuirClient — baseUrl validation (lines 61, 65, 69, 82)", () =
   it("keeps the public IIS host HTTPS-only even with allowInsecureHttp: true", () => {
     expect(() =>
       createBsuirClient({
-        // eslint-disable-next-line unicorn/prefer-https -- testing insecure HTTP rejection
+        // oxlint-disable-next-line unicorn-js/prefer-https -- testing insecure HTTP rejection
         baseUrl: "http://iis.bsuir.by/api/v1",
         allowInsecureHttp: true,
         allowedBaseUrlHosts: ["iis.bsuir.by"]
@@ -55,7 +55,7 @@ describe("createBsuirClient — baseUrl validation (lines 61, 65, 69, 82)", () =
   it("still requires the host to be allowlisted for http://", () => {
     expect(() =>
       createBsuirClient({
-        // eslint-disable-next-line unicorn/prefer-https -- testing insecure HTTP rejection
+        // oxlint-disable-next-line unicorn-js/prefer-https -- testing insecure HTTP rejection
         baseUrl: "http://127.evil.com/api/v1",
         allowInsecureHttp: true,
         allowedBaseUrlHosts: ["localhost"]

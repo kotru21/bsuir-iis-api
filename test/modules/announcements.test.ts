@@ -132,7 +132,7 @@ describe("announcements module", () => {
     expect(onError).toHaveBeenCalledOnce();
     const ctx = onError.mock.calls[0]?.[0] as { error: unknown } | undefined;
     expect(ctx?.error).toBeInstanceOf(BsuirApiError);
-    expect((ctx?.error as BsuirApiError).status).toBe(404);
+    expect((ctx?.error as BsuirApiError | undefined)?.status).toBe(404);
   });
 
   it("returns announcements for department", async () => {

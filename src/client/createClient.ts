@@ -222,19 +222,28 @@ function createInternalConfig(options: BsuirClientOptions): InternalClientConfig
 }
 
 /**
- * Fully-typed public shape of the BSUIR API client.
+ * BSUIR IIS API client returned by {@link createBsuirClient}.
  *
  * `schedule.get(target, options)` returns a normalized schedule (optionally narrowed
- * by `filter`); `schedule.getRaw(target)` returns the IIS envelope as-is.
+ * by `filter`); `schedule.getRaw(target)` returns the IIS envelope as-is. Catalog
+ * modules (`groups`, `employees`, …) expose `listAll()`, which returns the whole catalog.
  */
-export interface BsuirClientShape {
+export interface BsuirClient {
+  /** Group and employee timetables (`get`, `getRaw`) and the current study week. */
   schedule: ScheduleModule;
+  /** Student groups catalog (`/student-groups`). */
   groups: ListModule<StudentGroupCatalogItem>;
+  /** Employees catalog (`/employees/all`). */
   employees: ListModule<EmployeeCatalogItem>;
+  /** Faculties catalog (`/faculties`). */
   faculties: ListModule<Faculty>;
+  /** Departments catalog (`/departments`); `Department.urlId` feeds `announcements.byDepartment`. */
   departments: ListModule<Department>;
+  /** Specialities catalog (`/specialities`). */
   specialities: ListModule<Speciality>;
+  /** Announcements of an employee or a department. */
   announcements: AnnouncementsModule;
+  /** Auditories (rooms) catalog (`/auditories`). */
   auditories: ListModule<Auditory>;
 }
 
@@ -248,7 +257,7 @@ export interface BsuirClientShape {
  * Prefer {@link createBsuirClient.strict} in development/tests when you want
  * `validateResponses: true` without repeating the option.
  */
-export function createBsuirClient(options: BsuirClientOptions = {}): BsuirClientShape {
+export function createBsuirClient(options: BsuirClientOptions = {}): BsuirClient {
   const config = createInternalConfig(options);
   return {
     schedule: createScheduleModule(config),
@@ -262,20 +271,25 @@ export function createBsuirClient(options: BsuirClientOptions = {}): BsuirClient
   };
 }
 
-/**
- * Same as {@link createBsuirClient} with `validateResponses` forced to `true`.
- * Other options are unchanged. The default `createBsuirClient()` still leaves
- * validation off.
- *
- * Attached as `createBsuirClient.strict` for discoverability in IDEs.
- */
+// Declares the `strict` property explicitly — the same `function` + `namespace` pair tsc
+// used to infer from the assignment below — so `isolatedDeclarations` (the oxc d.ts
+// generator) can emit it without type inference.
+// oxlint-disable-next-line typescript/no-namespace -- ambient declaration merging only, no runtime namespace
+export declare namespace createBsuirClient {
+  /**
+   * Same as {@link createBsuirClient} with `validateResponses` forced to `true`.
+   * Other options are unchanged. The default `createBsuirClient()` still leaves
+   * validation off.
+   *
+   * Attached as `createBsuirClient.strict` for discoverability in IDEs.
+   */
+  // `let`: assigned once below (tsc emits the inferred form as `var`).
+  // oxlint-disable-next-line no-unused-vars -- ambient declaration, assigned as `createBsuirClient.strict`
+  let strict: (options?: BsuirClientOptions) => BsuirClient;
+}
+
 createBsuirClient.strict = function createBsuirClientStrict(
   options: BsuirClientOptions = {}
-): BsuirClientShape {
+): BsuirClient {
   return createBsuirClient({ ...options, validateResponses: true });
 };
-
-/**
- * Public client contract returned by `createBsuirClient`.
- */
-export type BsuirClient = BsuirClientShape;

@@ -74,29 +74,20 @@ describe("catalog modules", () => {
     await expect(client.departments.listAll()).resolves.toEqual(departments);
   });
 
-  it("listAll returns first page only and does not fetch page 2", async () => {
-    const page0 = [{ name: "A", id: 1 }];
-    const fetchImpl = vi.fn(async () =>
-      createJsonResponse({
-        body: {
-          content: page0,
-          pageable: { pageNumber: 0, pageSize: 1 },
-          totalPages: 2,
-          totalElements: 2,
-          last: false
-        }
-      })
+  it("listAll sends a single request for a plain array", async () => {
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL) =>
+      createJsonResponse({ body: [{ name: "A", id: 1 }] })
     );
-    const client = createBsuirClient({
-      fetch: fetchImpl as unknown as typeof fetch,
-      validateResponses: false
-    });
+    const client = createBsuirClient({ fetch: fetchImpl as unknown as typeof fetch });
 
-    await expect(client.groups.listAll()).resolves.toEqual(page0);
+    await expect(client.groups.listAll()).resolves.toEqual([{ name: "A", id: 1 }]);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(fetchImpl.mock.calls[0]?.[0]).toBe("https://iis.bsuir.by/api/v1/student-groups");
   });
 
-  it("listAllPages concatenates all Spring pages", async () => {
+  // 3.0: listAll used to stop after the first page of a paginated catalog (a separate
+  // listAllPages fetched the rest), silently truncating the result.
+  it("listAll concatenates all Spring pages", async () => {
     const fetchImpl = mockFetchSequence([
       createJsonResponse({
         body: {
@@ -119,13 +110,16 @@ describe("catalog modules", () => {
     ]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
 
-    await expect(client.groups.listAllPages()).resolves.toEqual([
+    await expect(client.groups.listAll()).resolves.toEqual([
       { name: "A", id: 1 },
       { name: "B", id: 2 }
     ]);
+    expect(vi.mocked(fetchImpl).mock.calls[1]?.[0]).toBe(
+      "https://iis.bsuir.by/api/v1/student-groups?page=1&size=1"
+    );
   });
 
-  it("listAllPages throws when totalPages exceeds safety cap", async () => {
+  it("listAll throws when totalPages exceeds safety cap", async () => {
     const fetchImpl = mockFetchSequence([
       createJsonResponse({
         body: {
@@ -138,7 +132,21 @@ describe("catalog modules", () => {
     ]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
 
-    await expect(client.groups.listAllPages()).rejects.toBeInstanceOf(BsuirResponseValidationError);
+    await expect(client.groups.listAll()).rejects.toBeInstanceOf(BsuirResponseValidationError);
+  });
+
+  it("listAll validates every page in strict mode", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({
+        body: { content: [{ id: 1, name: "A", abbrev: "A" }], number: 0, size: 1, last: false }
+      }),
+      createJsonResponse({
+        body: { content: [{ id: "2", name: "B", abbrev: "B" }], number: 1, size: 1, last: true }
+      })
+    ]);
+    const client = createBsuirClient.strict({ fetch: fetchImpl });
+
+    await expect(client.faculties.listAll()).rejects.toThrow("'[0].id' must be a finite number");
   });
 
   // Regression: results used to be frozen only when cache/dedup was enabled, so code
@@ -189,18 +197,18 @@ describe("catalog modules", () => {
     expect(onError).toHaveBeenCalledOnce();
     await expect(client.faculties.listAll()).resolves.toHaveLength(1);
 
-    await expect(client.groups.listAllPages()).rejects.toBeInstanceOf(BsuirResponseValidationError);
-    await expect(client.groups.listAllPages()).resolves.toEqual([{ id: 2 }]);
+    await expect(client.groups.listAll()).rejects.toBeInstanceOf(BsuirResponseValidationError);
+    await expect(client.groups.listAll()).resolves.toEqual([{ id: 2 }]);
     expect(fetchImpl).toHaveBeenCalledTimes(4);
   });
 
-  it("freezes the concatenated listAllPages result", async () => {
+  it("freezes the concatenated multi-page listAll result", async () => {
     const fetchImpl = mockFetchSequence([
       createJsonResponse({ body: { content: [{ id: 1 }], number: 0, size: 1, last: false } }),
       createJsonResponse({ body: { content: [{ id: 2 }], number: 1, size: 1, last: true } })
     ]);
     const client = createBsuirClient({ fetch: fetchImpl });
-    const groups = await client.groups.listAllPages();
+    const groups = await client.groups.listAll();
     expect(groups.map((group) => group.id)).toEqual([1, 2]);
     expect(Object.isFrozen(groups)).toBe(true);
   });

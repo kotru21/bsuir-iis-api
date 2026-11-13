@@ -302,6 +302,16 @@ describe("schedule module — normalize and raw", () => {
     );
   });
 
+  it("rejects a non-object lesson row with a typed error instead of a raw TypeError", () => {
+    const response = buildScheduleResponse({
+      schedules: { Понедельник: [null] } as unknown as Record<string, never>
+    });
+    expect(() => normalizeSchedule(response)).toThrow(BsuirResponseValidationError);
+    expect(() => normalizeSchedule(response)).toThrow(
+      "'schedules.Понедельник[0]' must be a lesson object, got null"
+    );
+  });
+
   it("rejects nextSchedules array envelope instead of silent empty success", () => {
     const response = buildScheduleResponse({
       nextSchedules: [] as unknown as Record<string, never>

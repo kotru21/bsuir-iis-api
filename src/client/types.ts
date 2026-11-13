@@ -274,7 +274,9 @@ export interface BsuirClientOptions {
   retryJitter?: boolean;
   /**
    * Value sent as the `User-Agent` request header. Mainly useful in Node.js
-   * environments where servers can log the client identity.
+   * environments where servers can log the client identity; browsers may ignore a
+   * `User-Agent` set by a script (Chromium does). CR, LF and NUL
+   * are rejected with `BsuirConfigurationError` when the client is created.
    *
    * @example
    * ```ts
@@ -320,7 +322,10 @@ export interface BsuirClientOptions {
    *
    * Hooks: the shared request fires the usual events (`deduplicated: false`); each
    * caller that joined it gets its own `onResponse` / `onError` with
-   * `deduplicated: true`.
+   * `deduplicated: true`. The `deduplicated: false` events describe the network
+   * request: when the caller that started it aborts while others still wait, that
+   * caller rejects with its own abort reason and fires no event of its own, while the
+   * request carries on and still reports its outcome once.
    *
    * Deduplicated responses are shared between callers. Like every SDK result they
    * are **deep-frozen**, so one caller cannot mutate another caller's data.

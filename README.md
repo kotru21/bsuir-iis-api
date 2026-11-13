@@ -72,6 +72,7 @@ const client = createBsuirClient({
 - `allowedBaseUrlHosts` controls which hosts are allowed for `baseUrl` (defaults to `["iis.bsuir.by"]`). `fetch` follows redirects by itself, so the SDK also checks where a response ended up: a redirect to a host outside the list (or an HTTPS → HTTP downgrade) fails with `BsuirConfigurationError`.
 - `allowInsecureHttp` enables `http://` for hosts you list in `allowedBaseUrlHosts` — a local mock server or a proxy on a private network such as `http://bsuir-proxy:8080` in docker-compose. The public IIS host always requires HTTPS.
 - `signal` in `createBsuirClient({ signal })` acts as a global cancellation signal for all requests made by that client.
+- `userAgent` sets the `User-Agent` request header (e.g. `"my-bot/1.0"`), so IIS logs can tell your service apart. Useful in Node.js; browsers may ignore a script-set `User-Agent`. A value with CR, LF or NUL fails with `BsuirConfigurationError` when the client is created.
 - `cache` stores successful GET responses in-memory for the configured TTL. A live `AbortSignal` can still use cache; an already-aborted signal skips cache. Cache hits return the same frozen reference on repeat reads. IIS read endpoints are public and the SDK sends no per-user headers, so one client (and one cache) can serve many users.
 - `cache.store` plugs in a custom storage backend (any synchronous Map-compatible object: a shared `Map`, an `lru-cache` instance, a custom adapter). The SDK still handles TTL and LRU eviction itself — the store is a plain container. A store can be shared across client instances; `keys()`/`entries()` must iterate oldest-first (insertion order) for LRU eviction to be accurate. `lru-cache` iterates newest-first, so let it own capacity: keep its `max` at or below `cache.maxEntries`.
 
@@ -89,10 +90,10 @@ const clientC = createBsuirClient({ cache: { ttlMs: 60_000, maxEntries: 500, sto
 - **Every result is deep-frozen, whatever the options.** Catalogs, announcements, raw and normalized schedules, subgroup and filtered lists are all frozen, and their types are `readonly`, so TypeScript flags in-place mutation (`list.sort()`, `lesson.note = …`). Copy first: `list.toSorted(...)`, `[...list]`, `structuredClone(lesson)`. Before 3.0 only cached/deduplicated payloads were frozen, so code that sorted a catalog in place worked without a cache and threw `TypeError` once caching was enabled.
 - `maxResponseBytes` limits body size per response to protect against memory spikes.
 - Response checking is two-tier:
-  - **Always on (structural):** catalog/announcement unwraps must resolve to arrays; schedule day buckets must be arrays (or nullish → empty); `schedules` / `nextSchedules` must be maps (object|null|absent); and `exams` must be array|null|absent. These guards apply to **normalized and raw** schedule fetches (`schedule.get` / `schedule.getRaw`) and throw `BsuirResponseValidationError` even when `validateResponses` is `false`, so the SDK can honor return types and avoid silent empty schedules or raw `TypeError`s on malformed IIS payloads.
+  - **Always on (structural):** catalog/announcement unwraps must resolve to arrays; schedule day buckets must be arrays (or nullish → empty); `schedules` / `nextSchedules` must be maps (object|null|absent); `exams` must be array|null|absent; and every lesson row in them must be an object. These guards apply to **normalized and raw** schedule fetches (`schedule.get` / `schedule.getRaw`) and throw `BsuirResponseValidationError` even when `validateResponses` is `false`, so the SDK can honor return types and avoid silent empty schedules or raw `TypeError`s on malformed IIS payloads.
   - **Opt-in (`validateResponses: true`, default `false`):** deep payload-shape checks — schedule responses down to every lesson item (`schedules` / `nextSchedules` / `exams`), announcements down to each item (fields checked when present; IIS may omit keys on sparse payloads), and catalog items field by field. These checks come from one schema per DTO, compile-time bound to the exported interfaces, so strict mode validates exactly what the types promise. Prefer enabling in development/tests; use `createBsuirClient.strict(options?)` as a shorthand that forces `validateResponses: true` without changing the default for `createBsuirClient()`.
 - Cache hits re-run any configured `responseValidator` (including when `validateResponses` is enabled), so a shared or hand-populated `cache.store` cannot bypass validation for the current client. An entry that fails is evicted, so the next call goes back to the network. Bodies that fail the always-on checks (e.g. a maintenance page from `current-week`) are never cached.
-- `hooks` provides lifecycle callbacks (`onRequest`, `onRetry`, `onResponse`, `onError`) for observability. Hook exceptions are caught and discarded — an observability callback never breaks the request, triggers a retry, or masks the real outcome. Every call ends with exactly one `onResponse` or `onError`; with `dedupeInFlight`, callers that joined another caller's request get them with `deduplicated: true` (and no `onRequest` / `onRetry`), so `deduplicated: false` events count network requests.
+- `hooks` provides lifecycle callbacks (`onRequest`, `onRetry`, `onResponse`, `onError`) for observability. Hook exceptions are caught and discarded — an observability callback never breaks the request, triggers a retry, or masks the real outcome. Every call ends with exactly one `onResponse` or `onError`; with `dedupeInFlight`, callers that joined another caller's request get them with `deduplicated: true` (and no `onRequest` / `onRetry`), so `deduplicated: false` events count network requests. They describe the request, not the caller that started it: if that caller aborts while others still wait, it rejects with its own abort reason and fires no event of its own, and the request still reports its outcome once.
 - `AbortSignal` is supported by all read methods.
 
 ## API
@@ -118,17 +119,14 @@ const subgroup1 = await client.schedule.get({ group: "053503" }, { filter: { sub
 
 ### Catalogs
 
-- `client.groups.listAll(options?)` / `client.groups.listAllPages(options?)`
-- `client.employees.listAll(options?)` / `client.employees.listAllPages(options?)`
-- `client.faculties.listAll(options?)` / `client.faculties.listAllPages(options?)`
-- `client.departments.listAll(options?)` / `client.departments.listAllPages(options?)`
-- `client.specialities.listAll(options?)` / `client.specialities.listAllPages(options?)`
-- `client.auditories.listAll(options?)` / `client.auditories.listAllPages(options?)`
+- `client.groups.listAll(options?)`
+- `client.employees.listAll(options?)`
+- `client.faculties.listAll(options?)`
+- `client.departments.listAll(options?)`
+- `client.specialities.listAll(options?)`
+- `client.auditories.listAll(options?)`
 
-Catalog list methods always resolve to arrays. If IIS returns a Spring Data page envelope (`{ content: [...] }`):
-
-- **`listAll()`** unwraps **first page only** (does not request page 2+). Prefer this when catalogs are small or returned as a plain array. Do **not** assume it returns the full catalog — if IIS paginates, use `listAllPages()`.
-- **`listAllPages()`** fetches **all pages** (query `page` / `size`) and concatenates them. If IIS reports more than **50** pages, the SDK throws `BsuirResponseValidationError` (same safety cap as announcements).
+`listAll()` always resolves to the **whole catalog** as an array. A plain JSON array (what IIS returns today) costs one request. If IIS answers with a Spring Data page envelope (`{ content: [...], totalPages, last, ... }`), the SDK fetches every page (`page` / `size` query) and concatenates them; more than **50** pages, a malformed page or pagination that does not advance throws `BsuirResponseValidationError` (same safety cap as announcements).
 
 ### Announcements
 
@@ -139,16 +137,16 @@ Both methods always resolve to `Announcement[]`. IIS may respond with a plain JS
 
 When IIS responds with HTTP `404` (the employee or department has no announcements), these methods resolve to an empty array `[]` instead of throwing `BsuirApiError`. Pass `treat404AsEmpty: false` to receive the underlying `BsuirApiError` instead. Client-side validation still runs first (employee and department `urlId`); all other HTTP errors (including `400`) are always thrown so malformed-request bugs are not silently masked.
 
-**Pagination note:** IIS serves announcements as Spring Data pages (default `size` 20) using `page` / `size` query params. The SDK fetches **all pages** and returns the concatenated `Announcement[]`. If IIS reports more than **50** pages, or a page is malformed, the SDK throws `BsuirResponseValidationError` (safety cap). Catalog **`listAll()`** still unwraps the first page only; use **`listAllPages()`** to fetch every catalog page under the same 50-page cap.
+**Pagination note:** IIS serves announcements as Spring Data pages (default `size` 20) using `page` / `size` query params. The SDK fetches **all pages** and returns the concatenated `Announcement[]`. If IIS reports more than **50** pages, or a page is malformed, the SDK throws `BsuirResponseValidationError` (safety cap), exactly like catalog `listAll()`.
 
 ### Public exports (runtime utilities and types)
 
 - Core runtime API: `createBsuirClient`, `BsuirClient`
-- Client/runtime option types: `BsuirClientOptions`, `CacheOptions`, `CacheStore`, `ResponseCacheEntry`, `ClientHooks`, `RequestCacheMode`, `ReadOptions`, `AnnouncementReadOptions`, `AnnouncementsModule`, `ListModule`, `ScheduleModule`, `ScheduleReadOptions`, `RequestHookContext`, `RetryHookContext`, `ResponseHookContext`, `ErrorHookContext`
-- Schedule utilities: `normalizeSchedule`, `filterLessons`, `getLessonsForDate`, `getTodayLessons`, `getTomorrowLessons`, `getLessonsForWeek`, `sortLessonsByTime`, `groupLessonsByDay`, `getCurrentLesson`, `getNextLesson`, `buildScheduleDays`, `getStudyWeek`, `BSUIR_TIME_ZONE`, `ScheduleFilterOptions`, `NormalizeScheduleOptions`, `StudyWeekOptions`, `ScheduleTimeZoneOptions`, `LessonTimeOptions`, `InvalidLessonTimeHook`
+- Client/runtime option types: `BsuirClientOptions`, `CacheOptions`, `CacheStore`, `ResponseCacheEntry`, `ClientHooks`, `RequestCacheMode`, `ReadOptions`, `AnnouncementReadOptions`, `AnnouncementsModule`, `ListModule`, `ScheduleModule`, `ScheduleReadOptions`, `ScheduleTarget`, `RequestHookContext`, `RetryHookContext`, `ResponseHookContext`, `ErrorHookContext`
+- Schedule utilities: `normalizeSchedule`, `filterLessons`, `getLessonsForDate`, `getTodayLessons`, `getTomorrowLessons`, `getLessonsForWeek`, `sortLessonsByTime`, `groupLessonsByDay`, `getCurrentLesson`, `getNextLesson`, `buildScheduleDays`, `getStudyWeek`, `BSUIR_TIME_ZONE`, `WEEKDAYS`, `ScheduleFilterOptions`, `NormalizeScheduleOptions`, `BuildScheduleDaysOptions`, `ScheduleDay`, `StudyWeekOptions`, `ScheduleTimeZoneOptions`, `LessonTimeOptions`, `LessonWithTime`, `InvalidLessonTimeHook`
 - Formatters: `formatEmployeeShortName`, `formatLessonAuditories`, `formatLessonEmployees`, `formatLessonSubgroup`, `formatLessonTimeRange`, `formatLessonType`, `formatLessonWeekNumbers`
 - Error classes: `BsuirError` (common base), `BsuirApiError`, `BsuirNetworkError`, `BsuirTimeoutError`, `BsuirValidationError`, `BsuirResponseValidationError`, `BsuirResponsePayloadTooLargeError`, `BsuirConfigurationError`
-- Domain types: `Announcement`, `Auditory`, `AuditoryDepartment`, `AuditoryType`, `BuildingNumber`, `Department`, `EducationForm`, `Employee`, `EmployeeCatalogItem`, `Faculty`, `FlattenedLessonsByDay`, `FlattenedScheduleItem`, `FlattenedScheduleSource`, `LessonStudentGroup`, `Maybe`, `NormalizedScheduleResponse`, `ScheduleItem`, `ScheduleResponse`, `Speciality`, `StudentGroupCatalogItem`, `StudentGroupShort`, `Weekday`, `WeekScheduleMap`
+- Domain types: `Announcement`, `Auditory`, `AuditoryDepartment`, `AuditoryType`, `BuildingNumber`, `Department`, `EducationForm`, `Employee`, `EmployeeCatalogItem`, `Faculty`, `FlattenedLessonsByDay`, `FlattenedScheduleItem`, `FlattenedScheduleSource`, `LessonStudentGroup`, `Maybe`, `NormalizedScheduleResponse`, `ScheduleItem`, `ScheduleResponse`, `Speciality`, `SpecialityEducationForm`, `StudentGroupCatalogItem`, `StudentGroupShort`, `Weekday`, `WeekScheduleMap`
 
 ## Errors
 
@@ -157,7 +155,7 @@ SDK throws typed errors. All of them extend `BsuirError`, so `error instanceof B
 - `BsuirApiError` for HTTP errors (contains `status`, `endpoint`, `body`, and `retryAfterMs` when the response carried a valid `Retry-After`). Non-2xx plain-text bodies are preserved even when IIS mislabels them as JSON. **Exception:** `client.announcements.byEmployee` / `byDepartment` resolve to `[]` on IIS HTTP `404` (unless `treat404AsEmpty: false`) instead of throwing (see Announcements above).
 - `BsuirResponsePayloadTooLargeError` when response body size exceeds configured `maxResponseBytes`.
 - `BsuirNetworkError` for transport errors (contains `endpoint` and standard `cause`)
-- `BsuirResponseValidationError` for invalid payload shapes: always-on structural guards (non-array catalog/announcement unwraps, non-array schedule day buckets, non-map `schedules`/`nextSchedules`, non-array `exams`, a `current-week` body that is not a positive integer, malformed Spring pages or more than 50 pages, a 2xx body labelled as JSON that is empty or not valid JSON — `Invalid JSON response payload…`, not retried), and deep item/field checks when `validateResponses: true` (including lessons under a day key other than the six BSUIR weekdays, which normalization cannot place into `lessons` / `lessonsByDay`)
+- `BsuirResponseValidationError` for invalid payload shapes: always-on structural guards (non-array catalog/announcement unwraps, non-array schedule day buckets, non-map `schedules`/`nextSchedules`, non-array `exams`, a lesson row that is not an object, a `current-week` body that is not a positive integer, malformed Spring pages or more than 50 pages, a 2xx body labelled as JSON that is empty or not valid JSON — `Invalid JSON response payload…`, not retried), and deep item/field checks when `validateResponses: true` (including lessons under a day key other than the six BSUIR weekdays, which normalization cannot place into `lessons` / `lessonsByDay`)
 - `BsuirTimeoutError` for timeouts (contains `endpoint`, `timeoutMs`)
 - `BsuirValidationError` for invalid input parameters (including non-`Date` / invalid `Date` arguments of schedule helpers)
 - `BsuirConfigurationError` for client misconfiguration: no `fetch` available, invalid option values, a disallowed `baseUrl`, or a response redirected outside `allowedBaseUrlHosts`
@@ -281,8 +279,13 @@ npm run api:report
 
 `npm run build` uses [tsdown](https://tsdown.dev/) so `.d.ts` / API Extractor output stay aligned with the published ESM bundle. TypeScript’s handbook notes that [`paths` can be used without `baseUrl`](https://www.typescriptlang.org/docs/handbook/modules/reference.html) when you need path mapping.
 
-Linting uses ESLint flat config with strict type-aware TypeScript rules for `src`,
-plus test-specific overrides for `test` and `vitest.config.ts`.
+The toolchain runs on TypeScript 7 (the native `tsc`) only:
+
+- `npm run typecheck` — TypeScript 7, plus an ES2023 / `isolatedDeclarations` baseline for `src` (`tsconfig.baseline.json`).
+- `npm run build` — tsdown; the `.d.ts` is emitted by oxc's isolated-declarations generator, so the build does not depend on the TypeScript compiler API.
+- `npm run lint` — [oxlint](https://oxc.rs/docs/guide/usage/linter) with type-aware rules (`--type-aware`, backed by typescript-go through `oxlint-tsgolint`). `.oxlintrc.json` carries over the former ESLint rule set (`typescript-eslint` strict/stylistic type-checked, `eslint-plugin-unicorn` recommended, the SDK's own overrides). Rules oxlint does not implement natively run through JS plugins: `unicorn-js/*` is `eslint-plugin-unicorn`, `sdk-docs/*` is the local `tools/oxlint-plugin-docs.js` (JSDoc on exports, `@param` names). Disable comments use `oxlint-disable-next-line <rule> -- reason`.
+
+typescript-eslint is not used: its `typescript` peer range ends below 6.1, so it cannot run next to TypeScript 7.
 
 Live contract tests against real BSUIR API are opt-in (`test/integration/live/`):
 
@@ -302,12 +305,11 @@ schedule / strict / helpers soft-skip with a warning when IIS probes find no wor
 
 ## Release checklist
 
-1. Run `npm run check:full`.
-2. Add or update a `.changeset/*.md` entry for user-visible changes.
-3. Run `npx changeset version` to bump `package.json`, update `CHANGELOG.md`, and consume changesets.
-4. Run `npm run api:report:check` and `npm run release:dry`.
-5. Push to `main` to trigger GitHub Actions release workflow.
-6. Verify published package in a clean project:
+1. Run `npm run check:full`, `npm run api:report:check` and `npm run release:dry`.
+2. Add or update a `.changeset/*.md` entry for user-visible changes and merge it to `main`.
+3. The **Release** workflow opens (or updates) the `chore: release packages` PR: `npx changeset version` bumps `package.json`, writes `CHANGELOG.md` and consumes the changesets. Review the notes there.
+4. Merge the Release PR. The workflow re-runs the full check suite, publishes to npm with provenance, and creates the `vX.Y.Z` tag and GitHub release from the `CHANGELOG.md` section. (Pushing a commit that ran `npx changeset version` locally publishes the same way.)
+5. Verify the published package in a clean project:
 
 ```bash
 mkdir bsuir-iis-smoke && cd bsuir-iis-smoke
@@ -346,12 +348,15 @@ Differences from the subgroup envelope: exams are filtered by subgroup too, and 
 
 Search hints: `getGroup`, `getEmployee`, `BySubgroup`, `Filtered(`, `Exams(`.
 
+**Catalogs and the client type.** `listAll()` returns the whole catalog: when IIS paginates, it fetches every page (it used to return only the first page and leave the rest to `listAllPages()`). `listAllPages()` is removed — call `listAll()`. For a plain-array response (what IIS sends today) nothing changes: one request, same result. `BsuirClientShape` is removed; `BsuirClient` is now the interface itself.
+
+Search hints: `listAllPages`, `BsuirClientShape`.
+
 **Behavior changes**
 
 - **Nullable DTO fields, as found on live IIS payloads (November 2026):** `Employee.middleName` and `EmployeeCatalogItem.middleName` (employees without a patronymic), `EmployeeCatalogItem.rank` (null for ~2/3 of employees), `StudentGroupCatalogItem.course`, `Auditory.note` and `Auditory.department` are now `… | null`.
 - **Strict mode checks every DTO field** — catalog items, nested lesson `employees` / `studentGroups`, `employeeDto` / `studentGroupDto` — from one schema per DTO, compile-time bound to the exported interface (a field added to a type without its validator, or vice versa, no longer compiles). Previously catalog items were only checked to be objects and nested DTOs not at all.
 - **Employees with an apostrophe in `urlId`** (`a-kuz'mich`, `e-mel'nikova`, … — 5 on live IIS) are accepted; the SDK used to reject them with `BsuirValidationError`, so their schedules and announcements were unreachable.
-
 - **Every client result is deep-frozen**, with or without `cache` / `dedupeInFlight`. Previously only cached/deduplicated payloads were frozen, so in-place mutation worked in development and threw `TypeError` once caching was on.
 - **DTO and result types are `readonly`** (`readonly T[]` lists, `readonly` fields), matching the frozen runtime data.
 - `ScheduleItem.subject` / `subjectFullName` are `string | null`: IIS sends `null` on announcement rows. `createBsuirClient.strict()` used to reject the whole schedule of such groups.
@@ -370,6 +375,7 @@ Search hints: `getGroup`, `getEmployee`, `BySubgroup`, `Filtered(`, `Exams(`.
 - **Strict mode** (`validateResponses` / `createBsuirClient.strict()` / `normalizeSchedule(…, { validate: true })`) rejects lessons under a day key other than the six BSUIR weekdays (e.g. `"Воскресенье"`). Without strict mode such buckets are kept in `normalized.schedules` instead of being dropped (they are still not part of `lessons` / `lessonsByDay`).
 - **`buildScheduleDays({ onInvalidTime })`** reports malformed times for every day of the range, once per lesson and field. It used to report only today's lessons, twice.
 - **Cache:** a cached entry that fails validation is evicted, and a body that fails the always-on checks (a 2xx maintenance page from any endpoint — schedules, `current-week`, catalogs, announcements) is no longer cached.
+- **Always-on schedule checks** also require every lesson row in `schedules` / `nextSchedules` / `exams` to be an object: a `null` or string row is a `BsuirResponseValidationError` (and is not cached) instead of a raw `TypeError` from normalization.
 - **Hooks:** `onResponse` fires only after the response (or cache hit) passed validation, so a rejected body ends with `onError` alone. It used to fire `onResponse` followed by `onError` (and only `onResponse` for a non-array catalog body).
 - `formatEmployeeShortName` returns `"И.И."` (no leading space) when the last name is empty.
 
@@ -378,6 +384,8 @@ Search hints: `getGroup`, `getEmployee`, `BySubgroup`, `Filtered(`, `Exams(`.
 | Before (2.x)                                                    | After (3.0)                                         |
 | --------------------------------------------------------------- | --------------------------------------------------- |
 | `(await client.groups.listAll()).sort(cmp)`                     | `(await client.groups.listAll()).toSorted(cmp)`     |
+| `client.groups.listAllPages()`                                  | `client.groups.listAll()`                           |
+| `BsuirClientShape`                                              | `BsuirClient`                                       |
 | `lesson.subject.toUpperCase()`                                  | `lesson.subject?.toUpperCase()`                     |
 | `catch (e) { if (e instanceof BsuirValidationError) }` on week  | `e instanceof BsuirResponseValidationError`         |
 | `e instanceof BsuirConfigurationError` on pagination cap        | `e instanceof BsuirResponseValidationError`         |
@@ -387,7 +395,7 @@ Search hints: `getGroup`, `getEmployee`, `BySubgroup`, `Filtered(`, `Exams(`.
 | `e instanceof BsuirApiError && e.status === 200` (broken JSON)  | `e instanceof BsuirResponseValidationError`         |
 | relying on `filterLessons({ weekNumber })` to drop `null` weeks | filter `lesson.weekNumber?.includes(n)` yourself    |
 
-Search hints: `.sort(`, `.push(`, `.subject.`, `retry_after_too_large`, `BsuirConfigurationError`, `TypeError`, `Invalid JSON`, `status === 200`, `weekNumber:`, `ResponseHookContext`, `ErrorHookContext`.
+Search hints: `.sort(`, `.push(`, `.subject.`, `listAllPages`, `BsuirClientShape`, `retry_after_too_large`, `BsuirConfigurationError`, `TypeError`, `Invalid JSON`, `status === 200`, `weekNumber:`, `ResponseHookContext`, `ErrorHookContext`.
 
 ### 2.1.0 — structural hardening
 
@@ -395,7 +403,7 @@ Compatible minor for most apps; watch these tightenings if you relied on lenient
 
 - **Raw schedule envelopes:** `schedules` / `nextSchedules` must be object maps (or null/absent), not arrays; `exams` must be array|null|absent. Failures throw `BsuirResponseValidationError` even with `validateResponses: false`.
 - **Subgroup envelopes:** `get*BySubgroupEnvelope` omits `nextSchedules` unless you pass `{ includeNextSchedules: true }`.
-- **Catalogs:** `listAll()` remains first-page-only; use `listAllPages()` for full catalogs.
+- **Catalogs:** `listAll()` remains first-page-only; use `listAllPages()` for full catalogs (until 3.0, where `listAll()` fetches every page).
 
 Search hints: `getGroupRaw`, `getGroupBySubgroupEnvelope`, `includeNextSchedules`, `.listAll(`.
 

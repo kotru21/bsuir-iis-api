@@ -4,7 +4,7 @@ import { BsuirValidationError } from "../errors";
 // Reject control chars (incl. CR/LF/NUL), whitespace, DEL, and URL-structural characters
 // (`?`, `#`, `&`, `=`). Other printable characters are allowed and will be percent-encoded
 // by URLSearchParams as needed.
-// eslint-disable-next-line no-control-regex
+// oxlint-disable-next-line no-control-regex
 const UNSAFE_QUERY_KEY = /[\u{0}-\u{20}\u{7F}&=?#]/u;
 const SCHEME_PREFIX = /^[A-Za-z][A-Za-z\d+.-]*:/;
 

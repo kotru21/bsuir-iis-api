@@ -35,7 +35,7 @@ describe("requestJson — redirect host policy", () => {
 
   it("rejects an HTTPS → HTTP downgrade on the allowed host", async () => {
     const fetchImpl = vi.fn(async () =>
-      // eslint-disable-next-line unicorn/prefer-https -- testing downgrade rejection
+      // oxlint-disable-next-line unicorn-js/prefer-https -- testing downgrade rejection
       redirectedResponse("http://iis.bsuir.by/api/v1/faculties", [])
     ) as unknown as typeof fetch;
     const client = createBsuirClient({ fetch: fetchImpl });

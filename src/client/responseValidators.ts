@@ -100,8 +100,21 @@ export function assertAnnouncementListResponse(
 }
 
 /**
- * Map + day-bucket shape only (no lesson-item fields).
- * Nullish maps and nullish day buckets are allowed; non-array buckets fail.
+ * Every lesson row must be an object; its fields are left to strict mode.
+ * Normalization and the date helpers read and copy fields of each row, so a `null` or
+ * a string here would otherwise surface as a raw `TypeError` (after the body was cached).
+ */
+function assertLessonRows(rows: readonly unknown[], endpoint: string, field: string): void {
+  for (const [index, row] of rows.entries()) {
+    if (!asRecord(row)) {
+      failField(endpoint, `${field}[${String(index)}]`, "a lesson object", row);
+    }
+  }
+}
+
+/**
+ * Map + day-bucket shape: nullish maps and nullish day buckets are allowed; non-array
+ * buckets and non-object lesson rows fail. Lesson fields are not checked here.
  */
 function assertWeekScheduleMapShape(value: unknown, endpoint: string, field: string): void {
   if (value === null || value === undefined) {
@@ -118,25 +131,31 @@ function assertWeekScheduleMapShape(value: unknown, endpoint: string, field: str
     if (!Array.isArray(dayItems)) {
       failField(endpoint, `${field}.${day}`, "an array of lessons", dayItems);
     }
+    assertLessonRows(dayItems, endpoint, `${field}.${day}`);
   }
 }
 
 function assertNullableExamsField(value: unknown, endpoint: string): void {
-  if (value !== null && value !== undefined && !Array.isArray(value)) {
+  if (value === null || value === undefined) {
+    return;
+  }
+  if (!Array.isArray(value)) {
     throw new BsuirResponseValidationError(
       `Invalid response payload for ${endpoint}: 'exams' must be array or null, got ${describeValue(value)}`,
       endpoint
     );
   }
+  assertLessonRows(value, endpoint, "exams");
 }
 
 /**
  * Always-on structural schedule envelope checks (no deep lesson-item validation).
  *
  * Ensures the payload is a non-null object, `schedules` / `nextSchedules` are
- * maps (object|null|absent) with array|nullish day buckets, and `exams` is
- * array|null|absent. Does **not** prove a full {@link ScheduleResponse} (DTO
- * fields and lesson items remain unchecked — use {@link assertScheduleResponse}).
+ * maps (object|null|absent) with array|nullish day buckets, `exams` is
+ * array|null|absent, and every lesson row is an object. Does **not** prove a full
+ * {@link ScheduleResponse} (DTO and lesson fields remain unchecked — use
+ * {@link assertScheduleResponse}).
  */
 export function assertScheduleStructuralEnvelope(payload: unknown, endpoint: string): void {
   const record = ensureRecord(payload, endpoint, "object");

@@ -179,4 +179,27 @@ describe("requestJson — dedup hooks", () => {
     call(0, calls).resolve(createJsonResponse({ body: [] }));
     await leader;
   });
+
+  // Documented contract: `deduplicated: false` events belong to the network request. The
+  // caller that started it may leave early; the request then still reports exactly once.
+  it("reports the shared request once when the caller that started it leaves early", async () => {
+    const { fetchImpl, calls } = createDeferredFetch();
+    const onResponse = vi.fn<(context: ResponseHookContext) => void>();
+    const onError = vi.fn<(context: ErrorHookContext) => void>();
+    const config = createRequestJsonConfig(fetchImpl, { hooks: { onResponse, onError } });
+    const ctrl = new AbortController();
+    const reason = new Error("leader left");
+
+    const leader = requestJson(config, "/faculties", { signal: ctrl.signal });
+    const joined = requestJson<number[]>(config, "/faculties");
+    ctrl.abort(reason);
+    await expect(leader).rejects.toBe(reason);
+    expect(call(0, calls).signal.aborted).toBe(false);
+
+    call(0, calls).resolve(createJsonResponse({ body: [1] }));
+    await expect(joined).resolves.toEqual([1]);
+
+    expect(onError).not.toHaveBeenCalled();
+    expect(onResponse.mock.calls.map(([context]) => context.deduplicated)).toEqual([false, true]);
+  });
 });

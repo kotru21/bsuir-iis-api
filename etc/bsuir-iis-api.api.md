@@ -88,7 +88,16 @@ export class BsuirApiError extends BsuirError {
 }
 
 // @public
-export type BsuirClient = BsuirClientShape;
+export interface BsuirClient {
+    announcements: AnnouncementsModule;
+    auditories: ListModule<Auditory>;
+    departments: ListModule<Department>;
+    employees: ListModule<EmployeeCatalogItem>;
+    faculties: ListModule<Faculty>;
+    groups: ListModule<StudentGroupCatalogItem>;
+    schedule: ScheduleModule;
+    specialities: ListModule<Speciality>;
+}
 
 // @public
 export interface BsuirClientOptions {
@@ -108,26 +117,6 @@ export interface BsuirClientOptions {
     timeoutMs?: number;
     userAgent?: string;
     validateResponses?: boolean;
-}
-
-// @public
-export interface BsuirClientShape {
-    // (undocumented)
-    announcements: AnnouncementsModule;
-    // (undocumented)
-    auditories: ListModule<Auditory>;
-    // (undocumented)
-    departments: ListModule<Department>;
-    // (undocumented)
-    employees: ListModule<EmployeeCatalogItem>;
-    // (undocumented)
-    faculties: ListModule<Faculty>;
-    // (undocumented)
-    groups: ListModule<StudentGroupCatalogItem>;
-    // (undocumented)
-    schedule: ScheduleModule;
-    // (undocumented)
-    specialities: ListModule<Speciality>;
 }
 
 // @public
@@ -247,12 +236,11 @@ export interface ClientHooks {
 }
 
 // @public
-export function createBsuirClient(options?: BsuirClientOptions): BsuirClientShape;
+export function createBsuirClient(options?: BsuirClientOptions): BsuirClient;
 
 // @public (undocumented)
 export namespace createBsuirClient {
-    var // (undocumented)
-    strict: (options?: BsuirClientOptions) => BsuirClientShape;
+    let strict: (options?: BsuirClientOptions) => BsuirClient;
 }
 
 // @public
@@ -438,10 +426,7 @@ export type LessonWithTime = Pick<FlattenedScheduleItem, "startLessonTime" | "en
 
 // @public
 export interface ListModule<T> {
-    // (undocumented)
     listAll(options?: ReadOptions): Promise<readonly T[]>;
-    // (undocumented)
-    listAllPages(options?: ReadOptions): Promise<readonly T[]>;
 }
 
 // @public

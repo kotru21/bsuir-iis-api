@@ -9,11 +9,8 @@ try {
     client.faculties.listAll()
   ]);
 
-  // listAll = first Spring page only; listAllPages = all pages (50-page safety cap)
-  const allGroups = await client.groups.listAllPages();
-
-  console.log("Groups (first page):", groups.length);
-  console.log("Groups (all pages):", allGroups.length);
+  // listAll returns the whole catalog: every Spring page when IIS paginates (50-page cap).
+  console.log("Groups:", groups.length);
   console.log("Employees:", employees.length);
   console.log("Faculties:", faculties.length);
 } catch (error: unknown) {
