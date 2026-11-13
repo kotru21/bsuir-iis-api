@@ -3,9 +3,13 @@ import { defineConfig } from "tsdown";
 export default defineConfig({
   entry: ["src/index.ts"],
   format: ["esm"],
-  // Native dts generation (rolldown-plugin-dts). Replaces tsup's experimentalDts,
-  // which injected a deprecated `baseUrl` under TypeScript 6+.
-  dts: true,
+  // Declarations come from oxc's isolated-declarations emitter: no TypeScript compiler API
+  // involved, so the build does not depend on the TypeScript version (TypeScript 7.0 only
+  // offers rolldown-plugin-dts a deprecated `tsgo` CLI fallback). `src` is checked with
+  // `isolatedDeclarations` in tsconfig.baseline.json, so every export stays annotated.
+  // No declaration map: it would point at `src/`, which is not published, so "go to
+  // definition" in consumers' editors would lead nowhere. The .d.ts carries the JSDoc.
+  dts: { generator: "oxc", sourcemap: false },
   sourcemap: true,
   clean: true,
   target: "es2022",

@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Runtime baseline of the published code: ES2023 + DOM (Chrome 110, Firefox 115,
+    // Safari 16, Node 22). Newer built-ins such as Iterator helpers or
+    // Promise.withResolvers must not creep into src: they fail only on older runtimes,
+    // often on rare paths (retries, cache) far from the cause.
+    "lib": ["ES2023", "DOM"],
+    // The published .d.ts is emitted by oxc (tsdown `dts.generator: "oxc"`), which needs
+    // every export to be typed explicitly. Checking it here keeps the build TypeScript-
+    // version-independent.
+    "isolatedDeclarations": true,
+    "noEmit": true
+  },
+  "include": ["src"]
+}

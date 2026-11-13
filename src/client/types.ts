@@ -1,3 +1,5 @@
+import type { HostPolicy } from "./hosts";
+
 /** Primitive values accepted in request query maps. */
 export type QueryValue = string | number | boolean | null | undefined;
 /** Per-request cache mode for successful GET responses. */
@@ -5,8 +7,6 @@ export type RequestCacheMode = "default" | "no-store" | "reload";
 
 /** Query string map passed to the HTTP layer. */
 export type QueryParams = Record<string, QueryValue>;
-/** HTTP methods supported by the SDK request pipeline. */
-export type RequestMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 /** Entry stored in the response cache. Treat as opaque: entries are deep-frozen on write. */
 export interface ResponseCacheEntry {
@@ -33,7 +33,7 @@ export interface ResponseCacheEntry {
  * Entries are written and read as frozen {@link ResponseCacheEntry} objects —
  * never mutate them. TTL and LRU bookkeeping stay in the SDK; the store is a
  * plain container. A store may be shared across client instances (cache keys are
- * method + full request URL + allowlisted headers `Accept` / `Accept-Language`).
+ * `GET <full request URL>`; query parameters are sorted, so keys are stable).
  */
 export interface CacheStore {
   get(key: string): ResponseCacheEntry | undefined;
@@ -84,7 +84,8 @@ export interface CacheOptions {
 
 /** Context passed to `hooks.onRequest` before each attempt. */
 export interface RequestHookContext {
-  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  /** Always `"GET"`: the SDK only reads from IIS. */
+  method: "GET";
   path: string;
   endpoint: string;
   attempt: number;
@@ -95,21 +96,32 @@ export interface RequestHookContext {
 /** Context passed to `hooks.onRetry` when a GET will be retried. */
 export interface RetryHookContext extends RequestHookContext {
   delayMs: number;
-  reason: "http_status" | "network_error" | "retry_after_too_large";
+  reason: "http_status" | "network_error";
   status: number | undefined;
 }
 
-/** Context passed to `hooks.onResponse` after a successful parse. */
+/**
+ * Context passed to `hooks.onResponse` once a response (or cache hit) was parsed and
+ * accepted by the endpoint's response checks. A body rejected by them fires `onError` instead.
+ */
 export interface ResponseHookContext extends RequestHookContext {
   status: number;
   durationMs: number;
   fromCache: boolean;
+  /**
+   * `true` when this call shared another caller's in-flight request
+   * (`dedupeInFlight`) instead of sending its own; `durationMs` is then the time
+   * it waited. Such calls fire no `onRequest` / `onRetry`.
+   */
+  deduplicated: boolean;
 }
 
 /** Context passed to `hooks.onError` when a request fails. */
 export interface ErrorHookContext extends RequestHookContext {
   durationMs: number;
   error: unknown;
+  /** `true` when this call was waiting on another caller's in-flight request. */
+  deduplicated: boolean;
 }
 
 /**
@@ -140,18 +152,6 @@ export interface RequestOptions {
    */
   signal?: AbortSignal | undefined;
   /**
-   * HTTP method. Defaults to `GET`.
-   */
-  method?: RequestMethod | undefined;
-  /**
-   * JSON body payload for mutating requests.
-   */
-  body?: unknown;
-  /**
-   * Additional request headers.
-   */
-  headers?: HeadersInit | undefined;
-  /**
    * Per-request cache mode for successful GET requests.
    *
    * - `"default"`: read from cache and write to cache.
@@ -164,7 +164,8 @@ export interface RequestOptions {
   /**
    * Optional response validator. Runs on network responses before they are cached,
    * and again on every cache hit so entries from a shared or hand-populated store
-   * cannot bypass the current client's validation.
+   * cannot bypass the current client's validation. A cache entry that fails it is
+   * evicted, so the next call goes to the network instead of failing until the TTL.
    */
   responseValidator?: ((payload: unknown) => void) | undefined;
 }
@@ -182,8 +183,10 @@ export interface BsuirClientOptions {
   /**
    * Allows using `http://` for `baseUrl`.
    *
-   * Keep disabled unless you explicitly need local/non-TLS endpoints in tests.
-   * When enabled, `http://` is allowed only for localhost/loopback hosts.
+   * Keep disabled unless you explicitly need a non-TLS endpoint you control: a local
+   * mock server or a proxy on a private network (e.g. `http://bsuir-proxy:8080` inside
+   * docker-compose). The host must still be listed in `allowedBaseUrlHosts`, and the
+   * public IIS host (`iis.bsuir.by`) always requires HTTPS.
    *
    * @defaultValue false
    */
@@ -191,21 +194,34 @@ export interface BsuirClientOptions {
   /**
    * Allowed hostnames for `baseUrl`.
    *
-   * Requests are rejected if `baseUrl` hostname is not in this list.
+   * Requests are rejected if `baseUrl` hostname is not in this list. Any port is
+   * accepted. A response redirected to a host outside the list (or from HTTPS to
+   * plain HTTP without `allowInsecureHttp`) fails with `BsuirConfigurationError`.
    *
    * @defaultValue ["iis.bsuir.by"]
    */
   allowedBaseUrlHosts?: string[];
   /**
-   * Custom `fetch` implementation. Useful for environments where the global
-   * `fetch` is unavailable (older Node.js versions) or when you want to wrap
-   * requests with a proxy, MSW handler, or test mock.
+   * Custom `fetch` implementation, e.g. to route requests through a proxy agent,
+   * add tracing, or use a test mock. Every supported runtime (Node.js 22.18 or newer
+   * and modern browsers) has a global `fetch`, so this is optional.
+   *
+   * The SDK always calls it as a plain function (no `this`), so passing a native
+   * method such as `window.fetch` directly is safe.
    *
    * @defaultValue globalThis.fetch
    * @example
    * ```ts
-   * import nodeFetch from "node-fetch";
-   * const client = createBsuirClient({ fetch: nodeFetch as typeof fetch });
+   * const client = createBsuirClient({
+   *   fetch: async (input, init) => {
+   *     console.time(String(input));
+   *     try {
+   *       return await fetch(input, init);
+   *     } finally {
+   *       console.timeEnd(String(input));
+   *     }
+   *   }
+   * });
    * ```
    */
   fetch?: typeof globalThis.fetch;
@@ -258,7 +274,9 @@ export interface BsuirClientOptions {
   retryJitter?: boolean;
   /**
    * Value sent as the `User-Agent` request header. Mainly useful in Node.js
-   * environments where servers can log the client identity.
+   * environments where servers can log the client identity; browsers may ignore a
+   * `User-Agent` set by a script (Chromium does). CR, LF and NUL
+   * are rejected with `BsuirConfigurationError` when the client is created.
    *
    * @example
    * ```ts
@@ -269,8 +287,8 @@ export interface BsuirClientOptions {
   /**
    * In-memory response cache configuration for successful GET requests.
    *
-   * When configured, responses are stored in a `Map` keyed by the full request
-   * URL. Cache hits skip the network entirely and fire `onResponse` with
+   * When configured, responses are stored in a `Map` keyed by the method plus the
+   * full request URL. Cache hits skip the network entirely and fire `onResponse` with
    * `fromCache: true`. The cache uses `Map` insertion order as LRU:
    * cache reads "touch" entries and eviction removes oldest keys first.
    *
@@ -278,12 +296,8 @@ export interface BsuirClientOptions {
    * `AbortSignal` (per-call or global) is already aborted, to prevent
    * serving stale data after cancellation.
    *
-   * Caching is also automatically skipped when request headers include
-   * credentials/private identity data such as `Authorization`, `Cookie`,
-   * `Proxy-Authorization`, or `X-API-Key`.
-   *
-   * For server-side multi-tenant apps, prefer one client instance per identity
-   * (per user/session/token) to avoid accidental data sharing.
+   * IIS read endpoints are public and the SDK sends no per-identity headers, so a
+   * cache (or a shared `cache.store`) never mixes data between users.
    *
    * @example
    * ```ts
@@ -295,18 +309,26 @@ export interface BsuirClientOptions {
    */
   cache?: CacheOptions;
   /**
-   * Enables in-flight GET request deduplication by method + URL + headers.
+   * Enables in-flight GET request deduplication by request URL.
    *
    * When two identical GET requests are made concurrently, only the first one
-   * hits the network; the second one awaits the same `Promise`. This prevents
-   * duplicate API calls in scenarios like parallel component rendering.
+   * hits the network; the others wait for its response. This prevents duplicate
+   * API calls in scenarios like parallel component rendering.
    *
-   * Disabled automatically when the relevant `AbortSignal` is already aborted.
-   * Also disabled for per-call signals, non-default cache modes, and requests
-   * with private credential headers.
+   * Per-call signals are supported: a caller whose signal aborts stops waiting
+   * (rejecting with its own abort reason) without affecting the others, and the
+   * shared network request is cancelled only once **every** caller waiting for it
+   * has aborted. Not used for non-default cache modes or already-aborted signals.
    *
-   * Deduplicated responses are shared between callers and therefore returned
-   * **deep-frozen**, like cache hits. Clone a payload if you need to mutate it.
+   * Hooks: the shared request fires the usual events (`deduplicated: false`); each
+   * caller that joined it gets its own `onResponse` / `onError` with
+   * `deduplicated: true`. The `deduplicated: false` events describe the network
+   * request: when the caller that started it aborts while others still wait, that
+   * caller rejects with its own abort reason and fires no event of its own, while the
+   * request carries on and still reports its outcome once.
+   *
+   * Deduplicated responses are shared between callers. Like every SDK result they
+   * are **deep-frozen**, so one caller cannot mutate another caller's data.
    *
    * @defaultValue false
    */
@@ -327,12 +349,17 @@ export interface BsuirClientOptions {
    * upstream API visible immediately instead of causing silent type-cast bugs later.
    *
    * Checked surfaces and depth (opt-in):
-   * - Schedule raw/normalized fetches: envelope plus field-level checks on every
-   *   lesson item in `schedules` / `nextSchedules` / `exams`. Fields are validated
-   *   when present — IIS may omit keys entirely on sparse payloads.
+   * Every check comes from one schema per DTO, compile-time bound to the exported
+   * interface, so strict mode validates exactly what the types promise:
+   * - Schedule raw/normalized fetches: envelope DTOs (`employeeDto`, `studentGroupDto`)
+   *   and every lesson in `schedules` / `nextSchedules` / `exams`, nested employees and
+   *   student groups included. Fields are validated
+   *   when present — IIS may omit keys entirely on sparse payloads. Lessons under a
+   *   day key other than the six `WEEKDAYS` (e.g. `"Воскресенье"`) are rejected: they
+   *   would be missing from the flattened lesson views.
    * - Announcements lists: array/page envelope plus field-level item checks.
-   * - Catalog lists: array of non-null objects (per-field catalog DTO checks are
-   *   intentionally out of scope).
+   * - Catalog lists: every item field by field against its DTO (`Faculty`,
+   *   `Auditory`, …).
    *
    * Independent of this flag, the SDK always applies lightweight **structural**
    * guards so return types stay honest (raw and normalized schedule paths)
@@ -380,9 +407,28 @@ export interface BsuirClientOptions {
   hooks?: ClientHooks;
 }
 
+/** Outcome of a deduplicated request shared between callers. */
+export interface SharedRequestResult {
+  /** Deep-frozen payload. */
+  value: unknown;
+  /** HTTP status of the response (for the waiters' `onResponse`). */
+  status: number | undefined;
+}
+
+/** One deduplicated network request and the callers waiting for it. */
+export interface InFlightRequest {
+  readonly result: Promise<SharedRequestResult>;
+  /** Cancels the shared request; aborted only when the last waiter aborts. */
+  readonly controller: AbortController;
+  /** Callers still waiting for `result`. */
+  waiters: number;
+}
+
 /** Resolved internal client config after `createBsuirClient` option normalization. */
 export interface InternalClientConfig {
   baseUrl: string;
+  /** Hosts/protocols the client may talk to; also applied to redirect targets. */
+  hostPolicy: HostPolicy;
   fetchImpl: typeof globalThis.fetch;
   signal: AbortSignal | undefined;
   timeoutMs: number;
@@ -398,5 +444,5 @@ export interface InternalClientConfig {
   validateResponses: boolean;
   hooks: ClientHooks;
   responseCache: CacheStore;
-  inFlightRequests: Map<string, Promise<unknown>>;
+  inFlightRequests: Map<string, InFlightRequest>;
 }

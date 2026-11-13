@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { requestJson } from "../../../src/client/http";
-import { BsuirApiError } from "../../../src/client/errors";
+import { BsuirApiError, BsuirResponseValidationError } from "../../../src/client/errors";
 import type { ErrorHookContext } from "../../../src/client/types";
 import { mockFetchSequence } from "../../helpers/fetchMock";
 import { createRequestJsonConfig } from "./requestJsonTestConfig";
@@ -94,7 +94,7 @@ describe("requestJson — onError reporting", () => {
 
     const error = await captureError(requestJson(config, "/faculties"));
 
-    expect(error).toBeInstanceOf(BsuirApiError);
+    expect(error).toBeInstanceOf(BsuirResponseValidationError);
     expect(error).toMatchObject({ endpoint: "https://iis.bsuir.by/api/v1/faculties" });
     expect(onError).toHaveBeenCalledTimes(1);
     expect(onError.mock.calls[0]?.[0].error).toBe(error);

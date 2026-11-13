@@ -26,14 +26,14 @@ describeLive("live strict client and schedule helpers", () => {
     }
   }, 60_000);
 
-  it("strict client listAll + getGroup do not throw on live payloads", async ({ skip }) => {
+  it("strict client listAll + schedule.get do not throw on live payloads", async ({ skip }) => {
     if (!scheduleAvailable || !groupNumber) {
       skip();
       return;
     }
 
     await expect(strictClient.groups.listAll()).resolves.toEqual(expect.any(Array));
-    await expect(strictClient.schedule.getGroup(groupNumber)).resolves.toMatchObject({
+    await expect(strictClient.schedule.get({ group: groupNumber })).resolves.toMatchObject({
       lessons: expect.any(Array),
       schedules: expect.any(Object)
     });
@@ -45,7 +45,7 @@ describeLive("live strict client and schedule helpers", () => {
       return;
     }
 
-    const normalized = await strictClient.schedule.getGroup(groupNumber);
+    const normalized = await strictClient.schedule.get({ group: groupNumber });
     const todayLessons = getTodayLessons(normalized, new Date());
     expect(Array.isArray(todayLessons)).toBe(true);
 

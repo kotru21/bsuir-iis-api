@@ -1,4 +1,4 @@
-import { BsuirApiError, BsuirResponsePayloadTooLargeError } from "../errors";
+import { BsuirResponsePayloadTooLargeError, BsuirResponseValidationError } from "../errors";
 
 const UTF8_ENCODER = new TextEncoder();
 
@@ -80,10 +80,23 @@ function isJsonMediaType(contentType: string): boolean {
   return mediaType === "application/json" || mediaType.endsWith("+json");
 }
 
+function invalidJsonError(
+  response: Response,
+  endpoint: string,
+  problem: string
+): BsuirResponseValidationError {
+  return new BsuirResponseValidationError(
+    `Invalid JSON response payload for ${endpoint} (HTTP ${String(response.status)}): ${problem}`,
+    endpoint
+  );
+}
+
 /**
  * Parses response body as JSON when possible, otherwise returns text.
  * Returns `null` for empty bodies that are not treated as strict JSON success payloads.
- * Throws `BsuirApiError` for **2xx** responses that declare JSON but are empty/invalid.
+ * Throws `BsuirResponseValidationError` for **2xx** responses that declare JSON but are
+ * empty/invalid: the request succeeded, its payload is what is broken — the same class
+ * an undeclared HTML/text body gets from the module-level shape checks.
  * For **non-2xx**, preserves raw text (IIS sometimes labels plain-text errors as JSON).
  * `endpoint` is reported on thrown errors (custom `fetch` responses may have an empty `url`).
  */
@@ -97,7 +110,7 @@ export async function parseBody(
   const text = await readBodyTextWithLimit(response, maxResponseBytes, endpoint);
   if (text.length === 0) {
     if (declaredJson && response.ok) {
-      throw new BsuirApiError("Invalid JSON response payload", response.status, endpoint, null);
+      throw invalidJsonError(response, endpoint, "empty body");
     }
     return null;
   }
@@ -105,7 +118,7 @@ export async function parseBody(
     return JSON.parse(text) as unknown;
   } catch {
     if (declaredJson && response.ok) {
-      throw new BsuirApiError("Invalid JSON response payload", response.status, endpoint, null);
+      throw invalidJsonError(response, endpoint, "body is not valid JSON");
     }
     return text;
   }

@@ -1,24 +1,36 @@
+import { BsuirValidationError } from "../client/errors";
 import { requestJson } from "../client/http";
 import {
   assertScheduleResponse,
   assertScheduleStructuralEnvelope
 } from "../client/responseValidators";
-import type { InternalClientConfig } from "../client/types";
+import type { InternalClientConfig, QueryParams } from "../client/types";
 import type {
-  FlattenedScheduleItem,
   NormalizedScheduleResponse,
   ScheduleFilterOptions,
-  ScheduleItem,
   ScheduleResponse
 } from "../types/schedule";
+import { assertScheduleFilter } from "../helpers/scheduleFilter";
 import { assertEmployeeUrlId, assertGroupNumber } from "../utils/guards";
 import { parseCurrentWeek } from "../utils/week";
 import { normalizeSchedule } from "./scheduleNormalize";
-import { createScheduleSubjectMethods } from "./scheduleApiSubject";
 import type { ReadOptions } from "./types";
 
 /**
- * Read options for schedule methods that return a normalized payload.
+ * Whose timetable to read: a student group by number, or an employee by `urlId`.
+ *
+ * @example
+ * ```ts
+ * { group: "053503" }
+ * { employee: "s-nesterenkov" }
+ * ```
+ */
+export type ScheduleTarget =
+  | { readonly group: string; readonly employee?: never }
+  | { readonly employee: string; readonly group?: never };
+
+/**
+ * Read options for {@link ScheduleModule.get}.
  */
 export interface ScheduleReadOptions extends ReadOptions {
   /**
@@ -28,251 +40,130 @@ export interface ScheduleReadOptions extends ReadOptions {
    * Pass `false` to never include next-term rows.
    */
   includeNextSchedules?: boolean;
+  /**
+   * Narrows every view of the result to matching lessons (see
+   * `NormalizeScheduleOptions.filter`). `{ subgroup: 2 }` gives a complete schedule of
+   * subgroup 2, shared lessons included, ready for `buildScheduleDays`.
+   */
+  filter?: ScheduleFilterOptions;
 }
 
 /**
- * Schedule module: raw/normalized fetches, filters, subgroup helpers, current week.
+ * Schedule module: one normalized read, the raw IIS envelope, and the current week.
  */
 export interface ScheduleModule {
-  getGroup(groupNumber: string, options?: ScheduleReadOptions): Promise<NormalizedScheduleResponse>;
-  getEmployee(urlId: string, options?: ScheduleReadOptions): Promise<NormalizedScheduleResponse>;
-
-  getGroupFiltered(
-    groupNumber: string,
-    filter: ScheduleFilterOptions,
-    options?: ScheduleReadOptions
-  ): Promise<FlattenedScheduleItem[]>;
-
-  getEmployeeFiltered(
-    urlId: string,
-    filter: ScheduleFilterOptions,
-    options?: ScheduleReadOptions
-  ): Promise<FlattenedScheduleItem[]>;
-
-  getGroupExams(
-    groupNumber: string,
-    options?: ScheduleReadOptions
-  ): Promise<FlattenedScheduleItem[]>;
-  getEmployeeExams(urlId: string, options?: ScheduleReadOptions): Promise<FlattenedScheduleItem[]>;
-
-  getGroupRaw(groupNumber: string, options?: ReadOptions): Promise<ScheduleResponse>;
-  getEmployeeRaw(urlId: string, options?: ReadOptions): Promise<ScheduleResponse>;
-
-  getGroupBySubgroup(
-    groupNumber: string,
-    subgroup: number,
-    options?: ScheduleReadOptions
-  ): Promise<FlattenedScheduleItem[]>;
-  getGroupBySubgroupRaw(
-    groupNumber: string,
-    subgroup: number,
-    options?: ScheduleReadOptions
-  ): Promise<ScheduleItem[]>;
-  getGroupBySubgroupEnvelope(
-    groupNumber: string,
-    subgroup: number,
-    options?: ScheduleReadOptions
-  ): Promise<ScheduleResponse>;
-
-  getEmployeeBySubgroup(
-    urlId: string,
-    subgroup: number,
-    options?: ScheduleReadOptions
-  ): Promise<FlattenedScheduleItem[]>;
-  getEmployeeBySubgroupRaw(
-    urlId: string,
-    subgroup: number,
-    options?: ScheduleReadOptions
-  ): Promise<ScheduleItem[]>;
-  getEmployeeBySubgroupEnvelope(
-    urlId: string,
-    subgroup: number,
-    options?: ScheduleReadOptions
-  ): Promise<ScheduleResponse>;
-
+  /**
+   * Normalized schedule of a group or an employee: cloned `schedules` / `exams` maps
+   * plus flattened `lessons`, `lessonsByDay`, `scheduleLessons` and `examLessons`.
+   *
+   * @example
+   * ```ts
+   * const schedule = await client.schedule.get({ group: "053503" });
+   * const exams = schedule.examLessons;
+   * const mine = await client.schedule.get({ group: "053503" }, { filter: { subgroup: 2 } });
+   * const days = buildScheduleDays(mine, { days: 7 });
+   * const lectures = await client.schedule.get(
+   *   { employee: "s-nesterenkov" },
+   *   { filter: { lessonTypeAbbrev: "ЛК" } }
+   * );
+   * ```
+   */
+  get(target: ScheduleTarget, options?: ScheduleReadOptions): Promise<NormalizedScheduleResponse>;
+  /**
+   * The schedule envelope exactly as IIS returns it (structurally checked, deep-frozen).
+   */
+  getRaw(target: ScheduleTarget, options?: ReadOptions): Promise<ScheduleResponse>;
+  /** Current academic week number (1–4) reported by IIS. */
   getCurrentWeek(options?: ReadOptions): Promise<number>;
 }
 
+interface ResolvedTarget {
+  /** Request path; also the endpoint label of validation errors. */
+  path: string;
+  query: QueryParams | undefined;
+}
+
+function resolveTarget(target: ScheduleTarget): ResolvedTarget {
+  // Untyped callers may pass null or a bare string (the 2.x `getGroup("053503")` habit):
+  // property reads on those yield undefined and fall into the error below.
+  const record =
+    (target as Partial<Record<"group" | "employee", unknown>> | null | undefined) ?? {};
+  const hasGroup = record.group !== undefined;
+  const hasEmployee = record.employee !== undefined;
+  if (hasGroup === hasEmployee) {
+    throw new BsuirValidationError(
+      `'target' must be either { group: string } or { employee: string }, e.g. get({ group: "053503" })`,
+      "target",
+      target
+    );
+  }
+  if (hasGroup) {
+    assertGroupNumber(record.group, "target.group");
+    return { path: "/schedule", query: { studentGroup: record.group } };
+  }
+  assertEmployeeUrlId(record.employee, "target.employee");
+  return { path: `/employees/schedule/${encodeURIComponent(record.employee)}`, query: undefined };
+}
+
 /**
- * Creates schedule API module with raw/normalized response support.
+ * Creates the schedule module.
  */
 export function createScheduleModule(config: Readonly<InternalClientConfig>): ScheduleModule {
-  function scheduleResponseValidator(endpoint: string): (value: unknown) => void {
-    return (value: unknown): void => {
-      if (config.validateResponses) {
-        assertScheduleResponse(value, endpoint);
-      } else {
-        // Always-on map/array/day-bucket shape — same structural rules as
-        // normalizeSchedule, without deep lesson-item checks.
-        assertScheduleStructuralEnvelope(value, endpoint);
-      }
-    };
-  }
-
-  /**
-   * Returns schedule for a student group.
-   * Returns a normalized payload. Use `getGroupRaw` for the raw API envelope.
-   */
-  async function getGroup(
-    groupNumber: string,
-    options: ScheduleReadOptions = {}
-  ): Promise<NormalizedScheduleResponse> {
-    assertGroupNumber(groupNumber, "groupNumber");
-    const payload = await requestJson<unknown>(config, "/schedule", {
-      query: { studentGroup: groupNumber },
+  async function fetchEnvelope(
+    resolved: ResolvedTarget,
+    options: ReadOptions
+  ): Promise<ScheduleResponse> {
+    const payload = await requestJson<unknown>(config, resolved.path, {
+      query: resolved.query,
       signal: options.signal,
       cache: options.cache,
       // Validate before cache write/hit so poisoned store entries cannot stick.
-      responseValidator: scheduleResponseValidator("/schedule")
-    });
-    const response = payload as ScheduleResponse;
-    return normalizeSchedule(response, {
-      validate: false,
-      endpoint: "/schedule",
-      ...(options.includeNextSchedules === undefined
-        ? {}
-        : { includeNextSchedules: options.includeNextSchedules })
-    });
-  }
-
-  /**
-   * Returns schedule for an employee.
-   * Returns a normalized payload. Use `getEmployeeRaw` for the raw API envelope.
-   */
-  async function getEmployee(
-    urlId: string,
-    options: ScheduleReadOptions = {}
-  ): Promise<NormalizedScheduleResponse> {
-    assertEmployeeUrlId(urlId, "urlId");
-    const endpoint = `/employees/schedule/${encodeURIComponent(urlId)}`;
-    const payload = await requestJson<unknown>(config, endpoint, {
-      signal: options.signal,
-      cache: options.cache,
-      responseValidator: scheduleResponseValidator(endpoint)
-    });
-    const response = payload as ScheduleResponse;
-    return normalizeSchedule(response, {
-      validate: false,
-      endpoint,
-      ...(options.includeNextSchedules === undefined
-        ? {}
-        : { includeNextSchedules: options.includeNextSchedules })
-    });
-  }
-
-  /**
-   * Returns current academic week number.
-   */
-  async function getCurrentWeek(options: ReadOptions = {}): Promise<number> {
-    const payload = await requestJson<unknown>(config, "/schedule/current-week", {
-      signal: options.signal,
-      cache: options.cache
-    });
-    return parseCurrentWeek(payload);
-  }
-
-  async function getGroupRaw(
-    groupNumber: string,
-    options: ReadOptions = {}
-  ): Promise<ScheduleResponse> {
-    assertGroupNumber(groupNumber, "groupNumber");
-    const payload = await requestJson<unknown>(config, "/schedule", {
-      query: { studentGroup: groupNumber },
-      signal: options.signal,
-      cache: options.cache,
-      responseValidator: scheduleResponseValidator("/schedule")
+      responseValidator: (value) => {
+        if (config.validateResponses) {
+          assertScheduleResponse(value, resolved.path);
+        } else {
+          // Always-on map/array/day-bucket shape, without deep DTO checks.
+          assertScheduleStructuralEnvelope(value, resolved.path);
+        }
+      }
     });
     return payload as ScheduleResponse;
   }
-
-  async function getEmployeeRaw(
-    urlId: string,
-    options: ReadOptions = {}
-  ): Promise<ScheduleResponse> {
-    assertEmployeeUrlId(urlId, "urlId");
-    const endpoint = `/employees/schedule/${encodeURIComponent(urlId)}`;
-    const payload = await requestJson<unknown>(config, endpoint, {
-      signal: options.signal,
-      cache: options.cache,
-      responseValidator: scheduleResponseValidator(endpoint)
-    });
-    return payload as ScheduleResponse;
-  }
-
-  const groupMethods = createScheduleSubjectMethods({
-    getNormalized: getGroup,
-    getRaw: getGroupRaw,
-    endpoint: () => "/schedule"
-  });
-  const employeeMethods = createScheduleSubjectMethods({
-    getNormalized: getEmployee,
-    getRaw: getEmployeeRaw,
-    endpoint: (urlId) => `/employees/schedule/${encodeURIComponent(urlId)}`
-  });
 
   return {
-    getGroup,
-    getEmployee,
-    getGroupRaw,
-    getEmployeeRaw,
-    getGroupFiltered: (id, filter, options) => groupMethods.getFiltered(id, filter, options),
-    getEmployeeFiltered: (id, filter, options) => employeeMethods.getFiltered(id, filter, options),
-    /**
-     * Returns flattened weekly lessons (no exams) for a subgroup.
-     * Shared lessons (`numSubgroup === 0`) are included. Next-term lessons follow the
-     * `includeNextSchedules` rule of `getGroup` (included when requested, or when the
-     * current term is empty). Use raw/envelope helpers for other shapes.
-     */
-    getGroupBySubgroup: (id, subgroup, options) =>
-      groupMethods.getBySubgroup(id, subgroup, options),
-    /**
-     * Returns raw `ScheduleItem[]` for a group subgroup (no day/source metadata).
-     * Shared lessons (`numSubgroup === 0`) are included; next-term lessons follow the
-     * same `includeNextSchedules` rule as `getGroup`.
-     */
-    getGroupBySubgroupRaw: (id, subgroup, options) =>
-      groupMethods.getBySubgroupRaw(id, subgroup, options),
-    /**
-     * Returns the full `ScheduleResponse` with `schedules` arrays filtered to the subgroup.
-     * Shared lessons (`numSubgroup === 0`) are included. Preserves envelope fields.
-     * `nextSchedules` is filtered the same way when `includeNextSchedules` is true, or
-     * unset while current-term `schedules` is empty; otherwise it is omitted.
-     */
-    getGroupBySubgroupEnvelope: (id, subgroup, options) =>
-      groupMethods.getBySubgroupEnvelope(id, subgroup, options),
-    /**
-     * Returns flattened weekly lessons (no exams) for an employee filtered by subgroup.
-     * Shared lessons (`numSubgroup === 0`) are included. Next-term lessons follow the
-     * `includeNextSchedules` rule of `getEmployee` (included when requested, or when the
-     * current term is empty). Use raw/envelope helpers for other shapes.
-     */
-    getEmployeeBySubgroup: (id, subgroup, options) =>
-      employeeMethods.getBySubgroup(id, subgroup, options),
-    /**
-     * Returns raw `ScheduleItem[]` for an employee subgroup filter.
-     * Shared lessons (`numSubgroup === 0`) are included; next-term lessons follow the
-     * same `includeNextSchedules` rule as `getEmployee`.
-     */
-    getEmployeeBySubgroupRaw: (id, subgroup, options) =>
-      employeeMethods.getBySubgroupRaw(id, subgroup, options),
-    /**
-     * Returns the full `ScheduleResponse` with `schedules` arrays filtered to the subgroup.
-     * Shared lessons (`numSubgroup === 0`) are included. Preserves envelope fields.
-     * `nextSchedules` is filtered the same way when `includeNextSchedules` is true, or
-     * unset while current-term `schedules` is empty; otherwise it is omitted.
-     */
-    getEmployeeBySubgroupEnvelope: (id, subgroup, options) =>
-      employeeMethods.getBySubgroupEnvelope(id, subgroup, options),
-    getCurrentWeek,
+    async get(target, options = {}) {
+      const resolved = resolveTarget(target);
+      // Caller mistakes fail before a request is spent.
+      if (options.filter) {
+        assertScheduleFilter(options.filter);
+      }
+      const response = await fetchEnvelope(resolved, options);
+      return normalizeSchedule(response, {
+        validate: false,
+        endpoint: resolved.path,
+        ...(options.includeNextSchedules === undefined
+          ? {}
+          : { includeNextSchedules: options.includeNextSchedules }),
+        ...(options.filter === undefined ? {} : { filter: options.filter })
+      });
+    },
 
-    /**
-     * Returns exams for a group.
-     */
-    getGroupExams: (id, options) => groupMethods.getExams(id, options),
+    async getRaw(target, options = {}) {
+      return fetchEnvelope(resolveTarget(target), options);
+    },
 
-    /**
-     * Returns exams for an employee.
-     */
-    getEmployeeExams: (id, options) => employeeMethods.getExams(id, options)
+    async getCurrentWeek(options = {}) {
+      const endpoint = "/schedule/current-week";
+      const payload = await requestJson<unknown>(config, endpoint, {
+        signal: options.signal,
+        cache: options.cache,
+        // Parse before the cache write (and on cache hits) so a maintenance page or
+        // other junk body is never cached and served until the TTL expires.
+        responseValidator: (value) => {
+          parseCurrentWeek(value, endpoint);
+        }
+      });
+      return parseCurrentWeek(payload, endpoint);
+    }
   };
 }

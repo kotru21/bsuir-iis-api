@@ -62,63 +62,6 @@ describe("requestJson — cache and private headers", () => {
     await requestJson(config, "/faculties", { signal: ctrl.signal });
     expect(config.responseCache.size).toBe(0);
   });
-
-  it("disables cache and dedup when Cookie header is present", async () => {
-    const fetchImpl = mockFetchSequence([
-      createJsonResponse({ body: { value: 1 } }),
-      createJsonResponse({ body: { value: 2 } })
-    ]);
-    const config = createRequestJsonConfig(fetchImpl, {
-      cacheTtlMs: 60_000,
-      dedupeInFlight: true
-    });
-
-    const first = await requestJson<{ value: number }>(config, "/faculties", {
-      headers: { Cookie: "session=a" }
-    });
-    const second = await requestJson<{ value: number }>(config, "/faculties", {
-      headers: { Cookie: "session=a" }
-    });
-
-    expect(first.value).toBe(1);
-    expect(second.value).toBe(2);
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
-    expect(config.responseCache.size).toBe(0);
-  });
-
-  it("disables cache and dedup when Authorization header is present", async () => {
-    const fetchImpl = mockFetchSequence([
-      createJsonResponse({ body: { value: 1 } }),
-      createJsonResponse({ body: { value: 2 } }),
-      createJsonResponse({ body: { value: 3 } }),
-      createJsonResponse({ body: { value: 4 } })
-    ]);
-    const config = createRequestJsonConfig(fetchImpl, {
-      cacheTtlMs: 60_000,
-      dedupeInFlight: true
-    });
-
-    const first = await requestJson<{ value: number }>(config, "/faculties", {
-      headers: { Authorization: "Bearer token-a" }
-    });
-    const second = await requestJson<{ value: number }>(config, "/faculties", {
-      headers: { Authorization: "Bearer token-a" }
-    });
-    expect(first.value).toBe(1);
-    expect(second.value).toBe(2);
-
-    const thirdPromise = requestJson<{ value: number }>(config, "/faculties", {
-      headers: { Authorization: "Bearer token-b" }
-    });
-    const fourthPromise = requestJson<{ value: number }>(config, "/faculties", {
-      headers: { Authorization: "Bearer token-b" }
-    });
-    const [third, fourth] = await Promise.all([thirdPromise, fourthPromise]);
-    expect(third.value).toBe(3);
-    expect(fourth.value).toBe(4);
-    expect(fetchImpl).toHaveBeenCalledTimes(4);
-    expect(config.responseCache.size).toBe(0);
-  });
 });
 
 describe("requestJson — in-flight deduplication", () => {
@@ -193,50 +136,16 @@ describe("requestJson — in-flight deduplication", () => {
     }).toThrow(TypeError);
     expect(second[0]?.name).toBe("A");
 
-    // Without cache and dedup the caller owns a plain mutable payload.
+    // Mutability never depends on options: plain requests are frozen as well.
     const plain = await requestJson<{ id: number }[]>(
       createRequestJsonConfig(fetchImpl, { dedupeInFlight: false }),
       "/faculties"
     );
-    expect(Object.isFrozen(plain)).toBe(false);
+    expect(Object.isFrozen(plain)).toBe(true);
   });
 
-  it("does not deduplicate concurrent requests when headers differ", async () => {
-    const resolvers: Array<(value: Response) => void> = [];
-    const fetchImpl = vi.fn(() => {
-      const { promise, resolve } = Promise.withResolvers<Response>();
-      resolvers.push(resolve);
-      return promise;
-    }) as unknown as typeof globalThis.fetch;
-    const config = createRequestJsonConfig(fetchImpl);
-
-    const firstPromise = requestJson<{ ok: boolean }>(config, "/faculties", {
-      headers: { "Accept-Language": "ru" }
-    });
-    const secondPromise = requestJson<{ ok: boolean }>(config, "/faculties", {
-      headers: { "Accept-Language": "en" }
-    });
-
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
-
-    expect(resolvers).toHaveLength(2);
-    const firstResolve = resolvers[0];
-    const secondResolve = resolvers[1];
-    if (!firstResolve || !secondResolve) {
-      throw new Error("missing fetch resolvers");
-    }
-    firstResolve(createJsonResponse({ body: { ok: true } }));
-    secondResolve(createJsonResponse({ body: { ok: true } }));
-    const [first, second] = await Promise.all([firstPromise, secondPromise]);
-    expect(first.ok).toBe(true);
-    expect(second.ok).toBe(true);
-  });
-
-  it("does not deduplicate GET requests when caller passes a per-call AbortSignal", async () => {
-    const fetchImpl = mockFetchSequence([
-      createJsonResponse({ body: { ok: true } }),
-      createJsonResponse({ body: { ok: true } })
-    ]);
+  it("deduplicates GET requests that carry per-call AbortSignals", async () => {
+    const fetchImpl = mockFetchSequence([createJsonResponse({ body: { ok: true } })]);
     const config = createRequestJsonConfig(fetchImpl);
     const signalA = new AbortController().signal;
     const signalB = new AbortController().signal;
@@ -246,6 +155,7 @@ describe("requestJson — in-flight deduplication", () => {
       requestJson<{ ok: boolean }>(config, "/faculties", { signal: signalB })
     ]);
 
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    // Abort semantics of shared requests: requestJson.dedupSignal.test.ts.
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 });

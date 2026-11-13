@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { BsuirConfigurationError } from "../../src/client/errors";
+import { BsuirResponseValidationError } from "../../src/client/errors";
 import { fetchAllSpringPages } from "../../src/client/fetchAllPages";
+import { captureRejection } from "../helpers/captureRejection";
 
 describe("fetchAllSpringPages", () => {
   it("returns plain array payload without further fetches", async () => {
@@ -10,7 +11,8 @@ describe("fetchAllSpringPages", () => {
       {},
       {
         maxPages: 50,
-        resourceLabel: "Announcements"
+        resourceLabel: "Announcements",
+        endpoint: "/announcements/employees"
       }
     );
     expect(items).toEqual([{ id: 1 }, { id: 2 }]);
@@ -32,7 +34,8 @@ describe("fetchAllSpringPages", () => {
       { size: 1 },
       {
         maxPages: 50,
-        resourceLabel: "Announcements"
+        resourceLabel: "Announcements",
+        endpoint: "/announcements/employees"
       }
     );
     expect(items.map((i) => i.id)).toEqual([0, 1, 2]);
@@ -47,8 +50,12 @@ describe("fetchAllSpringPages", () => {
       last: false
     }));
     await expect(
-      fetchAllSpringPages(fetchPage, {}, { maxPages: 50, resourceLabel: "Announcements" })
-    ).rejects.toBeInstanceOf(BsuirConfigurationError);
+      fetchAllSpringPages(
+        fetchPage,
+        {},
+        { maxPages: 50, resourceLabel: "Announcements", endpoint: "/announcements/employees" }
+      )
+    ).rejects.toBeInstanceOf(BsuirResponseValidationError);
   });
 
   it("throws when pageNumber does not advance while last is false", async () => {
@@ -58,8 +65,12 @@ describe("fetchAllSpringPages", () => {
       last: false
     }));
     await expect(
-      fetchAllSpringPages(fetchPage, {}, { maxPages: 50, resourceLabel: "Announcements" })
-    ).rejects.toThrow(BsuirConfigurationError);
+      fetchAllSpringPages(
+        fetchPage,
+        {},
+        { maxPages: 50, resourceLabel: "Announcements", endpoint: "/announcements/employees" }
+      )
+    ).rejects.toThrow(BsuirResponseValidationError);
     // First page + one stuck follow-up — must not keep looping toward maxPages.
     expect(fetchPage.mock.calls.length).toBeLessThanOrEqual(2);
   });
@@ -75,8 +86,12 @@ describe("fetchAllSpringPages", () => {
       };
     });
     await expect(
-      fetchAllSpringPages(fetchPage, { size: 1 }, { maxPages: 10, resourceLabel: "Catalog" })
-    ).rejects.toBeInstanceOf(BsuirConfigurationError);
+      fetchAllSpringPages(
+        fetchPage,
+        { size: 1 },
+        { maxPages: 10, resourceLabel: "Catalog", endpoint: "/student-groups" }
+      )
+    ).rejects.toBeInstanceOf(BsuirResponseValidationError);
     expect(fetchPage.mock.calls.length).toBeLessThanOrEqual(2);
   });
 
@@ -97,8 +112,14 @@ describe("fetchAllSpringPages", () => {
       };
     });
     await expect(
-      fetchAllSpringPages(fetchPage, { size: 1 }, { maxPages: 50, resourceLabel: "Catalog" })
-    ).rejects.toThrow(/non-array page payload/);
+      fetchAllSpringPages(
+        fetchPage,
+        { size: 1 },
+        { maxPages: 50, resourceLabel: "Catalog", endpoint: "/student-groups" }
+      )
+    ).rejects.toThrow(
+      /\/student-groups: Catalog page must be an array or a page envelope, got object/
+    );
     expect(fetchPage).toHaveBeenCalledTimes(2);
   });
 
@@ -119,7 +140,7 @@ describe("fetchAllSpringPages", () => {
     const items = await fetchAllSpringPages<{ id: number }>(
       fetchPage,
       { size: 2 },
-      { maxPages: 50, resourceLabel: "Catalog" }
+      { maxPages: 50, resourceLabel: "Catalog", endpoint: "/student-groups" }
     );
     expect(items.map((i) => i.id)).toEqual([0, 1, 2]);
     expect(fetchPage).toHaveBeenCalledTimes(2);
@@ -133,9 +154,45 @@ describe("fetchAllSpringPages", () => {
     const items = await fetchAllSpringPages<{ id: number }>(
       fetchPage,
       {},
-      { maxPages: 50, resourceLabel: "Catalog" }
+      { maxPages: 50, resourceLabel: "Catalog", endpoint: "/student-groups" }
     );
     expect(items).toEqual([{ id: 1 }]);
     expect(fetchPage).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("fetchAllSpringPages — error reporting", () => {
+  it("reports the endpoint on cap overflow (not a configuration error)", async () => {
+    const fetchPage = vi.fn(async () => ({
+      content: [],
+      pageable: { pageNumber: 0, pageSize: 20 },
+      totalPages: 51,
+      last: false
+    }));
+    const error: unknown = await captureRejection(
+      fetchAllSpringPages(
+        fetchPage,
+        {},
+        {
+          maxPages: 50,
+          resourceLabel: "Announcements",
+          endpoint: "/announcements/departments"
+        }
+      )
+    );
+    expect(error).toBeInstanceOf(BsuirResponseValidationError);
+    expect((error as BsuirResponseValidationError).endpoint).toBe("/announcements/departments");
+    expect((error as Error).message).toMatch(/safety cap of 50 pages/);
+  });
+
+  it("rejects a non-array, non-page first payload", async () => {
+    const fetchPage = vi.fn(async () => null);
+    await expect(
+      fetchAllSpringPages(
+        fetchPage,
+        {},
+        { maxPages: 50, resourceLabel: "Catalog", endpoint: "/faculties" }
+      )
+    ).rejects.toThrow(/got null/);
   });
 });

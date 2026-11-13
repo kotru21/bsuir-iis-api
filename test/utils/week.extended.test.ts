@@ -1,36 +1,38 @@
 import { describe, expect, it } from "vitest";
-import { BsuirValidationError } from "../../src/client/errors";
+import { BsuirResponseValidationError } from "../../src/client/errors";
 import { parseCurrentWeek } from "../../src/utils/week";
+
+const EP = "/schedule/current-week";
 
 describe("parseCurrentWeek — edge cases", () => {
   it("parses plain number", () => {
-    expect(parseCurrentWeek(3)).toBe(3);
+    expect(parseCurrentWeek(3, EP)).toBe(3);
   });
 
   it("parses string with newline (plain-text API format)", () => {
-    expect(parseCurrentWeek("2\n")).toBe(2);
+    expect(parseCurrentWeek("2\n", EP)).toBe(2);
   });
 
   it("parses weekNumber from object", () => {
-    expect(parseCurrentWeek({ weekNumber: 4 })).toBe(4);
+    expect(parseCurrentWeek({ weekNumber: 4 }, EP)).toBe(4);
   });
 
   it("parses currentWeek from object", () => {
-    expect(parseCurrentWeek({ currentWeek: "1" })).toBe(1);
+    expect(parseCurrentWeek({ currentWeek: "1" }, EP)).toBe(1);
   });
 
   it("throws for empty string (line 28)", () => {
-    expect(() => parseCurrentWeek(" ".repeat(3))).toThrow(BsuirValidationError);
+    expect(() => parseCurrentWeek(" ".repeat(3), EP)).toThrow(BsuirResponseValidationError);
   });
 
   it("throws for non-positive integer string", () => {
-    expect(() => parseCurrentWeek("0")).toThrow();
-    expect(() => parseCurrentWeek("-1")).toThrow();
+    expect(() => parseCurrentWeek("0", EP)).toThrow();
+    expect(() => parseCurrentWeek("-1", EP)).toThrow();
   });
 
   it("throws for unknown payload type", () => {
-    expect(() => parseCurrentWeek(null)).toThrow(BsuirValidationError);
-    expect(() => parseCurrentWeek([])).toThrow(BsuirValidationError);
+    expect(() => parseCurrentWeek(null, EP)).toThrow(BsuirResponseValidationError);
+    expect(() => parseCurrentWeek([], EP)).toThrow(BsuirResponseValidationError);
   });
 
   it("throws for excessive nesting depth (line 17)", () => {
@@ -39,10 +41,10 @@ describe("parseCurrentWeek — edge cases", () => {
     for (let i = 0; i < 11; i++) {
       deep = { weekNumber: deep };
     }
-    expect(() => parseCurrentWeek(deep)).toThrow(BsuirValidationError);
+    expect(() => parseCurrentWeek(deep, EP)).toThrow(BsuirResponseValidationError);
   });
 
   it("throws for object without weekNumber or currentWeek keys", () => {
-    expect(() => parseCurrentWeek({ foo: 1 })).toThrow(BsuirValidationError);
+    expect(() => parseCurrentWeek({ foo: 1 }, EP)).toThrow(BsuirResponseValidationError);
   });
 });

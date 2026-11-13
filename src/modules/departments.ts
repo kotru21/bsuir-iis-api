@@ -1,5 +1,6 @@
 import type { InternalClientConfig } from "../client/types";
 import type { Department } from "../types/catalog";
+import { departmentSchema } from "../schema/dto";
 import { createListModule, type ListModule } from "./createListModule";
 
 /**
@@ -8,5 +9,5 @@ import { createListModule, type ListModule } from "./createListModule";
 export function createDepartmentsModule(
   config: Readonly<InternalClientConfig>
 ): ListModule<Department> {
-  return createListModule<Department>(config, "/departments");
+  return createListModule<Department>(config, "/departments", departmentSchema);
 }

@@ -2,6 +2,7 @@ import type { InternalClientConfig } from "../../../src/client/types";
 
 export const REQUEST_JSON_BASE_CONFIG: Omit<InternalClientConfig, "fetchImpl"> = {
   baseUrl: "https://iis.bsuir.by/api/v1",
+  hostPolicy: { allowedHosts: new Set(["iis.bsuir.by"]), allowInsecureHttp: false },
   signal: undefined,
   timeoutMs: 1000,
   retries: 0,

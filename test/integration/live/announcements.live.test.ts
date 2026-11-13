@@ -1,28 +1,32 @@
 import { expect, it } from "vitest";
 import { BsuirApiError } from "../../../src/client/errors";
 import { createLiveClient } from "./client";
-import { LIVE_DEPARTMENT_ID, LIVE_EMPLOYEE_URL_ID } from "./fixtures";
+import { LIVE_DEPARTMENT_URL_ID, LIVE_EMPLOYEE_URL_ID } from "./fixtures";
 import { describeLive } from "./gate";
 
 describeLive("live announcements contract", () => {
   const client = createLiveClient();
 
-  it("byEmployee / byDepartment return arrays (400/422 department → [])", async () => {
+  it("byEmployee / byDepartment return arrays", async () => {
     const employeeAnnouncements = await client.announcements.byEmployee(LIVE_EMPLOYEE_URL_ID);
-
-    let departmentAnnouncements: unknown;
-    try {
-      departmentAnnouncements = await client.announcements.byDepartment(LIVE_DEPARTMENT_ID);
-    } catch (error) {
-      if (error instanceof BsuirApiError && [400, 422].includes(error.status)) {
-        departmentAnnouncements = [];
-      } else {
-        throw error;
-      }
-    }
+    // No 400 → [] fallback: it hid that 2.x/3.0-beta sent `?id=` (always HTTP 400) instead
+    // of `?url-id=<slug>`.
+    const departmentAnnouncements = await client.announcements.byDepartment(LIVE_DEPARTMENT_URL_ID);
 
     expect(Array.isArray(employeeAnnouncements)).toBe(true);
     expect(Array.isArray(departmentAnnouncements)).toBe(true);
+  }, 60_000);
+
+  it("every department urlId from the catalog is accepted by byDepartment", async () => {
+    const departments = await client.departments.listAll();
+    expect(departments.length).toBeGreaterThan(0);
+    const sample =
+      departments.find((department) => department.urlId.includes(".")) ?? departments[0];
+    if (sample) {
+      await expect(client.announcements.byDepartment(sample.urlId)).resolves.toEqual(
+        expect.any(Array)
+      );
+    }
   }, 60_000);
 
   it("announcements endpoints return array or Spring page; SDK yields array", async () => {

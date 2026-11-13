@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setCache, tryReadCacheEntry } from "../../../src/client/http/cache";
-import { BsuirConfigurationError } from "../../../src/client/errors";
 import type { InternalClientConfig, ResponseCacheEntry } from "../../../src/client/types";
 
 function makeConfig(overrides: Partial<InternalClientConfig> = {}): InternalClientConfig {
   return {
     baseUrl: "https://iis.bsuir.by/api/v1",
+    hostPolicy: { allowedHosts: new Set(["iis.bsuir.by"]), allowInsecureHttp: false },
     fetchImpl: fetch,
     signal: undefined,
     timeoutMs: 10_000,
@@ -162,18 +162,6 @@ describe("setCache", () => {
 
     expect(config.responseCache.get("expired")).toBeUndefined();
     expect(config.responseCache.size).toBe(2);
-  });
-
-  it("rejects non-JSON values (Date, Map, class instances)", () => {
-    const config = makeConfig({ cacheTtlMs: 1000 });
-    expect(() => setCache(config, "k", new Date())).toThrow(BsuirConfigurationError);
-    expect(() => setCache(config, "k", new Map())).toThrow(BsuirConfigurationError);
-    class Foo {
-      readonly tag = "foo";
-    }
-    expect(() => setCache(config, "k", new Foo())).toThrow(BsuirConfigurationError);
-    expect(() => setCache(config, "k", Number.NaN)).toThrow(BsuirConfigurationError);
-    expect(() => setCache(config, "k", Number.POSITIVE_INFINITY)).toThrow(BsuirConfigurationError);
   });
 
   it("evicts least-recently-used entries when cache exceeds maxEntries", () => {

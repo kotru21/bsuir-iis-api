@@ -20,7 +20,7 @@ describe("requestJson — responseValidator and onError", () => {
       hooks: { onError }
     });
 
-    await expect(client.schedule.getGroupRaw("053503")).rejects.toBeInstanceOf(
+    await expect(client.schedule.getRaw({ group: "053503" })).rejects.toBeInstanceOf(
       BsuirResponseValidationError
     );
     expect(onError).toHaveBeenCalledOnce();
@@ -80,10 +80,10 @@ describe("requestJson — responseValidator and onError", () => {
       cache: { ttlMs: 60_000, maxEntries: 10 }
     });
 
-    await expect(client.schedule.getGroupRaw("053503")).rejects.toBeInstanceOf(
+    await expect(client.schedule.getRaw({ group: "053503" })).rejects.toBeInstanceOf(
       BsuirResponseValidationError
     );
-    const raw = await client.schedule.getGroupRaw("053503");
+    const raw = await client.schedule.getRaw({ group: "053503" });
     expect(raw).toHaveProperty("schedules");
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });

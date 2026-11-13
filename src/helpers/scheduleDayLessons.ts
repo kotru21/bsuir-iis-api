@@ -1,4 +1,5 @@
 import { BsuirResponseValidationError } from "../client/errors";
+import { describeValue } from "../client/responseValidators";
 import type { ScheduleItem } from "../types/schedule";
 
 /**
@@ -14,7 +15,7 @@ export function asDayLessonArray(
   }
   if (!Array.isArray(dayItems)) {
     throw new BsuirResponseValidationError(
-      `Invalid response payload for ${endpoint}: ${field} must be an array of lessons, got ${typeof dayItems}`,
+      `Invalid response payload for ${endpoint}: ${field} must be an array of lessons, got ${describeValue(dayItems)}`,
       endpoint
     );
   }

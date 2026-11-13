@@ -4,11 +4,11 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 2.x     | :white_check_mark: |
-| 1.x     | :x:                |
-| < 1.0   | :x:                |
+| 3.x     | :white_check_mark: |
+| < 3.0   | :x:                |
 
-Only the latest minor line receives security fixes.
+Only the latest minor line receives security fixes. See the README migration notes for
+upgrading from 2.x.
 
 ## Reporting a Vulnerability
 

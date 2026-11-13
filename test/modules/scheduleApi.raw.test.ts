@@ -74,106 +74,87 @@ function buildSubgroupPayload(): ScheduleResponse {
   };
 }
 
-describe("scheduleApi — explicit raw/envelope behavior", () => {
-  it("getGroup returns raw ScheduleResponse using getGroupRaw", async () => {
+describe("scheduleApi — raw envelope and filtered normalized views", () => {
+  it("getRaw({ group }) returns the raw ScheduleResponse", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildRawPayload() })]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
 
-    const response = await client.schedule.getGroupRaw("053503");
+    const response = await client.schedule.getRaw({ group: "053503" });
     expect("schedules" in response).toBe(true);
     expect("lessons" in response).toBe(false);
     expect(response.exams).toEqual([]);
   });
 
-  it("getEmployee returns raw ScheduleResponse using getEmployeeRaw", async () => {
+  it("getRaw({ employee }) returns the raw ScheduleResponse", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildRawPayload() })]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
 
-    const response = await client.schedule.getEmployeeRaw("s-nesterenkov");
+    const response = await client.schedule.getRaw({ employee: "s-nesterenkov" });
     expect("schedules" in response).toBe(true);
     expect("lessons" in response).toBe(false);
   });
 
-  // lines 92–93: validateResponses: true triggers assertScheduleResponse in raw mode
-  it("getGroupRaw with validateResponses: true calls assertScheduleResponse", async () => {
-    const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildRawPayload() })]);
+  it("getRaw validates deeply with validateResponses: true", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ body: buildRawPayload() }),
+      createJsonResponse({ body: buildRawPayload() })
+    ]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
-    const response = await client.schedule.getGroupRaw("053503");
-    expect("schedules" in response).toBe(true);
+    await expect(client.schedule.getRaw({ group: "053503" })).resolves.toHaveProperty("schedules");
+    await expect(client.schedule.getRaw({ employee: "s-nesterenkov" })).resolves.toHaveProperty(
+      "schedules"
+    );
   });
 
-  // line 123: same for getEmployee
-  it("getEmployeeRaw with validateResponses: true calls assertScheduleResponse", async () => {
-    const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildRawPayload() })]);
-    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: true });
-    const response = await client.schedule.getEmployeeRaw("s-nesterenkov");
-    expect("schedules" in response).toBe(true);
-  });
-
-  it("per-call raw: false returns normalized payload", async () => {
+  it("get returns the normalized payload", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildRawPayload() })]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
-    const response = await client.schedule.getGroup("053503");
+    const response = await client.schedule.get({ group: "053503" });
     expect("lessons" in response).toBe(true);
   });
 
-  it("getGroupBySubgroupEnvelope preserves envelope fields and filters schedules", async () => {
+  it("a subgroup filter keeps envelope fields and narrows the maps (group and employee)", async () => {
+    const fetchImpl = mockFetchSequence([
+      createJsonResponse({ body: buildSubgroupPayload() }),
+      createJsonResponse({ body: buildSubgroupPayload() })
+    ]);
+    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
+
+    for (const target of [{ group: "053503" }, { employee: "s-nesterenkov" }] as const) {
+      const response = await client.schedule.get(target, { filter: { subgroup: 1 } });
+      expect(response.startDate).toBe("01.09.2025");
+      expect(response.endDate).toBe("30.12.2025");
+      expect(response.schedules.Понедельник?.map((item) => item.numSubgroup)).toEqual([0, 1]);
+      expect(response.schedules.Вторник?.map((item) => item.numSubgroup)).toEqual([1]);
+      // Exams follow the same filter: the fixture exam belongs to subgroup 2.
+      expect(response.exams).toEqual([]);
+    }
+  });
+
+  it("a subgroup filter keeps shared lessons in the flattened views", async () => {
     const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildSubgroupPayload() })]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
 
-    const response = await client.schedule.getGroupBySubgroupEnvelope("053503", 1);
-
-    expect(response.startDate).toBe("01.09.2025");
-    expect(response.endDate).toBe("30.12.2025");
-    expect(response.exams).toHaveLength(1);
-    expect(response.schedules?.Понедельник?.map((item) => item.numSubgroup)).toEqual([0, 1]);
-    expect(response.schedules?.Вторник?.map((item) => item.numSubgroup)).toEqual([1]);
+    const { lessons } = await client.schedule.get({ group: "053503" }, { filter: { subgroup: 2 } });
+    expect(lessons.map((item) => item.subject)).toEqual(["Shared", "Physics", "Exam"]);
+    expect(lessons.map((item) => item.numSubgroup)).toEqual([0, 2, 2]);
   });
 
-  it("getEmployeeBySubgroupEnvelope preserves envelope fields and filters schedules", async () => {
-    const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildSubgroupPayload() })]);
-    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
-
-    const response = await client.schedule.getEmployeeBySubgroupEnvelope("s-nesterenkov", 1);
-
-    expect(response.startDate).toBe("01.09.2025");
-    expect(response.endDate).toBe("30.12.2025");
-    expect(response.exams).toHaveLength(1);
-    expect(response.schedules?.Понедельник?.map((item) => item.numSubgroup)).toEqual([0, 1]);
-    expect(response.schedules?.Вторник?.map((item) => item.numSubgroup)).toEqual([1]);
-  });
-
-  it("getGroupBySubgroupRaw returns filtered ScheduleItem array including shared lessons", async () => {
-    const fetchImpl = mockFetchSequence([createJsonResponse({ body: buildSubgroupPayload() })]);
-    const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
-
-    const lessons = await client.schedule.getGroupBySubgroupRaw("053503", 2);
-    expect(Array.isArray(lessons)).toBe(true);
-    expect(lessons.map((item) => item.subject)).toEqual(["Shared", "Physics"]);
-    expect(lessons.map((item) => item.numSubgroup)).toEqual([0, 2]);
-  });
-
-  it("subgroup helpers throw typed error for non-array weekday buckets", async () => {
-    const { BsuirResponseValidationError } = await import("../../src/client/errors");
+  it("filtered reads throw a typed error for non-array weekday buckets", async () => {
     const payload = buildSubgroupPayload();
     (payload.schedules as Record<string, unknown>).Понедельник = { bad: true };
 
     const fetchImpl = mockFetchSequence([
       createJsonResponse({ body: payload }),
-      createJsonResponse({ body: payload }),
       createJsonResponse({ body: payload })
     ]);
     const client = createBsuirClient({ fetch: fetchImpl, validateResponses: false });
 
-    await expect(client.schedule.getGroupBySubgroupRaw("053503", 1)).rejects.toMatchObject({
-      name: "BsuirResponseValidationError",
-      endpoint: "/schedule"
-    });
-    await expect(client.schedule.getGroupBySubgroupEnvelope("053503", 1)).rejects.toBeInstanceOf(
-      BsuirResponseValidationError
-    );
     await expect(
-      client.schedule.getEmployeeBySubgroupRaw("s-nesterenkov", 1)
+      client.schedule.get({ group: "053503" }, { filter: { subgroup: 1 } })
+    ).rejects.toMatchObject({ name: "BsuirResponseValidationError", endpoint: "/schedule" });
+    await expect(
+      client.schedule.get({ employee: "s-nesterenkov" }, { filter: { subgroup: 1 } })
     ).rejects.toMatchObject({
       name: "BsuirResponseValidationError",
       endpoint: "/employees/schedule/s-nesterenkov"

@@ -3,13 +3,14 @@ import { requestJson } from "../../../src/client/http";
 import {
   BsuirApiError,
   BsuirNetworkError,
-  BsuirResponsePayloadTooLargeError
+  BsuirResponsePayloadTooLargeError,
+  BsuirResponseValidationError
 } from "../../../src/client/errors";
 import { createJsonResponse, mockFetchSequence } from "../../helpers/fetchMock";
 import { createRequestJsonConfig } from "./requestJsonTestConfig";
 
 describe("requestJson — response and transport errors", () => {
-  it("throws BsuirApiError when Content-Type is JSON but success body is empty", async () => {
+  it("throws BsuirResponseValidationError when Content-Type is JSON but success body is empty", async () => {
     const fetchImpl = mockFetchSequence([
       new Response("", {
         status: 200,
@@ -18,17 +19,19 @@ describe("requestJson — response and transport errors", () => {
     ]);
     const config = createRequestJsonConfig(fetchImpl, { retries: 0 });
 
-    await expect(requestJson(config, "/faculties")).rejects.toBeInstanceOf(BsuirApiError);
+    await expect(requestJson(config, "/faculties")).rejects.toBeInstanceOf(
+      BsuirResponseValidationError
+    );
   });
 
-  it("throws BsuirApiError when JSON Content-Type body is not valid JSON", async () => {
+  it("throws BsuirResponseValidationError (not retried) when a JSON 2xx body is not valid JSON", async () => {
     const fetchImpl = mockFetchSequence([
       new Response("{", {
         status: 200,
         headers: { "Content-Type": "application/json" }
       })
     ]);
-    const config = createRequestJsonConfig(fetchImpl, { retries: 0 });
+    const config = createRequestJsonConfig(fetchImpl, { retries: 2 });
 
     let error: unknown;
     try {
@@ -36,12 +39,15 @@ describe("requestJson — response and transport errors", () => {
     } catch (error_) {
       error = error_;
     }
-    expect(error).toBeInstanceOf(BsuirApiError);
+    expect(error).toBeInstanceOf(BsuirResponseValidationError);
+    expect(error).not.toBeInstanceOf(BsuirApiError);
     expect(error).toMatchObject({
-      message: "Invalid JSON response payload",
-      status: 200,
-      body: null
+      message:
+        "Invalid JSON response payload for https://iis.bsuir.by/api/v1/faculties (HTTP 200): body is not valid JSON",
+      endpoint: "https://iis.bsuir.by/api/v1/faculties"
     });
+    // A broken success body is final: retrying would just fetch the same payload again.
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
   it("throws BsuirResponsePayloadTooLargeError when response body exceeds configured maxResponseBytes", async () => {

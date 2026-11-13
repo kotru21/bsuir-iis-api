@@ -1,12 +1,12 @@
 import { createBsuirClient } from "../../../src";
-import { BsuirApiError } from "../../../src/client/errors";
+import { BsuirApiError, BsuirResponseValidationError } from "../../../src/client/errors";
 import type { LiveClient } from "./client";
 
 /** Known employee fixture used by announcements + schedule probes. */
 export const LIVE_EMPLOYEE_URL_ID = "s-nesterenkov";
 
-/** Known department id used by announcements.byDepartment. */
-export const LIVE_DEPARTMENT_ID = 20_027;
+/** Known department slug (`Department.urlId`) used by announcements.byDepartment. */
+export const LIVE_DEPARTMENT_URL_ID = "kaf-vmip";
 
 const PROBE_LIMIT = 50;
 /** Stop scanning when IIS schedule looks degraded (avoids beforeAll hook timeouts). */
@@ -26,10 +26,11 @@ function createProbeClient(): LiveClient {
 }
 
 function isTransientScheduleMiss(error: unknown): boolean {
-  return (
-    error instanceof BsuirApiError &&
-    (error.status === 404 || error.status === 503 || error.message.includes("Invalid JSON"))
-  );
+  if (error instanceof BsuirResponseValidationError) {
+    // A 2xx body labelled JSON that does not parse (IIS hiccup).
+    return error.message.startsWith("Invalid JSON response payload");
+  }
+  return error instanceof BsuirApiError && (error.status === 404 || error.status === 503);
 }
 
 function isServiceUnavailable(error: unknown): boolean {
@@ -47,7 +48,7 @@ async function probeWorkingGroupNumber(): Promise<string | undefined> {
   let consecutive503 = 0;
   for (const group of groups.slice(0, PROBE_LIMIT)) {
     try {
-      await probeClient.schedule.getGroupRaw(group.name);
+      await probeClient.schedule.getRaw({ group: group.name });
       cachedWorkingGroupNumber = group.name;
       return group.name;
     } catch (error) {
@@ -79,7 +80,7 @@ async function probeWorkingEmployeeUrlId(): Promise<string | undefined> {
   const probeClient = createProbeClient();
 
   try {
-    await probeClient.schedule.getEmployeeRaw(LIVE_EMPLOYEE_URL_ID);
+    await probeClient.schedule.getRaw({ employee: LIVE_EMPLOYEE_URL_ID });
     cachedWorkingEmployeeUrlId = LIVE_EMPLOYEE_URL_ID;
     return LIVE_EMPLOYEE_URL_ID;
   } catch (error) {
@@ -96,7 +97,7 @@ async function probeWorkingEmployeeUrlId(): Promise<string | undefined> {
       continue;
     }
     try {
-      await probeClient.schedule.getEmployeeRaw(employee.urlId);
+      await probeClient.schedule.getRaw({ employee: employee.urlId });
       cachedWorkingEmployeeUrlId = employee.urlId;
       return employee.urlId;
     } catch (error) {

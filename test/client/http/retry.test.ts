@@ -4,6 +4,7 @@ import type { InternalClientConfig } from "../../../src/client/types";
 
 const baseConfig: InternalClientConfig = {
   baseUrl: "https://iis.bsuir.by/api/v1",
+  hostPolicy: { allowedHosts: new Set(["iis.bsuir.by"]), allowInsecureHttp: false },
   fetchImpl: fetch,
   signal: undefined,
   timeoutMs: 10_000,

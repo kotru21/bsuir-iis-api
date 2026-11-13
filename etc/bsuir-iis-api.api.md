@@ -7,17 +7,17 @@
 // @public
 export interface Announcement {
     // (undocumented)
-    content: string;
+    readonly content: string;
     // (undocumented)
-    date: string;
+    readonly date: string;
     // (undocumented)
-    employee: string;
+    readonly employee: string;
     // (undocumented)
-    employeeDepartments: string[];
+    readonly employeeDepartments: readonly string[];
     // (undocumented)
-    id: number;
+    readonly id: number;
     // (undocumented)
-    studentGroups: StudentGroupShort[];
+    readonly studentGroups: readonly StudentGroupShort[];
 }
 
 // @public
@@ -28,67 +28,76 @@ export interface AnnouncementReadOptions extends ReadOptions {
 // @public
 export interface AnnouncementsModule {
     // (undocumented)
-    byDepartment(id: number, options?: AnnouncementReadOptions): Promise<Announcement[]>;
+    byDepartment(urlId: string, options?: AnnouncementReadOptions): Promise<readonly Announcement[]>;
     // (undocumented)
-    byEmployee(urlId: string, options?: AnnouncementReadOptions): Promise<Announcement[]>;
+    byEmployee(urlId: string, options?: AnnouncementReadOptions): Promise<readonly Announcement[]>;
 }
 
 // @public
 export interface Auditory {
     // (undocumented)
-    auditoryType: AuditoryType;
+    readonly auditoryType: AuditoryType;
     // (undocumented)
-    buildingNumber: BuildingNumber;
+    readonly buildingNumber: BuildingNumber;
     // (undocumented)
-    capacity: number | null;
+    readonly capacity: number | null;
+    readonly department: AuditoryDepartment | null;
     // (undocumented)
-    department: AuditoryDepartment;
+    readonly id: number;
     // (undocumented)
-    id: number;
+    readonly name: string;
     // (undocumented)
-    name: string;
-    // (undocumented)
-    note: string;
+    readonly note: string | null;
 }
 
 // @public
 export interface AuditoryDepartment {
     // (undocumented)
-    abbrev: string;
+    readonly abbrev: string;
     // (undocumented)
-    idDepartment: number;
+    readonly idDepartment: number;
     // (undocumented)
-    name: string;
+    readonly name: string;
     // (undocumented)
-    nameAndAbbrev: string;
+    readonly nameAndAbbrev: string;
 }
 
 // @public
 export interface AuditoryType {
     // (undocumented)
-    abbrev: string;
+    readonly abbrev: string;
     // (undocumented)
-    id: number;
+    readonly id: number;
     // (undocumented)
-    name: string;
+    readonly name: string;
 }
 
 // @public
 export const BSUIR_TIME_ZONE = "Europe/Minsk";
 
 // @public
-export class BsuirApiError extends Error {
-    constructor(message: string, status: number, endpoint: string, body: unknown);
+export class BsuirApiError extends BsuirError {
+    constructor(message: string, status: number, endpoint: string, body: unknown, retryAfterMs?: number);
     // (undocumented)
     readonly body: unknown;
     // (undocumented)
     readonly endpoint: string;
+    readonly retryAfterMs: number | undefined;
     // (undocumented)
     readonly status: number;
 }
 
 // @public
-export type BsuirClient = BsuirClientShape;
+export interface BsuirClient {
+    announcements: AnnouncementsModule;
+    auditories: ListModule<Auditory>;
+    departments: ListModule<Department>;
+    employees: ListModule<EmployeeCatalogItem>;
+    faculties: ListModule<Faculty>;
+    groups: ListModule<StudentGroupCatalogItem>;
+    schedule: ScheduleModule;
+    specialities: ListModule<Speciality>;
+}
 
 // @public
 export interface BsuirClientOptions {
@@ -111,39 +120,24 @@ export interface BsuirClientOptions {
 }
 
 // @public
-export interface BsuirClientShape {
-    // (undocumented)
-    announcements: AnnouncementsModule;
-    // (undocumented)
-    auditories: ListModule<Auditory>;
-    // (undocumented)
-    departments: ListModule<Department>;
-    // (undocumented)
-    employees: ListModule<EmployeeCatalogItem>;
-    // (undocumented)
-    faculties: ListModule<Faculty>;
-    // (undocumented)
-    groups: ListModule<StudentGroupCatalogItem>;
-    // (undocumented)
-    schedule: ScheduleModule;
-    // (undocumented)
-    specialities: ListModule<Speciality>;
-}
-
-// @public
-export class BsuirConfigurationError extends Error {
+export class BsuirConfigurationError extends BsuirError {
     constructor(message: string);
 }
 
 // @public
-export class BsuirNetworkError extends Error {
+export class BsuirError extends Error {
+    constructor(message: string, options?: ErrorOptions);
+}
+
+// @public
+export class BsuirNetworkError extends BsuirError {
     constructor(message: string, endpoint: string, cause: unknown);
     // (undocumented)
     readonly endpoint: string;
 }
 
 // @public
-export class BsuirResponsePayloadTooLargeError extends Error {
+export class BsuirResponsePayloadTooLargeError extends BsuirError {
     constructor(message: string, status: number, endpoint: string, maxResponseBytes: number);
     // (undocumented)
     readonly endpoint: string;
@@ -154,14 +148,14 @@ export class BsuirResponsePayloadTooLargeError extends Error {
 }
 
 // @public
-export class BsuirResponseValidationError extends Error {
+export class BsuirResponseValidationError extends BsuirError {
     constructor(message: string, endpoint: string);
     // (undocumented)
     readonly endpoint: string;
 }
 
 // @public
-export class BsuirTimeoutError extends Error {
+export class BsuirTimeoutError extends BsuirError {
     constructor(message: string, endpoint: string, timeoutMs: number, cause?: unknown);
     // (undocumented)
     readonly endpoint: string;
@@ -170,7 +164,7 @@ export class BsuirTimeoutError extends Error {
 }
 
 // @public
-export class BsuirValidationError extends Error {
+export class BsuirValidationError extends BsuirError {
     constructor(message: string, field?: string, value?: unknown);
     // (undocumented)
     readonly field: string | undefined;
@@ -181,9 +175,9 @@ export class BsuirValidationError extends Error {
 // @public
 export interface BuildingNumber {
     // (undocumented)
-    id: number;
+    readonly id: number;
     // (undocumented)
-    name: string;
+    readonly name: string;
 }
 
 // @public
@@ -242,88 +236,86 @@ export interface ClientHooks {
 }
 
 // @public
-export function createBsuirClient(options?: BsuirClientOptions): BsuirClientShape;
+export function createBsuirClient(options?: BsuirClientOptions): BsuirClient;
 
 // @public (undocumented)
 export namespace createBsuirClient {
-    var // (undocumented)
-    strict: (options?: BsuirClientOptions) => BsuirClientShape;
+    let strict: (options?: BsuirClientOptions) => BsuirClient;
 }
 
 // @public
 export interface Department {
     // (undocumented)
-    abbrev: string;
+    readonly abbrev: string;
     // (undocumented)
-    id: number;
+    readonly id: number;
     // (undocumented)
-    name: string;
+    readonly name: string;
+    readonly urlId: string;
 }
 
 // @public
 export interface EducationForm {
     // (undocumented)
-    id: number;
+    readonly id: number;
     // (undocumented)
-    name: string;
+    readonly name: string;
 }
 
 // @public
 export interface Employee {
     // (undocumented)
-    calendarId: string;
+    readonly calendarId: string;
     // (undocumented)
-    degree: string;
+    readonly degree: string;
     // (undocumented)
-    degreeAbbrev?: string;
+    readonly degreeAbbrev?: string;
     // (undocumented)
-    email: Maybe<string>;
+    readonly email: Maybe<string>;
     // (undocumented)
-    firstName: string;
+    readonly firstName: string;
     // (undocumented)
-    id: number;
+    readonly id: number;
     // (undocumented)
-    jobPositions: Maybe<string[]>;
+    readonly jobPositions: Maybe<readonly string[]>;
     // (undocumented)
-    lastName: string;
+    readonly lastName: string;
+    readonly middleName: Maybe<string>;
     // (undocumented)
-    middleName: string;
+    readonly photoLink: string;
     // (undocumented)
-    photoLink: string;
+    readonly rank: Maybe<string>;
     // (undocumented)
-    rank: Maybe<string>;
-    // (undocumented)
-    urlId: string;
+    readonly urlId: string;
 }
 
 // @public
 export interface EmployeeCatalogItem {
     // (undocumented)
-    academicDepartment?: string[];
+    readonly academicDepartment?: readonly string[];
     // (undocumented)
-    calendarId: string;
+    readonly calendarId: string;
     // (undocumented)
-    degree: string;
+    readonly degree: string;
     // (undocumented)
-    fio: string;
+    readonly fio: string;
     // (undocumented)
-    firstName: string;
+    readonly firstName: string;
     // (undocumented)
-    id: number;
+    readonly id: number;
     // (undocumented)
-    lastName: string;
+    readonly lastName: string;
+    readonly middleName: Maybe<string>;
     // (undocumented)
-    middleName: string;
+    readonly photoLink: string;
+    readonly rank: Maybe<string>;
     // (undocumented)
-    photoLink: string;
-    // (undocumented)
-    rank: string;
-    // (undocumented)
-    urlId: string;
+    readonly urlId: string;
 }
 
 // @public
 export interface ErrorHookContext extends RequestHookContext {
+    deduplicated: boolean;
     // (undocumented)
     durationMs: number;
     // (undocumented)
@@ -333,25 +325,26 @@ export interface ErrorHookContext extends RequestHookContext {
 // @public
 export interface Faculty {
     // (undocumented)
-    abbrev: string;
+    readonly abbrev: string;
     // (undocumented)
-    id: number;
+    readonly id: number;
     // (undocumented)
-    name: string;
+    readonly name: string;
 }
 
 // @public
 export function filterLessons(response: NormalizedScheduleResponse, filter: ScheduleFilterOptions): FlattenedScheduleItem[];
 
 // @public
-export type FlattenedLessonsByDay = Record<Weekday, FlattenedScheduleItem[]>;
+export type FlattenedLessonsByDay = Readonly<Record<Weekday, readonly FlattenedScheduleItem[]>>;
 
 // @public
 export interface FlattenedScheduleItem extends ScheduleItem {
+    readonly auditories: readonly string[];
     // (undocumented)
-    day: Weekday | null;
+    readonly day: Weekday | null;
     // (undocumented)
-    source: FlattenedScheduleSource;
+    readonly source: FlattenedScheduleSource;
 }
 
 // @public
@@ -412,15 +405,15 @@ export type InvalidLessonTimeHook = (info: {
 // @public
 export interface LessonStudentGroup {
     // (undocumented)
-    educationDegree: number;
+    readonly educationDegree: number;
     // (undocumented)
-    name: string;
+    readonly name: string;
     // (undocumented)
-    numberOfStudents: number;
+    readonly numberOfStudents: number;
     // (undocumented)
-    specialityCode: string;
+    readonly specialityCode: string;
     // (undocumented)
-    specialityName: string;
+    readonly specialityName: string;
 }
 
 // @public
@@ -433,10 +426,7 @@ export type LessonWithTime = Pick<FlattenedScheduleItem, "startLessonTime" | "en
 
 // @public
 export interface ListModule<T> {
-    // (undocumented)
-    listAll(options?: ReadOptions): Promise<T[]>;
-    // (undocumented)
-    listAllPages(options?: ReadOptions): Promise<T[]>;
+    listAll(options?: ReadOptions): Promise<readonly T[]>;
 }
 
 // @public
@@ -445,17 +435,17 @@ export type Maybe<T> = T | null;
 // @public
 export interface NormalizedScheduleResponse extends Omit<ScheduleResponse, "schedules" | "exams"> {
     // (undocumented)
-    examLessons: FlattenedScheduleItem[];
+    readonly examLessons: readonly FlattenedScheduleItem[];
     // (undocumented)
-    exams: ScheduleItem[];
+    readonly exams: readonly ScheduleItem[];
     // (undocumented)
-    lessons: FlattenedScheduleItem[];
+    readonly lessons: readonly FlattenedScheduleItem[];
     // (undocumented)
-    lessonsByDay: FlattenedLessonsByDay;
+    readonly lessonsByDay: FlattenedLessonsByDay;
     // (undocumented)
-    scheduleLessons: FlattenedScheduleItem[];
+    readonly scheduleLessons: readonly FlattenedScheduleItem[];
     // (undocumented)
-    schedules: WeekScheduleMap;
+    readonly schedules: WeekScheduleMap;
 }
 
 // @public
@@ -464,6 +454,7 @@ export function normalizeSchedule(response: ScheduleResponse, options?: Normaliz
 // @public
 export interface NormalizeScheduleOptions {
     endpoint?: string;
+    filter?: ScheduleFilterOptions;
     includeNextSchedules?: boolean;
     validate?: boolean;
 }
@@ -485,8 +476,7 @@ export interface RequestHookContext {
     endpoint: string;
     // (undocumented)
     maxAttempts: number;
-    // (undocumented)
-    method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+    method: "GET";
     // (undocumented)
     path: string;
     // (undocumented)
@@ -502,6 +492,7 @@ export interface ResponseCacheEntry {
 
 // @public
 export interface ResponseHookContext extends RequestHookContext {
+    deduplicated: boolean;
     // (undocumented)
     durationMs: number;
     // (undocumented)
@@ -515,7 +506,7 @@ export interface RetryHookContext extends RequestHookContext {
     // (undocumented)
     delayMs: number;
     // (undocumented)
-    reason: "http_status" | "network_error" | "retry_after_too_large";
+    reason: "http_status" | "network_error";
     // (undocumented)
     status: number | undefined;
 }
@@ -540,8 +531,7 @@ export interface ScheduleFilterOptions {
     auditory?: string;
     // (undocumented)
     employeeUrlId?: string;
-    // (undocumented)
-    lessonTypeAbbrev?: string | string[];
+    lessonTypeAbbrev?: string | readonly string[];
     // (undocumented)
     source?: FlattenedScheduleSource;
     subgroup?: number;
@@ -549,109 +539,88 @@ export interface ScheduleFilterOptions {
     subjectQuery?: string;
     // (undocumented)
     weekday?: Weekday;
-    // (undocumented)
     weekNumber?: number;
 }
 
 // @public
 export interface ScheduleItem {
     // (undocumented)
-    announcement: boolean;
+    readonly announcement: boolean;
+    readonly auditories: readonly string[] | null;
     // (undocumented)
-    auditories: string[];
+    readonly dateLesson: Maybe<string>;
     // (undocumented)
-    dateLesson: Maybe<string>;
+    readonly employees: Maybe<readonly Employee[]>;
     // (undocumented)
-    employees: Maybe<Employee[]>;
+    readonly endLessonDate: Maybe<string>;
     // (undocumented)
-    endLessonDate: Maybe<string>;
+    readonly endLessonTime: string;
     // (undocumented)
-    endLessonTime: string;
+    readonly lessonTypeAbbrev: Maybe<string>;
     // (undocumented)
-    lessonTypeAbbrev: Maybe<string>;
+    readonly note: Maybe<string>;
     // (undocumented)
-    note: Maybe<string>;
+    readonly numSubgroup: number;
     // (undocumented)
-    numSubgroup: number;
+    readonly split: boolean;
     // (undocumented)
-    split: boolean;
+    readonly startLessonDate: Maybe<string>;
     // (undocumented)
-    startLessonDate: Maybe<string>;
+    readonly startLessonTime: string;
     // (undocumented)
-    startLessonTime: string;
+    readonly studentGroups: readonly LessonStudentGroup[];
+    readonly subject: Maybe<string>;
+    readonly subjectFullName: Maybe<string>;
     // (undocumented)
-    studentGroups: LessonStudentGroup[];
-    // (undocumented)
-    subject: string;
-    // (undocumented)
-    subjectFullName: string;
-    // (undocumented)
-    weekNumber: number[] | null;
+    readonly weekNumber: readonly number[] | null;
 }
 
 // @public
 export interface ScheduleModule {
-    // (undocumented)
+    get(target: ScheduleTarget, options?: ScheduleReadOptions): Promise<NormalizedScheduleResponse>;
     getCurrentWeek(options?: ReadOptions): Promise<number>;
-    // (undocumented)
-    getEmployee(urlId: string, options?: ScheduleReadOptions): Promise<NormalizedScheduleResponse>;
-    // (undocumented)
-    getEmployeeBySubgroup(urlId: string, subgroup: number, options?: ScheduleReadOptions): Promise<FlattenedScheduleItem[]>;
-    // (undocumented)
-    getEmployeeBySubgroupEnvelope(urlId: string, subgroup: number, options?: ScheduleReadOptions): Promise<ScheduleResponse>;
-    // (undocumented)
-    getEmployeeBySubgroupRaw(urlId: string, subgroup: number, options?: ScheduleReadOptions): Promise<ScheduleItem[]>;
-    // (undocumented)
-    getEmployeeExams(urlId: string, options?: ScheduleReadOptions): Promise<FlattenedScheduleItem[]>;
-    // (undocumented)
-    getEmployeeFiltered(urlId: string, filter: ScheduleFilterOptions, options?: ScheduleReadOptions): Promise<FlattenedScheduleItem[]>;
-    // (undocumented)
-    getEmployeeRaw(urlId: string, options?: ReadOptions): Promise<ScheduleResponse>;
-    // (undocumented)
-    getGroup(groupNumber: string, options?: ScheduleReadOptions): Promise<NormalizedScheduleResponse>;
-    // (undocumented)
-    getGroupBySubgroup(groupNumber: string, subgroup: number, options?: ScheduleReadOptions): Promise<FlattenedScheduleItem[]>;
-    // (undocumented)
-    getGroupBySubgroupEnvelope(groupNumber: string, subgroup: number, options?: ScheduleReadOptions): Promise<ScheduleResponse>;
-    // (undocumented)
-    getGroupBySubgroupRaw(groupNumber: string, subgroup: number, options?: ScheduleReadOptions): Promise<ScheduleItem[]>;
-    // (undocumented)
-    getGroupExams(groupNumber: string, options?: ScheduleReadOptions): Promise<FlattenedScheduleItem[]>;
-    // (undocumented)
-    getGroupFiltered(groupNumber: string, filter: ScheduleFilterOptions, options?: ScheduleReadOptions): Promise<FlattenedScheduleItem[]>;
-    // (undocumented)
-    getGroupRaw(groupNumber: string, options?: ReadOptions): Promise<ScheduleResponse>;
+    getRaw(target: ScheduleTarget, options?: ReadOptions): Promise<ScheduleResponse>;
 }
 
 // @public
 export interface ScheduleReadOptions extends ReadOptions {
+    filter?: ScheduleFilterOptions;
     includeNextSchedules?: boolean;
 }
 
 // @public
 export interface ScheduleResponse {
-    currentPeriod?: unknown;
-    currentTerm?: unknown;
+    readonly currentPeriod?: unknown;
+    readonly currentTerm?: unknown;
     // (undocumented)
-    employeeDto: Maybe<Employee>;
+    readonly employeeDto: Maybe<Employee>;
     // (undocumented)
-    endDate: Maybe<string>;
+    readonly endDate: Maybe<string>;
     // (undocumented)
-    endExamsDate: Maybe<string>;
+    readonly endExamsDate: Maybe<string>;
     // (undocumented)
-    exams: ScheduleItem[] | null;
-    isZaochOrDist?: boolean | null;
-    nextSchedules?: WeekScheduleMap | null;
-    nextTerm?: unknown;
+    readonly exams: readonly ScheduleItem[] | null;
+    readonly isZaochOrDist?: boolean | null;
+    readonly nextSchedules?: WeekScheduleMap | null;
+    readonly nextTerm?: unknown;
     // (undocumented)
-    schedules: WeekScheduleMap | null;
+    readonly schedules: WeekScheduleMap | null;
     // (undocumented)
-    startDate: Maybe<string>;
+    readonly startDate: Maybe<string>;
     // (undocumented)
-    startExamsDate: Maybe<string>;
+    readonly startExamsDate: Maybe<string>;
     // (undocumented)
-    studentGroupDto: Maybe<StudentGroupCatalogItem>;
+    readonly studentGroupDto: Maybe<StudentGroupCatalogItem>;
 }
+
+// @public
+export type ScheduleTarget = {
+    readonly group: string;
+    readonly employee?: never;
+} | {
+    readonly employee: string;
+    readonly group?: never;
+};
 
 // @public
 export interface ScheduleTimeZoneOptions {
@@ -666,54 +635,53 @@ export function sortLessonsByTime<T extends LessonWithTime>(lessons: readonly T[
 // @public
 export interface Speciality {
     // (undocumented)
-    abbrev: string;
+    readonly abbrev: string;
     // (undocumented)
-    code: string;
+    readonly code: string;
     // (undocumented)
-    educationForm: SpecialityEducationForm;
+    readonly educationForm: SpecialityEducationForm;
     // (undocumented)
-    facultyId: number;
+    readonly facultyId: number;
     // (undocumented)
-    id: number;
+    readonly id: number;
     // (undocumented)
-    name: string;
+    readonly name: string;
 }
 
 // @public
-export type SpecialityEducationForm = EducationForm | EducationForm[];
+export type SpecialityEducationForm = EducationForm | readonly EducationForm[];
 
 // @public
 export interface StudentGroupCatalogItem {
     // (undocumented)
-    calendarId: string;
+    readonly calendarId: string;
+    readonly course: number | null;
     // (undocumented)
-    course: number;
+    readonly educationDegree?: number;
     // (undocumented)
-    educationDegree?: number;
+    readonly facultyAbbrev?: string;
     // (undocumented)
-    facultyAbbrev?: string;
+    readonly facultyId: number;
     // (undocumented)
-    facultyId: number;
+    readonly facultyName?: string;
     // (undocumented)
-    facultyName?: string;
+    readonly id: number;
     // (undocumented)
-    id: number;
+    readonly name: string;
     // (undocumented)
-    name: string;
+    readonly specialityAbbrev?: string;
     // (undocumented)
-    specialityAbbrev?: string;
+    readonly specialityDepartmentEducationFormId: number;
     // (undocumented)
-    specialityDepartmentEducationFormId: number;
-    // (undocumented)
-    specialityName: string;
+    readonly specialityName: string;
 }
 
 // @public
 export interface StudentGroupShort {
     // (undocumented)
-    id: number;
+    readonly id: number;
     // (undocumented)
-    name: string;
+    readonly name: string;
 }
 
 // @public
@@ -729,7 +697,7 @@ export type Weekday = (typeof WEEKDAYS)[number];
 export const WEEKDAYS: readonly ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"];
 
 // @public
-export type WeekScheduleMap = Partial<Record<Weekday, ScheduleItem[]>>;
+export type WeekScheduleMap = Readonly<Partial<Record<Weekday, readonly ScheduleItem[]>>>;
 
 // (No @packageDocumentation comment for this package)
 

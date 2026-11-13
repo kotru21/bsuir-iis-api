@@ -61,7 +61,7 @@ function mondayByWeek() {
   });
 }
 
-const subjects = (lessons: readonly { subject: string }[]) => lessons.map((l) => l.subject);
+const subjects = (lessons: readonly { subject: string | null }[]) => lessons.map((l) => l.subject);
 
 describe("getStudyWeek (academic calendar)", () => {
   it("matches the live IIS current-week for autumn 2026 (startDate on a Tuesday)", () => {
@@ -108,6 +108,41 @@ describe("getStudyWeek (currentWeek anchor)", () => {
     expect(getStudyWeek(minskTime(2026, 9, 5), options)).toBe(4);
     expect(getStudyWeek(minskTime(2026, 9, 12), options)).toBe(1);
     expect(getStudyWeek(minskTime(2026, 8, 27), options)).toBe(2);
+  });
+
+  // Regression: an anchor from late August kept counting into September (week 3
+  // instead of 1), because the cycle restart at the academic-year boundary was ignored.
+  it("restarts at week 1 when the target is in the next academic year", () => {
+    const options = { currentWeek: 2, now: minskTime(2026, 7, 27, 9) }; // Thu 27.08.2026
+    expect(getStudyWeek(minskTime(2026, 7, 28), options)).toBe(2); // same week as anchor
+    expect(getStudyWeek(minskTime(2026, 7, 31), options)).toBe(1); // Mon of the 1 Sep week
+    expect(getStudyWeek(minskTime(2026, 8, 1, 9), options)).toBe(1); // Tue 01.09.2026
+    expect(getStudyWeek(minskTime(2026, 8, 7), options)).toBe(2);
+  });
+
+  it("uses the calendar for targets in the previous academic year", () => {
+    const options = { currentWeek: 3, now };
+    const august = minskTime(2026, 7, 20);
+    expect(getStudyWeek(august, options)).toBe(getStudyWeek(august));
+  });
+
+  it("applies the academic-year boundary in buildScheduleDays too", () => {
+    const schedule = makeSchedule({
+      schedules: {
+        Вторник: [
+          makeLesson({ subject: "Неделя 1", weekNumber: [1] }),
+          makeLesson({ subject: "Неделя 3", weekNumber: [3] })
+        ]
+      }
+    });
+    const [day] = buildScheduleDays(schedule, {
+      now: minskTime(2026, 7, 27, 9),
+      startDate: minskTime(2026, 8, 1, 9),
+      days: 1,
+      currentWeek: 2
+    });
+    expect(day?.weekNumber).toBe(1);
+    expect(day?.lessons.map((lesson) => lesson.subject)).toEqual(["Неделя 1"]);
   });
 
   it.each([0, 5, 1.5, Number.NaN, "2"])("rejects currentWeek %s", (currentWeek) => {
@@ -161,6 +196,16 @@ describe("getLessonsForDate week selection", () => {
       exams: [makeLesson({ subject: "EXAM", weekNumber: [2], dateLesson: "10.01.2027" })]
     });
     expect(subjects(getLessonsForWeek(schedule, 2))).toEqual(["NEXT"]);
+  });
+
+  it("getLessonsForWeek and getLessonsForDate agree on null-weekNumber lessons", () => {
+    const schedule = makeSchedule({
+      schedules: { Среда: [makeLesson({ subject: "EVERY", weekNumber: null })] }
+    });
+    const wednesday = minskTime(2026, 10, 4, 12);
+    const week = getStudyWeek(wednesday);
+    expect(subjects(getLessonsForDate(schedule, wednesday))).toEqual(["EVERY"]);
+    expect(subjects(getLessonsForWeek(schedule, week))).toEqual(["EVERY"]);
   });
 
   it("counts absolute weeks from the Monday of startDate when weekNumber exceeds 4", () => {

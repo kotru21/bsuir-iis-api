@@ -223,6 +223,76 @@ describe("schedule helpers", () => {
     expect(calls).toEqual(["startLessonTime", "endLessonTime"]);
   });
 
+  describe("buildScheduleDays onInvalidTime", () => {
+    const weekdays = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"] as const;
+
+    function scheduleWithBrokenLessonEveryDay() {
+      return normalizeSchedule({
+        employeeDto: null,
+        studentGroupDto: null,
+        schedules: Object.fromEntries(
+          weekdays.map((day) => [
+            day,
+            [makeLesson({ subject: day, weekNumber: null, startLessonTime: "9-00" })]
+          ])
+        ),
+        exams: [],
+        startDate: null,
+        endDate: null,
+        startExamsDate: null,
+        endExamsDate: null
+      });
+    }
+
+    // Wednesday 2026-11-04, 08:00 in Minsk.
+    const now = minskTime(2026, 10, 4, 8);
+
+    it("reports malformed times for every day in the range, once each", () => {
+      const reported: string[] = [];
+      buildScheduleDays(scheduleWithBrokenLessonEveryDay(), {
+        now,
+        days: 6,
+        onInvalidTime: (info) => {
+          reported.push(`${(info.lesson as FlattenedScheduleItem).subject ?? ""}:${info.field}`);
+        }
+      });
+      // Wednesday..Monday (Sunday has no lessons): five distinct lessons, each once.
+      expect(reported).toHaveLength(5);
+      expect(new Set(reported)).toEqual(
+        new Set(
+          ["Среда", "Четверг", "Пятница", "Суббота", "Понедельник"].map(
+            (day) => `${day}:startLessonTime`
+          )
+        )
+      );
+    });
+
+    it("reports a weekly lesson repeated across the range only once", () => {
+      let calls = 0;
+      buildScheduleDays(scheduleWithBrokenLessonEveryDay(), {
+        now,
+        days: 21,
+        onInvalidTime: () => {
+          calls += 1;
+        }
+      });
+      expect(calls).toBe(weekdays.length);
+    });
+
+    it("reports even when current/next lesson lookup is disabled", () => {
+      let calls = 0;
+      buildScheduleDays(scheduleWithBrokenLessonEveryDay(), {
+        now,
+        days: 1,
+        includeCurrentAndNextLessons: false,
+        onInvalidTime: () => {
+          calls += 1;
+        }
+      });
+      expect(calls).toBe(1);
+    });
+  });
+
   it("tolerates nullish lesson times without throwing or firing onInvalidTime", () => {
     const sparse = {
       ...makeLesson({ subject: "Sparse" }),
@@ -251,6 +321,41 @@ describe("schedule helpers", () => {
 
     expect(current?.subject).toBe("Пара 1");
     expect(next?.subject).toBe("Пара 2");
+  });
+
+  it("prefers regular lessons over IIS announcement rows for current/next", () => {
+    // Shape of a live IIS row (group 450504, 06.11.2026): an all-day announcement.
+    const allDayAnnouncement = makeLesson({
+      subject: null,
+      subjectFullName: null,
+      lessonTypeAbbrev: null,
+      auditories: null,
+      note: "Сдать КП",
+      announcement: true,
+      startLessonTime: "01:00",
+      endLessonTime: "23:00"
+    });
+    const lecture = makeLesson({
+      subject: "СхемТ",
+      startLessonTime: "10:05",
+      endLessonTime: "11:30"
+    });
+    const earlyAnnouncement = makeLesson({
+      subject: null,
+      announcement: true,
+      startLessonTime: "11:40",
+      endLessonTime: "11:50"
+    });
+    const lab = makeLesson({ subject: "ИиУВМ", startLessonTime: "12:00", endLessonTime: "13:25" });
+    const lessons = [allDayAnnouncement, lecture, earlyAnnouncement, lab];
+
+    expect(getCurrentLesson(lessons, minskTime(2026, 10, 6, 10, 30))?.subject).toBe("СхемТ");
+    expect(getNextLesson(lessons, minskTime(2026, 10, 6, 11, 35))?.subject).toBe("ИиУВМ");
+    // Falls back to the announcement row when no regular lesson qualifies.
+    expect(getCurrentLesson(lessons, minskTime(2026, 10, 6, 20, 0))).toBe(allDayAnnouncement);
+    expect(getNextLesson([earlyAnnouncement], minskTime(2026, 10, 6, 11, 0))).toBe(
+      earlyAnnouncement
+    );
   });
 
   it("builds schedule day models and supports empty-day filtering", () => {

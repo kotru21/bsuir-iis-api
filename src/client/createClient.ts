@@ -1,4 +1,10 @@
 import { BsuirConfigurationError } from "./errors";
+import {
+  describeHostViolation,
+  normalizeHostname,
+  PUBLIC_IIS_HOST,
+  type HostPolicy
+} from "./hosts";
 import type { BsuirClientOptions, CacheStore, InternalClientConfig } from "./types";
 import type { AnnouncementsModule } from "../modules/announcements";
 import type { ListModule } from "../modules/createListModule";
@@ -23,7 +29,7 @@ import type {
 import type { EmployeeCatalogItem } from "../types/employee";
 
 const DEFAULT_BASE_URL = "https://iis.bsuir.by/api/v1";
-const DEFAULT_ALLOWED_BASE_URL_HOSTS = ["iis.bsuir.by"];
+const DEFAULT_ALLOWED_BASE_URL_HOSTS = [PUBLIC_IIS_HOST];
 const DEFAULT_MAX_RESPONSE_BYTES = 5_000_000;
 const INVALID_HEADER_LINE_BREAK = /[\r\n]/;
 
@@ -31,18 +37,27 @@ const INVALID_HEADER_LINE_BREAK = /[\r\n]/;
 // 5 minutes is a generous upper bound for any HTTP request in this context.
 const MAX_TIMEOUT_MS = 300_000;
 
+/**
+ * Resolves the `fetch` implementation and detaches it from any receiver.
+ *
+ * The pipeline stores it on the config object, so calling it directly would pass
+ * that object as `this`. Native `fetch` in browsers and Cloudflare Workers rejects
+ * any receiver other than the global object ("Illegal invocation"), which used to
+ * turn every browser request into a `BsuirNetworkError`. The wrapper always calls
+ * it without a receiver, which works for the global `fetch`, `window.fetch` passed
+ * by the user, and plain custom functions alike.
+ */
 function resolveFetch(customFetch?: typeof globalThis.fetch): typeof globalThis.fetch {
-  if (customFetch) {
-    return customFetch;
-  }
-
-  if (typeof globalThis.fetch !== "function") {
+  const fetchFn = customFetch ?? globalThis.fetch;
+  if (typeof fetchFn !== "function") {
     throw new BsuirConfigurationError(
-      "Global fetch is unavailable. Provide 'fetch' in createBsuirClient options."
+      customFetch === undefined
+        ? "Global fetch is unavailable. Provide 'fetch' in createBsuirClient options."
+        : "'fetch' must be a function"
     );
   }
 
-  return globalThis.fetch;
+  return (input, init) => fetchFn(input, init);
 }
 
 function assertIntegerOption(
@@ -61,42 +76,10 @@ function assertIntegerOption(
   return value;
 }
 
-function normalizeHostname(rawHostname: string): string {
-  let trimmed = rawHostname.trim().toLowerCase();
-  while (trimmed.endsWith(".")) {
-    trimmed = trimmed.slice(0, -1);
-  }
-  if (trimmed.length === 0) {
-    return "";
-  }
-  if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-    return trimmed.slice(1, -1);
-  }
-  return trimmed;
-}
-
-function isIpv4Loopback(hostname: string): boolean {
-  // 127.0.0.0/8 — require four decimal octets so "127.evil.com" is never treated as loopback.
-  const match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(hostname);
-  if (!match) {
-    return false;
-  }
-  const octets = match.slice(1, 5).map(Number);
-  if (octets.some((octet) => !Number.isSafeInteger(octet) || octet < 0 || octet > 255)) {
-    return false;
-  }
-  return octets[0] === 127;
-}
-
-function isLoopbackHost(hostname: string): boolean {
-  return hostname === "localhost" || hostname === "::1" || isIpv4Loopback(hostname);
-}
-
-// Per-request `options.headers` go through the platform `Headers` constructor in
-// requestJson, which rejects CR/LF/NUL with a runtime error. We only pre-validate
-// configuration-level header values (e.g. `userAgent`) here so misconfiguration is
-// surfaced as a structured `BsuirConfigurationError` at client construction time
-// rather than at first request.
+// The platform `Headers` constructor rejects CR/LF/NUL with a runtime error at the
+// first request. Pre-validating configuration-level header values (`userAgent`) here
+// surfaces misconfiguration as a structured `BsuirConfigurationError` at client
+// construction time instead.
 function assertSafeHeaderValue(value: string | undefined, optionName: string): string | undefined {
   if (value === undefined) {
     return undefined;
@@ -107,11 +90,14 @@ function assertSafeHeaderValue(value: string | undefined, optionName: string): s
   return value;
 }
 
-function normalizeBaseUrl(
-  rawBaseUrl: string,
-  allowInsecureHttp: boolean,
-  allowedHosts: readonly string[]
-): string {
+/**
+ * Validates `baseUrl` against the host policy and returns it without a trailing slash.
+ *
+ * - Any explicit port is fine (proxies on :8443, local mock servers on :3000…).
+ * - `http:` needs `allowInsecureHttp: true` and an explicitly allowlisted host; the
+ *   public IIS host always requires HTTPS.
+ */
+function normalizeBaseUrl(rawBaseUrl: string, policy: HostPolicy): string {
   let parsed: URL;
   try {
     parsed = new URL(rawBaseUrl);
@@ -127,64 +113,33 @@ function normalizeBaseUrl(
     throw new BsuirConfigurationError("'baseUrl' must not include query string or hash");
   }
 
-  if (parsed.protocol !== "https:" && !(allowInsecureHttp && parsed.protocol === "http:")) {
-    throw new BsuirConfigurationError(
-      "'baseUrl' must use HTTPS. Set 'allowInsecureHttp: true' only for trusted local/test endpoints."
-    );
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    throw new BsuirConfigurationError("'baseUrl' must use HTTPS");
   }
 
   const host = normalizeHostname(parsed.hostname);
-
-  // Explicit ports are rejected for public hosts (they usually indicate a
-  // copy-paste mistake), but allowed on loopback so local dev/mock servers —
-  // which practically always run on a non-standard port — stay usable.
-  if (parsed.port.length > 0 && !isLoopbackHost(host)) {
-    throw new BsuirConfigurationError(
-      "'baseUrl' must not include an explicit port (allowed only for loopback hosts)"
-    );
-  }
-
-  const normalizedAllowedHosts = new Set(
-    allowedHosts
-      .map((allowedHost) => normalizeHostname(allowedHost))
-      .filter((allowedHost) => allowedHost.length > 0)
-  );
-  if (normalizedAllowedHosts.size === 0) {
-    throw new BsuirConfigurationError("'allowedBaseUrlHosts' must contain at least one hostname");
-  }
-
-  // When allowInsecureHttp is enabled, only loopback hosts are permitted in the allowlist —
-  // a non-loopback host in the list would create a confusing configuration where the user
-  // appears to have opted in to plaintext HTTP for a public host. Plaintext HTTP must stay
-  // strictly local/test only.
-  if (allowInsecureHttp) {
-    const nonLoopback = [...normalizedAllowedHosts].filter(
-      (allowedHost) => !isLoopbackHost(allowedHost)
-    );
-    if (nonLoopback.length > 0) {
-      throw new BsuirConfigurationError(
-        `'allowInsecureHttp: true' requires every host in 'allowedBaseUrlHosts' to be loopback (localhost/127.0.0.0/8/[::1]); got non-loopback: ${nonLoopback.join(", ")}`
-      );
-    }
-  }
-
   if (host.length === 0) {
     throw new BsuirConfigurationError("'baseUrl' must include a valid hostname");
   }
-  if (allowInsecureHttp && parsed.protocol === "http:" && !isLoopbackHost(host)) {
-    throw new BsuirConfigurationError(
-      "'allowInsecureHttp: true' is restricted to localhost/loopback HTTP endpoints only"
-    );
-  }
-  if (!normalizedAllowedHosts.has(host)) {
-    throw new BsuirConfigurationError(
-      `'baseUrl' host '${host}' is not allowed. Allowed hosts: ${[...normalizedAllowedHosts].join(", ")}`
-    );
+
+  const violation = describeHostViolation(parsed, policy);
+  if (violation !== null) {
+    throw new BsuirConfigurationError(`'baseUrl' is not allowed: ${violation}`);
   }
 
   parsed.hostname = host;
   const normalizedPath = parsed.pathname.replace(/\/+$/, "");
   return `${parsed.origin}${normalizedPath}`;
+}
+
+function createHostPolicy(allowedHosts: readonly string[], allowInsecureHttp: boolean): HostPolicy {
+  const normalized = new Set(
+    allowedHosts.map((host) => normalizeHostname(host)).filter((host) => host.length > 0)
+  );
+  if (normalized.size === 0) {
+    throw new BsuirConfigurationError("'allowedBaseUrlHosts' must contain at least one hostname");
+  }
+  return { allowedHosts: normalized, allowInsecureHttp };
 }
 
 function assertCacheStore(store: unknown): asserts store is CacheStore {
@@ -239,15 +194,14 @@ function createInternalConfig(options: BsuirClientOptions): InternalClientConfig
   const maxResponseBytes =
     assertIntegerOption(options.maxResponseBytes, "maxResponseBytes", 1) ??
     DEFAULT_MAX_RESPONSE_BYTES;
-  const allowInsecureHttp = options.allowInsecureHttp ?? false;
-  const allowedBaseUrlHosts = options.allowedBaseUrlHosts ?? DEFAULT_ALLOWED_BASE_URL_HOSTS;
+  const hostPolicy = createHostPolicy(
+    options.allowedBaseUrlHosts ?? DEFAULT_ALLOWED_BASE_URL_HOSTS,
+    options.allowInsecureHttp ?? false
+  );
 
   return {
-    baseUrl: normalizeBaseUrl(
-      options.baseUrl ?? DEFAULT_BASE_URL,
-      allowInsecureHttp,
-      allowedBaseUrlHosts
-    ),
+    baseUrl: normalizeBaseUrl(options.baseUrl ?? DEFAULT_BASE_URL, hostPolicy),
+    hostPolicy,
     fetchImpl: resolveFetch(options.fetch),
     signal: options.signal,
     timeoutMs,
@@ -268,37 +222,42 @@ function createInternalConfig(options: BsuirClientOptions): InternalClientConfig
 }
 
 /**
- * Fully-typed public shape of the BSUIR API client.
+ * BSUIR IIS API client returned by {@link createBsuirClient}.
  *
- * Use explicit raw/envelope helpers on the `schedule` module to obtain the
- * API's raw `ScheduleResponse` when required (e.g. `getGroupRaw`,
- * `getEmployeeRaw`, `getGroupBySubgroupEnvelope`). The default
- * `getGroup`/`getEmployee` return a normalized payload.
+ * `schedule.get(target, options)` returns a normalized schedule (optionally narrowed
+ * by `filter`); `schedule.getRaw(target)` returns the IIS envelope as-is. Catalog
+ * modules (`groups`, `employees`, …) expose `listAll()`, which returns the whole catalog.
  */
-export interface BsuirClientShape {
+export interface BsuirClient {
+  /** Group and employee timetables (`get`, `getRaw`) and the current study week. */
   schedule: ScheduleModule;
+  /** Student groups catalog (`/student-groups`). */
   groups: ListModule<StudentGroupCatalogItem>;
+  /** Employees catalog (`/employees/all`). */
   employees: ListModule<EmployeeCatalogItem>;
+  /** Faculties catalog (`/faculties`). */
   faculties: ListModule<Faculty>;
+  /** Departments catalog (`/departments`); `Department.urlId` feeds `announcements.byDepartment`. */
   departments: ListModule<Department>;
+  /** Specialities catalog (`/specialities`). */
   specialities: ListModule<Speciality>;
+  /** Announcements of an employee or a department. */
   announcements: AnnouncementsModule;
+  /** Auditories (rooms) catalog (`/auditories`). */
   auditories: ListModule<Auditory>;
 }
 
 /**
  * Creates a configured BSUIR IIS API client.
  *
- * The `schedule` module exposes both normalized and explicit raw/envelope
- * helpers. Use `getGroup` / `getEmployee` for normalized payloads and
- * `getGroupRaw` / `getEmployeeRaw` when you need the original API envelope.
- * Subgroup shapes use `get*BySubgroup`, `get*BySubgroupRaw`, and
- * `get*BySubgroupEnvelope`.
+ * Schedules: `client.schedule.get({ group: "053503" })` or
+ * `client.schedule.get({ employee: "s-nesterenkov" }, { filter: { subgroup: 2 } })`
+ * for a normalized payload, `client.schedule.getRaw(target)` for the IIS envelope.
  *
  * Prefer {@link createBsuirClient.strict} in development/tests when you want
  * `validateResponses: true` without repeating the option.
  */
-export function createBsuirClient(options: BsuirClientOptions = {}): BsuirClientShape {
+export function createBsuirClient(options: BsuirClientOptions = {}): BsuirClient {
   const config = createInternalConfig(options);
   return {
     schedule: createScheduleModule(config),
@@ -312,20 +271,25 @@ export function createBsuirClient(options: BsuirClientOptions = {}): BsuirClient
   };
 }
 
-/**
- * Same as {@link createBsuirClient} with `validateResponses` forced to `true`.
- * Other options are unchanged. The default `createBsuirClient()` still leaves
- * validation off.
- *
- * Attached as `createBsuirClient.strict` for discoverability in IDEs.
- */
+// Declares the `strict` property explicitly — the same `function` + `namespace` pair tsc
+// used to infer from the assignment below — so `isolatedDeclarations` (the oxc d.ts
+// generator) can emit it without type inference.
+// oxlint-disable-next-line typescript/no-namespace -- ambient declaration merging only, no runtime namespace
+export declare namespace createBsuirClient {
+  /**
+   * Same as {@link createBsuirClient} with `validateResponses` forced to `true`.
+   * Other options are unchanged. The default `createBsuirClient()` still leaves
+   * validation off.
+   *
+   * Attached as `createBsuirClient.strict` for discoverability in IDEs.
+   */
+  // `let`: assigned once below (tsc emits the inferred form as `var`).
+  // oxlint-disable-next-line no-unused-vars -- ambient declaration, assigned as `createBsuirClient.strict`
+  let strict: (options?: BsuirClientOptions) => BsuirClient;
+}
+
 createBsuirClient.strict = function createBsuirClientStrict(
   options: BsuirClientOptions = {}
-): BsuirClientShape {
+): BsuirClient {
   return createBsuirClient({ ...options, validateResponses: true });
 };
-
-/**
- * Public client contract returned by `createBsuirClient`.
- */
-export type BsuirClient = BsuirClientShape;

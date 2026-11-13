@@ -21,6 +21,21 @@ type HasLastUpdateByEmployee = "getLastUpdateByEmployee" extends keyof ScheduleM
 const _lastUpdateByGroupRemoved: HasLastUpdateByGroup extends false ? true : never = true;
 const _lastUpdateByEmployeeRemoved: HasLastUpdateByEmployee extends false ? true : never = true;
 
+// @ts-expect-error BsuirClientShape merged into BsuirClient in 3.0
+import type { BsuirClientShape } from "../../src";
+
+type GroupsModule = ReturnType<typeof createBsuirClient>["groups"];
+type HasListAllPages = "listAllPages" extends keyof GroupsModule ? true : false;
+// 3.0: listAll() returns every page; listAllPages() is gone.
+const _listAllPagesRemoved: HasListAllPages extends false ? true : never = true;
+
 // Keep bindings referenced so verbatimModuleSyntax accepts the negative imports.
-type _RemovedSurface = [ApiDateResponse, RequestOptions, QueryParams, QueryValue, RequestMethod];
+type _RemovedSurface = [
+  ApiDateResponse,
+  RequestOptions,
+  QueryParams,
+  QueryValue,
+  RequestMethod,
+  BsuirClientShape
+];
 void 0 as unknown as _RemovedSurface;

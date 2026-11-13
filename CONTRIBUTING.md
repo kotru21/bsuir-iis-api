@@ -8,7 +8,7 @@ Thank you for your interest! Below is everything you need to get started.
 npm install
 npm run build        # compile TypeScript
 npm test             # unit tests (live: BSUIR_LIVE_TESTS=1 npm run test:live → test/integration/live/)
-npm run test:browser  # Chromium runtime tests (requires: npx playwright install chromium)
+npm run test:browser  # Chromium + WebKit runtime tests (see Browser Tests below)
 npm run check        # lint + typecheck + unit tests
 npm run check:full   # lint + typecheck + format:check + coverage (matches CI on Node 22+)
 ```
@@ -30,14 +30,16 @@ utils/ — shared guards, date helpers, week parser, JSON freeze helpers
 
 ## Browser Tests
 
-Browser tests live in `test/browser/` and run in real Chromium via Vitest Browser Mode.
+Browser tests live in `test/browser/` and run in real Chromium and WebKit (Safari's engine, the oldest in the supported baseline) via Vitest Browser Mode.
 
 ```bash
-npx playwright install chromium   # first-time setup
+npx playwright install chromium webkit   # first-time setup
+sudo npx playwright install-deps webkit  # Linux: system libraries WebKit needs
 npm run test:browser
+npm run test:browser -- --project chromium  # one engine only
 ```
 
-They verify platform APIs (`AbortSignal.any`, `AbortSignal.timeout`, native `DOMException`) that the SDK relies on in browser apps. They are excluded from `npm test` and run separately in CI.
+They verify the native `fetch` call path and platform APIs (`AbortSignal.any`, `AbortSignal.timeout`, native `DOMException`) that the SDK relies on in browser apps. They are excluded from `npm test` and run separately in CI.
 
 ## Making Changes
 
@@ -66,6 +68,8 @@ Select the bump type (`patch` / `minor` / `major`), write a short description, a
 
 > **Do not** manually edit `package.json` version or `CHANGELOG.md` — the release workflow handles that.
 
+Once changesets reach `main`, the **Release** workflow opens (or updates) a `chore: release packages` PR that bumps the version and writes `CHANGELOG.md`. Merging that PR publishes to npm with provenance and creates the `vX.Y.Z` tag and GitHub release. The Release PR is opened with the workflow token, so CI does not run on it automatically; the release job runs the full check suite itself before publishing.
+
 ## Code Style
 
 - TypeScript strict mode is enabled — no `any` without explicit justification.
@@ -73,4 +77,5 @@ Select the bump type (`patch` / `minor` / `major`), write a short description, a
 - Keep functions small and single-purpose.
 - Add JSDoc to all exported public API symbols (interfaces, types, classes, and functions).
 - After changing public exports, run `npm run api:report` and confirm new symbols are not marked `@public (undocumented)`.
-- Exported interfaces/types need a top-level JSDoc summary (eslint `jsdoc/require-jsdoc` on `src/**`).
+- Exported functions, classes, interfaces and types need a top-level JSDoc summary (oxlint `sdk-docs/require-export-jsdoc` on `src/**`), and `@param` names must match the parameters (`sdk-docs/check-param-names`).
+- Exports in `src` need explicit types (`isolatedDeclarations`, checked by `npm run typecheck`): the published `.d.ts` is generated without type inference.

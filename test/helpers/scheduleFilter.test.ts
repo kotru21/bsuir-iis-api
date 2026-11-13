@@ -64,6 +64,32 @@ describe("scheduleFilter", () => {
     expect(filterLessons(schedule, { weekNumber: 2 })).toHaveLength(0);
   });
 
+  it("treats weekly rows with null/empty weekNumber as every-week lessons", () => {
+    const schedule = makeSchedule({
+      schedules: {
+        Понедельник: [
+          makeItem({ subject: "NULL", weekNumber: null }),
+          makeItem({ subject: "EMPTY", weekNumber: [] }),
+          makeItem({ subject: "WEEK-1", weekNumber: [1] })
+        ]
+      }
+    });
+    const subjects = (week: number) =>
+      filterLessons(schedule, { weekNumber: week }).map((lesson) => lesson.subject);
+    expect(subjects(1)).toEqual(["NULL", "EMPTY", "WEEK-1"]);
+    expect(subjects(2)).toEqual(["NULL", "EMPTY"]);
+  });
+
+  it("does not place date-bound rows (exams, dateLesson) into a week without a list", () => {
+    const schedule = makeSchedule({
+      schedules: {
+        Понедельник: [makeItem({ subject: "DATED", weekNumber: null, dateLesson: "02.11.2026" })]
+      },
+      exams: [makeItem({ subject: "EXAM", weekNumber: null, dateLesson: "10.01.2027" })]
+    });
+    expect(filterLessons(schedule, { weekNumber: 1 })).toEqual([]);
+  });
+
   it("filters by subgroup", () => {
     const schedule = makeSchedule({
       schedules: { Понедельник: [makeItem({ numSubgroup: 2 })] }
@@ -95,6 +121,11 @@ describe("scheduleFilter", () => {
     expect(filterLessons(makeSchedule(), { lessonTypeAbbrev: "ЛР" })).toHaveLength(0);
   });
 
+  it("treats an empty lessonTypeAbbrev list or string as no filter", () => {
+    expect(filterLessons(makeSchedule(), { lessonTypeAbbrev: [] })).toHaveLength(1);
+    expect(filterLessons(makeSchedule(), { lessonTypeAbbrev: "" })).toHaveLength(1);
+  });
+
   it("filters by lessonTypeAbbrev array", () => {
     expect(filterLessons(makeSchedule(), { lessonTypeAbbrev: ["ЛК", "ЛР"] })).toHaveLength(1);
   });
@@ -102,6 +133,23 @@ describe("scheduleFilter", () => {
   it("filters by subjectQuery", () => {
     expect(filterLessons(makeSchedule(), { subjectQuery: "предм" })).toHaveLength(1);
     expect(filterLessons(makeSchedule(), { subjectQuery: "химия" })).toHaveLength(0);
+  });
+
+  it("never matches the text 'null'/'undefined' on announcement or sparse rows", () => {
+    const announcementRow = makeItem({
+      subject: null,
+      subjectFullName: null,
+      lessonTypeAbbrev: null,
+      note: "Последняя лекция в семестре",
+      announcement: true
+    });
+    const sparseRow = makeItem();
+    delete (sparseRow as { subject?: unknown }).subject;
+    const schedule = makeSchedule({ schedules: { Понедельник: [announcementRow, sparseRow] } });
+
+    expect(filterLessons(schedule, { subjectQuery: "null" })).toHaveLength(0);
+    expect(filterLessons(schedule, { subjectQuery: "undef" })).toHaveLength(0);
+    expect(filterLessons(schedule, { subjectQuery: "лекция" })).toHaveLength(1);
   });
 
   it("filters by auditory", () => {

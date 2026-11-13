@@ -119,6 +119,10 @@ describe("formatLessonSubgroup", () => {
 describe("formatLessonWeekNumbers", () => {
   it("returns 'кажд. нед.' for null", () => {
     expect(formatLessonWeekNumbers(makeLesson({ weekNumber: null }))).toBe("кажд. нед.");
+    // IIS encodes weekly lessons as the full cycle (most common value on live data).
+    expect(formatLessonWeekNumbers(makeLesson({ weekNumber: [1, 2, 3, 4] }))).toBe("кажд. нед.");
+    expect(formatLessonWeekNumbers(makeLesson({ weekNumber: [4, 3, 2, 1] }))).toBe("кажд. нед.");
+    expect(formatLessonWeekNumbers(makeLesson({ weekNumber: [1, 2, 3] }))).toBe("1, 2, 3 нед.");
   });
 
   it("returns 'кажд. нед.' for empty array", () => {
@@ -167,6 +171,10 @@ describe("formatEmployeeShortName", () => {
 
   it("omits both initials when firstName and middleName are empty", () => {
     expect(formatEmployeeShortName(makeEmployee({ firstName: "", middleName: "" }))).toBe("Иванов");
+  });
+
+  it("returns only the initials, without a leading space, when lastName is empty", () => {
+    expect(formatEmployeeShortName(makeEmployee({ lastName: "  " }))).toBe("И.И.");
   });
 
   it("trims whitespace in name parts", () => {

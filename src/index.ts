@@ -1,5 +1,5 @@
 export { createBsuirClient } from "./client/createClient";
-export type { BsuirClient, BsuirClientShape } from "./client/createClient";
+export type { BsuirClient } from "./client/createClient";
 
 export type {
   BsuirClientOptions,
@@ -16,7 +16,7 @@ export type {
 export type { ReadOptions } from "./modules/types";
 export type { AnnouncementReadOptions, AnnouncementsModule } from "./modules/announcements";
 export type { ListModule } from "./modules/createListModule";
-export type { ScheduleModule, ScheduleReadOptions } from "./modules/scheduleApi";
+export type { ScheduleModule, ScheduleReadOptions, ScheduleTarget } from "./modules/scheduleApi";
 export type { InvalidLessonTimeHook, LessonTimeOptions } from "./helpers/schedule";
 export {
   buildScheduleDays,
@@ -43,6 +43,7 @@ export { filterLessons, normalizeSchedule } from "./modules/schedule";
 export {
   BsuirApiError,
   BsuirConfigurationError,
+  BsuirError,
   BsuirNetworkError,
   BsuirResponsePayloadTooLargeError,
   BsuirResponseValidationError,

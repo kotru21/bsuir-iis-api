@@ -23,7 +23,17 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       - run: npm ci
+      # The release job runs on the same push as CI but independently of it, so it must
+      # not publish anything that has not passed the full check suite itself.
+      - name: Lint and format
+        run: |
+          npm run lint
+          npm run format:check
+      - run: npm run typecheck
+      - run: npm test
       - run: npm run build
+      - run: npm run smoke:dist
+      - run: npm run api:report:check
       - run: npx --yes @cyclonedx/cyclonedx-npm --output-file sbom.cdx.json
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -49,18 +59,36 @@ jobs:
             echo "should_publish=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Create Release PR or Publish
+      # Pending changesets on main → open or update the "chore: release packages" PR
+      # (version bump + CHANGELOG). No `publish-script`: with no changesets the action does
+      # nothing, and publishing happens in the steps below. Merging the Release PR (or
+      # pushing a commit that ran `npx changeset version` locally) publishes.
+      - name: Create or update Release PR
         id: changesets
-        if: steps.publish_check.outputs.should_publish == 'true'
         uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          publish-script: npm publish --provenance --access public
           version-script: npx changeset version
           commit-message: "chore: version packages"
           pr-title: "chore: release packages"
 
-      - name: Skip publish for already published version
-        if: steps.publish_check.outputs.should_publish != 'true'
+      - name: Publish to npm
+        if: steps.changesets.outputs.has-changesets == 'false' && steps.publish_check.outputs.should_publish == 'true'
+        run: npm publish --provenance --access public
+
+      # `npm publish` creates no git tag; the tag and release notes come from here.
+      - name: Tag and create GitHub release
+        if: steps.changesets.outputs.has-changesets == 'false' && steps.publish_check.outputs.should_publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.publish_check.outputs.package_version }}
         run: |
-          echo "Skip release: ${{ steps.publish_check.outputs.package_name }}@${{ steps.publish_check.outputs.package_version }} is already published (latest: ${{ steps.publish_check.outputs.published_version }})."
+          tag="v${VERSION}"
+          # The "## <version>" section of CHANGELOG.md, without its heading.
+          notes=$(awk -v heading="## ${VERSION}" '$0 == heading { found = 1; next } found && /^## / { exit } found' CHANGELOG.md)
+          gh release create "$tag" --target "$GITHUB_SHA" --title "$tag" --notes "${notes:-See CHANGELOG.md}"
+
+      - name: Skip publish
+        if: steps.changesets.outputs.has-changesets == 'true' || steps.publish_check.outputs.should_publish != 'true'
+        run: |
+          echo "Nothing to publish: ${{ steps.publish_check.outputs.package_name }}@${{ steps.publish_check.outputs.package_version }} (latest on npm: ${{ steps.publish_check.outputs.published_version }}), pending changesets: ${{ steps.changesets.outputs.has-changesets }}."

@@ -7,7 +7,8 @@ export default defineConfig({
     browser: {
       enabled: true,
       provider: playwright(),
-      instances: [{ browser: "chromium" }]
+      // WebKit covers Safari, the oldest engine in the supported browser baseline.
+      instances: [{ browser: "chromium" }, { browser: "webkit" }]
     }
   }
 });

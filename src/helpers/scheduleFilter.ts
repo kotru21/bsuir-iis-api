@@ -16,7 +16,30 @@ export function lessonMatchesSubgroup(numSubgroup: number, subgroup: number): bo
   return numSubgroup === 0 || numSubgroup === subgroup;
 }
 
-function matchesFilter(item: FlattenedScheduleItem, filter: ScheduleFilterOptions): boolean {
+/**
+ * Whether a lesson takes place in study week `week`.
+ *
+ * Mirrors the date helpers (`getLessonsForDate`): a weekly timetable row with a
+ * `null` / empty `weekNumber` runs every week (the way `formatLessonWeekNumbers`
+ * labels it "кажд. нед."). Exams and rows pinned to a `dateLesson` belong to a
+ * calendar date, not to a week of the cycle, so they only match an explicit list.
+ */
+function lessonRunsInWeek(item: FlattenedScheduleItem, week: number): boolean {
+  if (Array.isArray(item.weekNumber) && item.weekNumber.length > 0) {
+    return item.weekNumber.includes(week);
+  }
+  return item.source !== "exams" && !item.dateLesson;
+}
+
+/**
+ * Whether a flattened lesson matches every criterion of `filter` (internal; shared by
+ * {@link filterLessons} and `normalizeSchedule({ filter })`). Call
+ * {@link assertScheduleFilter} once before matching many lessons.
+ */
+export function lessonMatchesFilter(
+  item: FlattenedScheduleItem,
+  filter: ScheduleFilterOptions
+): boolean {
   if (filter.source && item.source !== filter.source) {
     return false;
   }
@@ -25,10 +48,7 @@ function matchesFilter(item: FlattenedScheduleItem, filter: ScheduleFilterOption
     return false;
   }
 
-  if (
-    typeof filter.weekNumber === "number" &&
-    (!Array.isArray(item.weekNumber) || !item.weekNumber.includes(filter.weekNumber))
-  ) {
+  if (typeof filter.weekNumber === "number" && !lessonRunsInWeek(item, filter.weekNumber)) {
     return false;
   }
 
@@ -39,18 +59,23 @@ function matchesFilter(item: FlattenedScheduleItem, filter: ScheduleFilterOption
     return false;
   }
 
-  if (filter.lessonTypeAbbrev) {
-    const types = Array.isArray(filter.lessonTypeAbbrev)
-      ? filter.lessonTypeAbbrev
-      : [filter.lessonTypeAbbrev];
-    if (!item.lessonTypeAbbrev || !types.includes(item.lessonTypeAbbrev)) {
-      return false;
-    }
+  // A non-empty string or list filters; `""` / `[]` mean "no type filter" (an empty list
+  // used to exclude every lesson, e.g. when a UI multi-select was cleared).
+  const types: readonly string[] =
+    typeof filter.lessonTypeAbbrev === "string"
+      ? [filter.lessonTypeAbbrev].filter((type) => type.length > 0)
+      : (filter.lessonTypeAbbrev ?? []);
+  if (types.length > 0 && (!item.lessonTypeAbbrev || !types.includes(item.lessonTypeAbbrev))) {
+    return false;
   }
 
   if (filter.subjectQuery) {
     const query = filter.subjectQuery.toLowerCase();
-    const haystack = `${item.subject} ${item.subjectFullName} ${item.note ?? ""}`.toLowerCase();
+    // Sparse/announcement rows may lack names: never let "null"/"undefined" become searchable text.
+    const haystack = [item.subject, item.subjectFullName, item.note]
+      .filter((part): part is string => typeof part === "string")
+      .join(" ")
+      .toLowerCase();
     if (!haystack.includes(query)) {
       return false;
     }
@@ -75,11 +100,16 @@ export function filterLessons(
   response: NormalizedScheduleResponse,
   filter: ScheduleFilterOptions
 ): FlattenedScheduleItem[] {
+  assertScheduleFilter(filter);
+  return response.lessons.filter((item) => lessonMatchesFilter(item, filter));
+}
+
+/** Validates the numeric criteria of a filter (`weekNumber`, `subgroup`). */
+export function assertScheduleFilter(filter: ScheduleFilterOptions): void {
   if (typeof filter.weekNumber === "number") {
     assertPositiveInt(filter.weekNumber, "filter.weekNumber");
   }
   if (typeof filter.subgroup === "number") {
     assertPositiveInt(filter.subgroup, "filter.subgroup");
   }
-  return response.lessons.filter((item) => matchesFilter(item, filter));
 }

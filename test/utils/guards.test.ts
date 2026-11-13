@@ -45,6 +45,18 @@ describe("guards", () => {
     expect(() => assertEmployeeUrlId("s/nesterenkov")).toThrow(BsuirValidationError);
   });
 
+  it("accepts live IIS slugs with an apostrophe (transliterated soft sign)", () => {
+    for (const urlId of ["a-kuz'mich", "e-mel'nikova", "v-mal'tsev"]) {
+      expect(() => assertEmployeeUrlId(urlId)).not.toThrow();
+    }
+  });
+
+  it("rejects apostrophes and hyphens outside letter runs", () => {
+    for (const urlId of ["'a-kuzmich", "a-kuzmich'", "a-''b", "a--b", "a-'b", "-a"]) {
+      expect(() => assertEmployeeUrlId(urlId)).toThrow(BsuirValidationError);
+    }
+  });
+
   it("detects abort errors", () => {
     expect(isAbortError(new DOMException("aborted", "AbortError"))).toBe(true);
     expect(isAbortError({ name: "AbortError" })).toBe(true);
