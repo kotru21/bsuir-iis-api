@@ -307,8 +307,10 @@ schedule / strict / helpers soft-skip with a warning when IIS probes find no wor
 
 1. Run `npm run check:full`, `npm run api:report:check` and `npm run release:dry`.
 2. Add or update a `.changeset/*.md` entry for user-visible changes and merge it to `main`.
-3. The **Release** workflow opens (or updates) the `chore: release packages` PR: `npx changeset version` bumps `package.json`, writes `CHANGELOG.md` and consumes the changesets. Review the notes there.
-4. Merge the Release PR. The workflow re-runs the full check suite, publishes to npm with provenance, and creates the `vX.Y.Z` tag and GitHub release from the `CHANGELOG.md` section. (Pushing a commit that ran `npx changeset version` locally publishes the same way.)
+3. Version the release, either way:
+   - **Release PR:** the **Release** workflow opens (or updates) the `chore: release packages` PR, where `npx changeset version` has bumped `package.json`, written `CHANGELOG.md` and consumed the changesets. This needs **Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests"**; without it the step fails with "GitHub Actions is not permitted to create or approve pull requests".
+   - **Locally:** run `npx changeset version` on a branch, commit (`chore: release version X.Y.Z`) and merge it to `main` through a PR.
+4. Once a commit with the new version and no pending changesets reaches `main`, the workflow re-runs the full check suite, publishes to npm with provenance, and creates the `vX.Y.Z` tag and GitHub release from the `CHANGELOG.md` section.
 5. Verify the published package in a clean project:
 
 ```bash

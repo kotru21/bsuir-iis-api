@@ -10,3 +10,4 @@ temp
 .worktrees
 .cursor
 docs
+sbom.cdx.json

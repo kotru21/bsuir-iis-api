@@ -68,7 +68,7 @@ Select the bump type (`patch` / `minor` / `major`), write a short description, a
 
 > **Do not** manually edit `package.json` version or `CHANGELOG.md` — the release workflow handles that.
 
-Once changesets reach `main`, the **Release** workflow opens (or updates) a `chore: release packages` PR that bumps the version and writes `CHANGELOG.md`. Merging that PR publishes to npm with provenance and creates the `vX.Y.Z` tag and GitHub release. The Release PR is opened with the workflow token, so CI does not run on it automatically; the release job runs the full check suite itself before publishing.
+Once changesets reach `main`, the **Release** workflow opens (or updates) a `chore: release packages` PR that bumps the version and writes `CHANGELOG.md`. Merging that PR publishes to npm with provenance and creates the `vX.Y.Z` tag and GitHub release. The Release PR is opened with the workflow token, so CI does not run on it automatically; the release job runs the full check suite itself before publishing. Opening it requires "Allow GitHub Actions to create and approve pull requests" in the repository's Actions settings; otherwise maintainers run `npx changeset version` locally and merge that commit (see the README release checklist).
 
 ## Code Style
 
